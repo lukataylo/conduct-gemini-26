@@ -432,6 +432,14 @@ def _sponsor_jordan(message, deps, system_prompt):
     )
 
 
+def _sponsor_alex(message, deps, system_prompt):
+    return ConsoleTurn(
+        reply="Confirm sponsoring Alex.",
+        tools_used=["request_access_for"],
+        request_result=deps.request_access_for(ALEX_ID, message),
+    )
+
+
 def test_sponsor_jordan_bucket_grant_is_jordans_audit_is_priya():
     main.AGENT_TURN_IMPL = _sponsor_jordan
     client = _client()
@@ -490,6 +498,59 @@ def test_sponsor_jordan_bucket_grant_is_jordans_audit_is_priya():
         assert case.requester_id == JORDAN_ID
         # Priya is the only catalog approver; omitting the sponsor would empty the list.
         assert case.required_approver_ids == [PRIYA_ID]
+
+
+def test_sponsor_alex_bucket_auto_grant_belongs_to_alex():
+    main.AGENT_TURN_IMPL = _sponsor_alex
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-alex-bucket",
+            "focus_id": ALEX_ID,
+        },
+    )
+    assert first.status_code == 200
+    body = first.json()
+    assert body["request_result"]["status"] == "needs_confirmation"
+    preview = body["request_result"]["preview"]
+    assert preview["beneficiary_id"] == ALEX_ID
+    assert preview["sponsored_by"] == PRIYA_ID
+    assert preview["resource_ids"] == ["bucket-analytics-raw"]
+    assert main.GRANTS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-alex-bucket",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    result = second.json()["request_result"]
+    assert result["status"] == "evaluated"
+    stored = main.REQUESTS[result["request_id"]]
+    assert stored.requester.id == ALEX_ID
+    assert stored.metadata["sponsored_by"] == PRIYA_ID
+    by_id = {row["resource_id"]: row for row in result["results"]}
+    bucket = by_id["bucket-analytics-raw"]
+    assert bucket["status"] == "granted"
+    grant = main.GRANTS[bucket["grant_id"]]
+    assert grant.requester_id == ALEX_ID
+    assert grant.resource_id == "bucket-analytics-raw"
+    assert not any(row.requester_id == PRIYA_ID for row in main.GRANTS.values())
+    received = [
+        event
+        for event in main.AUDIT_LOG
+        if event.type == main.AuditEventType.REQUEST_RECEIVED and event.request_id == result["request_id"]
+    ]
+    assert received
+    assert received[0].actor == PRIYA_ID
+    assert received[0].payload["beneficiary_id"] == ALEX_ID
 
 
 def test_sponsor_finance_omits_priya_from_required_approvers():

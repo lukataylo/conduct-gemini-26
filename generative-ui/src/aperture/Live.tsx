@@ -7,6 +7,9 @@ type Row = { kind: "you" | "gemini" | "tool"; text: string };
 
 interface Props {
   viewer: User | undefined;
+  focus?: User;
+  page: string;
+  onNavigateTimeline: (focusId: string) => void;
 }
 
 /** Dot-matrix face: two eyes that blink, glance, squint when speaking, and spin when thinking. */
@@ -97,7 +100,7 @@ function Wave({ mode, level }: { mode: Mode; level: React.MutableRefObject<numbe
   return <canvas ref={ref} className="wave" aria-hidden="true" />;
 }
 
-export function Live({ viewer }: Props) {
+export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("idle");
   const [msg, setMsg] = useState("");
@@ -128,7 +131,16 @@ export function Live({ viewer }: Props) {
     for (const name of turn.tools_used) setRows((r) => [...r, { kind: "tool", text: name }]);
     if (turn.reply) { setRows((r) => [...r, { kind: "gemini", text: turn.reply }]); speak(turn.reply); }
     setPending(turn.request_result?.status === "needs_confirmation" ? turn : null);
+    if (turn.navigate === "timeline") onNavigateTimeline(focus?.id ?? "all");
   };
+
+  const payload = (message: string, extra?: { conversation_id?: string | null; confirm?: boolean }) => ({
+    viewer_id: viewer!.id,
+    focus_id: focus?.id ?? "all",
+    page,
+    message,
+    ...extra,
+  });
 
   const send = async (text: string) => {
     if (!viewer || !text.trim()) return;
@@ -136,7 +148,7 @@ export function Live({ viewer }: Props) {
     setMsg(""); setInterim("");
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn({ viewer_id: viewer.id, message: text.trim(), conversation_id: cid }));
+      applyTurn(await postAgentTurn(payload(text.trim(), { conversation_id: cid })));
     } catch (e) {
       setRows((r) => [...r, { kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` }]);
     } finally {
@@ -148,7 +160,7 @@ export function Live({ viewer }: Props) {
     if (!viewer || !pending) return;
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn({ viewer_id: viewer.id, message: pending.request_result?.preview?.raw_text || "confirm", conversation_id: pending.conversation_id, confirm: true }));
+      applyTurn(await postAgentTurn(payload(pending.request_result?.preview?.raw_text || "confirm", { conversation_id: pending.conversation_id, confirm: true })));
     } catch (e) {
       setRows((r) => [...r, { kind: "gemini", text: String(e) }]);
     } finally {
@@ -196,7 +208,7 @@ export function Live({ viewer }: Props) {
       </button>
       {open && (
         <div className="live-panel" style={{ ["--u" as string]: viewer?.color ?? "#f4f4f4" }}>
-          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{mode}</b><small>as {viewer?.name ?? "…"}</small></div></div>
+          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{mode}</b><small>as {viewer?.name ?? "…"} · looking at {focus?.name ?? "everyone"}</small></div></div>
           <Wave mode={mode} level={level} />
           <div className="live-log" ref={logRef}>
             {rows.length === 0 && <div className="live-empty">Ask what's waiting, why something was refused, or ask for access. Gemini explains and drafts; it never grants.</div>}

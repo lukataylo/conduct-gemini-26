@@ -28,8 +28,8 @@ export default function ApertureApp() {
   const users = useMemo(() => toUsers(snap.people), [snap.people]);
   const [role, setRole] = useState<Role>(() => (param("role") === "user" ? "user" : "manager"));
   const [tab, setTab] = useState<Record<Role, Tab>>({ manager: "overview", user: "onboard" });
-  const [person, setPerson] = useState<Record<Role, string | null>>({ manager: null, user: param("user") });
-  const [scope, setScope] = useState<string>(ALL); // manager's Timeline filter
+  const [actorId, setActorId] = useState<Record<Role, string | null>>({ manager: "u-manager-1", user: param("user") });
+  const [scope, setScope] = useState<string>(ALL); // manager focus: cards + chips, default everyone
   const [now, setNow] = useState(Date.now());
   const seeded = useRef(false);
 
@@ -45,12 +45,13 @@ export default function ApertureApp() {
     if (snap.grants.length === 0 && snap.events.length === 0) seedDemo(users).catch(console.error);
   }, [snap.online, snap.grants.length, snap.events.length, users]);
 
-  // Managers see everyone in the dropdown (picking someone scopes the Timeline); users see only users.
-  const inRole = role === "manager" ? users : users.filter((u) => roleOf(u) === "user");
-  const me = inRole.find((u) => u.id === person[role]) ?? (role === "manager" ? users.find((u) => roleOf(u) === "manager") : undefined) ?? inRole[0];
+  // Manager dropdown is signed-in actor only (Priya + Jordan). Cards/chips set focus, not actor.
+  const inRole = role === "manager" ? users.filter((u) => roleOf(u) === "manager") : users.filter((u) => roleOf(u) === "user");
+  const actor = inRole.find((u) => u.id === actorId[role]) ?? (role === "manager" ? users.find((u) => u.id === "u-manager-1") ?? inRole[0] : inRole[0]);
   const current = tab[role];
-  const accent = me?.color ?? "#f4f4f4";
-  const timelineFor = role === "manager" ? scope : me?.id ?? ALL;
+  const accent = actor?.color ?? "#f4f4f4";
+  const timelineFor = role === "manager" ? scope : actor?.id ?? ALL;
+  const focus = role === "manager" ? (scope === ALL ? undefined : users.find((u) => u.id === scope)) : actor;
 
   const mine = (uid: string) => timelineFor === ALL || uid === timelineFor;
   const active = snap.grants.filter((g) => !g.revoked && Date.parse(g.expires_at) > now && mine(g.requester_id));
@@ -59,7 +60,8 @@ export default function ApertureApp() {
   const bounced = snap.events.filter((e) => e.type === "action_executed" && e.payload.status === "bounced" && (timelineFor === ALL || e.payload.requester_id === timelineFor)).length;
 
   const goTimeline = (uid: string) => { setScope(uid); setTab((t) => ({ ...t, manager: "timeline" })); };
-  const goAccess = (uid: string) => { setRole("user"); setPerson((p) => ({ ...p, user: uid })); setTab((t) => ({ ...t, user: "access" })); };
+  const goAccess = (uid: string) => { setRole("user"); setActorId((p) => ({ ...p, user: uid })); setTab((t) => ({ ...t, user: "access" })); };
+  const onNavigateTimeline = (uid: string) => { setScope(uid); setTab((t) => ({ ...t, [role]: "timeline" })); };
 
   return (
     <div className="ap" style={{ ["--accent" as string]: accent }}>
@@ -84,23 +86,23 @@ export default function ApertureApp() {
             <button aria-pressed={role === "user"} onClick={() => setRole("user")}>User</button>
             <button aria-pressed={role === "manager"} onClick={() => setRole("manager")}>Manager</button>
           </span>
-          <PersonMenu role={role} users={inRole} selected={me?.id ?? ""} onSelect={(id) => { setPerson((p) => ({ ...p, [role]: id })); if (role === "manager") setScope(id); }} grants={snap.grants} cases={snap.cases} online={snap.online} />
+          <PersonMenu role={role} users={inRole} selected={actor?.id ?? ""} onSelect={(id) => setActorId((p) => ({ ...p, [role]: id }))} grants={snap.grants} cases={snap.cases} online={snap.online} />
         </span>
       </header>
 
       {role === "manager" && current === "overview" && (
         <div className="mgr">
-          <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} now={now} online={snap.online} onOpen={goTimeline} onOpenAccess={goAccess} />
+          <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} now={now} online={snap.online} onOpen={goTimeline} onOpenAccess={goAccess} focusId={scope} onFocus={setScope} />
           <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} policy={snap.policy} online={snap.online} />
         </div>
       )}
 
-      {role === "user" && current === "onboard" && me && (
-        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} selected={me.id} online={snap.online} now={now} />
+      {role === "user" && current === "onboard" && actor && (
+        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} selected={actor.id} online={snap.online} now={now} />
       )}
 
-      {role === "user" && current === "access" && me && (
-        <Summary grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={me.id} now={now} />
+      {role === "user" && current === "access" && actor && (
+        <Summary grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={actor.id} now={now} />
       )}
 
       {current === "timeline" && (
@@ -144,7 +146,7 @@ export default function ApertureApp() {
         </div>
       )}
 
-      <Live viewer={me} />
+      <Live viewer={actor} focus={focus} page={current} onNavigateTimeline={onNavigateTimeline} />
     </div>
   );
 }

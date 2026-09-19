@@ -73,9 +73,12 @@ KNOWN_REQUESTERS: dict[str, Requester] = {
 }
 
 
+_CLOCK_OVERRIDE: datetime | None = None  # set only while POST /demo/seed writes history
+
+
 def now() -> datetime:
     # TODO(track 5): route through a demo clock with POST /clock/advance
-    return datetime.now(timezone.utc)
+    return _CLOCK_OVERRIDE or datetime.now(timezone.utc)
 
 
 def _hash(event: AuditEvent) -> str:
@@ -522,6 +525,27 @@ def list_people() -> list[Requester]:
     return list(KNOWN_REQUESTERS.values())
 
 
+class NewPerson(BaseModel):
+    name: str
+    team: str
+    role: str = "Software Engineer"
+    manager_id: str | None = None
+
+
+@app.post("/people")
+def add_person(body: NewPerson) -> Requester:
+    """Onboard a person into the demo org. Id is derived from the name; colour is assigned
+    by the console from /people order."""
+    slug = "-".join(body.name.lower().split()) or "person"
+    pid = f"u-{slug}"
+    if pid in KNOWN_REQUESTERS:
+        raise HTTPException(409, f"{pid} already exists")
+    person = Requester(id=pid, name=body.name.strip(), role=body.role.strip(), team=body.team.strip(), manager_id=body.manager_id or usecase_demo.MANAGER.id)
+    KNOWN_REQUESTERS[pid] = person
+    _audit(AuditEventType.REQUEST_RECEIVED, actor=pid, detail=f"onboarded {person.name} · {person.team}", payload={"onboarded": True})
+    return person
+
+
 @app.get("/tools")
 def list_tools(requester_id: str) -> list[dict]:
     """The MCP tool list this requester's agent sees right now — same derivation the
@@ -689,3 +713,92 @@ def get_cu_replay(name: str) -> FileResponse:
 def cu_preview() -> dict:
     """Live frames plus on-disk recording sessions, grouped and with videos separate."""
     return cu_frames.preview(AUDIT_LOG)
+
+
+# --- demo history ----------------------------------------------------------------------
+# A morning's worth of real state, written through the normal request / vote / revoke
+# paths with the clock wound back, so every time-based view has shape on first load.
+
+def _at(minutes_ago: float) -> None:
+    global _CLOCK_OVERRIDE
+    _CLOCK_OVERRIDE = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+
+
+def _demo_request(who: Requester, resource_ids: list[str], days: int, text: str) -> dict:
+    req = AccessRequest(
+        id="seed",
+        requester=who,
+        task_description=text,
+        project="atlas-migration",
+        resource_ids=resource_ids,
+        requested_duration_days=days,
+        raw_text=text,
+        context=AccessContext(active_jira_ticket="ATLAS-142"),
+        created_at=now(),
+    )
+    return _evaluate_request(req)
+
+
+def _demo_vote_all(request_id: str, minutes_ago: float, only: set[str] | None = None) -> None:
+    for c in list(ESCALATIONS.values()):
+        if c.request_id != request_id or c.status != "pending":
+            continue
+        for a in c.required_approver_ids:
+            if only is not None and a not in only:
+                continue
+            if any(v.approver_id == a for v in c.votes):
+                continue
+            _at(minutes_ago)
+            vote(c.id, ApprovalVote(escalation_id=c.id, approver_id=a, approved=True, comment="Approved"))
+
+
+def _demo_call(who_id: str, tool: str, grant: Grant | None, minutes_ago: float, detail: str | None = None) -> None:
+    _at(minutes_ago)
+    ok = grant is not None
+    _audit(
+        AuditEventType.ACTION_EXECUTED,
+        actor="agent",
+        detail=detail or (f"{tool} · ok" if ok else f"{tool} · bounced · no active grant"),
+        request_id=grant.request_id if grant else None,
+        grant_id=grant.id if grant else None,
+        payload={"tool": tool, "status": "ok" if ok else "bounced", "requester_id": who_id},
+    )
+
+
+@app.post("/demo/seed")
+def demo_seed() -> dict:
+    """Reset the store and replay the demo morning: Priya's finished task, Jordan's
+    month-end access, Alex's request with one grant and one escalation, the agent's
+    calls, one bounce, and a critical-tier ask still waiting."""
+    global _CLOCK_OVERRIDE
+    REQUESTS.clear(); GRANTS.clear(); ESCALATIONS.clear(); AUDIT_LOG.clear(); WATCH_URLS.clear()
+    alex, priya, jordan = usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER
+
+    def grant_for(uid: str, rid: str) -> Grant | None:
+        return next((g for g in GRANTS.values() if g.requester_id == uid and g.resource_id == rid and not g.revoked), None)
+
+    try:
+        _at(360); r = _demo_request(priya, ["bucket-analytics-raw"], 1, "Spot-check yesterday's analytics-raw partitions.")
+        _demo_vote_all(r["request_id"], 355)
+        _at(300); r = _demo_request(jordan, ["bq-project-x-finance", "repo-finance-ledger"], 3, "Month-end close on Project X.")
+        _demo_vote_all(r["request_id"], 295)
+        _at(180)
+        for g in [g for g in GRANTS.values() if g.requester_id == priya.id and not g.revoked]:
+            revoke_grant(g.id, reason="task complete — relinquished")
+        _at(120); r = _demo_request(
+            alex,
+            ["repo-atlas-ingestion", "bucket-analytics-raw", "bq-project-x-finance"],
+            14,
+            "I need the atlas-ingestion repo, the analytics-raw bucket and the project-x-finance dataset to build the Atlas ingestion pipeline, done by Nov 15.",
+        )
+        alex_req = r["request_id"]
+        _demo_call(alex.id, "gh_push_atlas_ingestion", grant_for(alex.id, "repo-atlas-ingestion"), 100, "gh_push_atlas_ingestion · main @ 3f9a2c1")
+        _demo_vote_all(alex_req, 95, only={jordan.id})
+        _demo_call(alex.id, "gcs_list_analytics_raw", grant_for(alex.id, "bucket-analytics-raw"), 80, "gcs_list_analytics_raw · 42 objects")
+        _demo_call(alex.id, "gcs_list_analytics_raw", grant_for(alex.id, "bucket-analytics-raw"), 50, "gcs_list_analytics_raw · 42 objects")
+        _demo_call(alex.id, "bq_query_project_x_finance", None, 45)
+        _at(30); _demo_request(alex, ["sql-prod-primary"], 1, "Need prod-primary to backfill the ingestion table.")
+        _demo_call(alex.id, "gcs_list_analytics_raw", grant_for(alex.id, "bucket-analytics-raw"), 20, "gcs_list_analytics_raw · 43 objects")
+    finally:
+        _CLOCK_OVERRIDE = None
+    return {"grants": len(GRANTS), "cases": len(ESCALATIONS), "events": len(AUDIT_LOG)}

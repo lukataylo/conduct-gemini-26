@@ -1,7 +1,37 @@
 import { useEffect, useState } from "react";
 import type { AuditEvent, EscalationCase, Grant, Resource, User } from "./api";
-import { label } from "./api";
+import { label, post } from "./api";
 import { requestAs } from "./Menu";
+
+function AddPerson({ online }: { online: boolean }) {
+  const [name, setName] = useState("");
+  const [team, setTeam] = useState("data-platform");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const add = async () => {
+    if (!name.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      await post("/people", { name: name.trim(), team: team.trim() || "data-platform" });
+      setName("");
+    } catch (e) {
+      setErr(String(e).includes("409") ? "already here" : "failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="uc add">
+      <div className="uc-head"><i /><div><b>Add a person</b><small>they get a card and an agent</small></div></div>
+      <input id="add-name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Name" />
+      <input id="add-team" value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team" />
+      <div className="uc-actions">
+        <button className="nb go" disabled={!online || busy || !name.trim()} onClick={add}>{busy ? "…" : "Add"}</button>
+        {err && <span className="uc-err">{err}</span>}
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   grants: Grant[];
@@ -46,6 +76,7 @@ export function Users({ grants, cases, events, resources, users, now, online, on
         const active = grants.filter((g) => g.requester_id === u.id && !g.revoked && Date.parse(g.expires_at) > now);
         const pending = cases.filter((c) => c.requester_id === u.id && c.status === "pending");
         const denied = events.filter((e) => e.type === "request_denied" && e.actor === u.id);
+        const ended = grants.filter((g) => g.requester_id === u.id && (g.revoked || Date.parse(g.expires_at) <= now)).slice(-2);
         const next = active.map((g) => Date.parse(g.expires_at)).sort((a, b) => a - b)[0];
         return (
           <div className="uc" key={u.id} style={{ ["--u" as string]: u.color }}>
@@ -66,6 +97,9 @@ export function Users({ grants, cases, events, resources, users, now, online, on
               {denied.map((e) => (
                 <div className="uc-row no" key={e.id}><span>{label(String(e.payload.resource_id ?? ""), resources)}</span><small>refused</small></div>
               ))}
+              {ended.map((g) => (
+                <div className="uc-row off" key={g.id}><span>{label(g.resource_id, resources)}</span><small>{g.revoked ? "ended" : "expired"}</small></div>
+              ))}
             </div>
 
             <div className="uc-tools">
@@ -81,6 +115,7 @@ export function Users({ grants, cases, events, resources, users, now, online, on
           </div>
         );
       })}
+      <AddPerson online={online} />
     </div>
   );
 }

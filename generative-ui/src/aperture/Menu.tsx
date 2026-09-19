@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { EscalationCase, Grant, User } from "./api";
 import { post, PROJECT } from "./api";
 
-export type Mode = "users" | "onboard" | "me" | "manager" | "console";
+export type Mode = "users" | "onboard" | "me" | "console";
 const SCREENS: { id: Mode; name: string; sub: string }[] = [
-  { id: "users", name: "Users", sub: "everyone" },
+  { id: "users", name: "Overview", sub: "people · approvals" },
   { id: "onboard", name: "Onboard", sub: "new hire" },
   { id: "me", name: "My access", sub: "generated" },
-  { id: "manager", name: "Manager", sub: "decide" },
   { id: "console", name: "Timeline", sub: "deep-dive" },
 ];
 
@@ -66,15 +65,9 @@ export function useTool(u: User, grants: Grant[]) {
   });
 }
 
-/** Fill an empty store through the real API: everyone asks, Finance votes once, Alex's agent uses a tool. */
-export async function seedDemo(users: User[]) {
-  for (const u of users) await requestAs(u);
-  const cases = (await (await fetch("/api/escalations?status=pending")).json()) as EscalationCase[];
-  const alex = cases.find((c) => c.requester_id === "u-newhire-1" && c.required_approver_ids.includes("u-finance-owner-1"));
-  if (alex) await post(`/escalations/${alex.id}/vote`, { escalation_id: alex.id, approver_id: "u-finance-owner-1", approved: true, comment: "On the finance roadmap" });
-  const grants = (await (await fetch("/api/grants")).json()) as Grant[];
-  const me = users.find((u) => u.id === "u-newhire-1");
-  if (me) await useTool(me, grants);
+/** Reset the store and replay the demo morning with real timestamps (POST /demo/seed). */
+export function seedDemo(_users: User[]) {
+  return post("/demo/seed");
 }
 
 export function Menu({ mode, onMode, users, grants, cases, online }: Props) {
@@ -116,7 +109,7 @@ export function Menu({ mode, onMode, users, grants, cases, online }: Props) {
             </button>
           ))}
           <div className="ctl-k">demo</div>
-          <A name="Seed everyone" fn={() => seedDemo(users)} />
+          <A name="Reset demo" fn={() => seedDemo(users)} />
           <A name="Approve all" fn={() => approveAll(cases)} off={pending.length === 0} />
           <A name="Alex uses a tool" fn={() => (alex ? useTool(alex, grants) : Promise.resolve())} />
           <A name="Close project" fn={() => post(`/projects/${PROJECT}/close`)} off={active.length === 0} />

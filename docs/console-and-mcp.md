@@ -4,22 +4,27 @@ Status on `main` as of 19 Sep 2026, ~14:00. Everything below is runnable now aga
 the in-repo backend. This doc exists so the other tracks know what to build against, and
 why it's shaped this way.
 
-## Three screens, one dropdown (revised 19 Sep, 14:50)
+## Four screens, one dropdown (revised 19 Sep, 15:00)
 
-The dropdown at the top right (`Menu.tsx`) switches **screens** — Users, Manager,
-Timeline — and holds the presenter actions (Seed everyone, Approve all, Alex uses a
-tool, Close project). Nobody "acts as" a person; each screen shows everyone. An empty
-backend is seeded once on load, through the real API. `?screen=users|manager|console`
-and, for the Timeline, `?user=` still work.
+The dropdown at the top right (`Menu.tsx`) switches **screens** and holds the presenter
+actions (Reset demo, Approve all, Alex uses a tool, Close project). Person chips appear
+only where a screen is about one person. `?screen=users|onboard|me|console` and
+`?user=` work for demos.
+
+**Demo data is a morning of history, not an instant.** `POST /demo/seed` resets the
+store and replays a scenario through the normal request / vote / revoke paths with the
+clock wound back (6h ago Priya's task, later relinquished; 5h ago Jordan's month-end
+access; 2h ago Alex's request — repo and bucket granted, dataset escalated, Jordan
+approved, Priya pending; the agent's calls; one bounce; a critical-tier ask still
+waiting). The console calls it once when the store is empty. Timestamps are real, so
+the grid, leases and recorder have shape on first load.
 
 | Screen | What it shows | File |
 |---|---|---|
-| **Users** | one card per person: colour, count, "until …", each lease as a coloured row with time left, what's waiting and on whom, refusals, the agent's live tools; **Ask** files that person's request, **Timeline →** opens their deep-dive | `Users.tsx` |
-| **Manager** | every open approval as a card — requester, why, who else holds it, the other approvers — with **Approve · <next approver>** / **Deny** casting a real vote as that person; people rows with mini lease timelines (click → Timeline); the policy table; a Gemini dock on `POST /agent/turn` | `Manager.tsx`, `Approvals.tsx` |
-| **Timeline** | deep-dive, filtered by Everyone or one person (chips appear in the header): stats, dot-matrix grid, approvals, lease Gantt, recorder, the Enact pane, the chat composer | `App.tsx` (console branch) |
-
-The generated end-user summary that preceded the cards survives as a standalone page
-and Claude artifact: `docs/alex-access-summary.html`.
+| **Overview** | left: one card per person — leases with time left, what's waiting and on whom, ended leases struck through, the agent's live tools, **Ask** / **Access →** / **Timeline →** — plus an **Add a person** card (`POST /people`); right: every open approval with **Approve · <next approver>** / **Deny** casting a real vote, the policy table, the Gemini dock | `Users.tsx`, `Manager.tsx` (`ManagerSide`), `Approvals.tsx` |
+| **Onboard** | the new hire's landing page: dot-matrix greeting and thesis, a live dot-matrix *iris* that opens with their active leases, open/waiting/calls/until, then 1 connect (the `claude mcp add` line) · 2 ask · 3 use (status rows and the agent's tools), and the three findings | `User.tsx` |
+| **My access** | the generated summary — headline, a guide card per grant (what it is, a real command, the docs link), waiting and refused cards, the agent's tools; `/ui-spec` when a composer produced rich panels, else the deterministic fallback | `Summary.tsx` |
+| **Timeline** | deep-dive, Everyone or one person: stats, dot-matrix grid, approvals, lease Gantt, recorder, the Enact pane, the chat composer | `App.tsx` (console branch) |
 
 ## What exists
 

@@ -4,7 +4,7 @@ import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
 import { Composer } from "./Composer";
 import { Enact } from "./Enact";
-import { Manager } from "./Manager";
+import { ManagerSide } from "./Manager";
 import { Matrix } from "./Matrix";
 import { Menu, seedDemo, type Mode } from "./Menu";
 import { Recorder } from "./Recorder";
@@ -15,7 +15,7 @@ import { Users } from "./Users";
 
 function initialMode(): Mode {
   const m = new URLSearchParams(window.location.search).get("screen");
-  return m === "manager" || m === "console" || m === "onboard" || m === "me" ? m : "users";
+  return m === "console" || m === "onboard" || m === "me" ? m : "users";
 }
 function initialUser(): string {
   return new URLSearchParams(window.location.search).get("user") ?? ALL;
@@ -73,7 +73,10 @@ export default function ApertureApp() {
       </header>
 
       {mode === "users" && (
-        <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={openConsole} onOpenAccess={openAccess} />
+        <div className="mgr">
+          <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={openConsole} onOpenAccess={openAccess} />
+          <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} />
+        </div>
       )}
 
       {mode === "onboard" && (
@@ -82,10 +85,6 @@ export default function ApertureApp() {
 
       {mode === "me" && (
         <Summary grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={person} now={now} />
-      )}
-
-      {mode === "manager" && (
-        <Manager grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} onDeepDive={openConsole} />
       )}
 
       {mode === "console" && (

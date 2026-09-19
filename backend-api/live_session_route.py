@@ -147,4 +147,7 @@ def create_live_session(body: LiveSessionIn) -> LiveSessionOut:
 
 
 def mount_live_session(app: FastAPI) -> None:
+    from live_ws import mount_live_ws
+
     app.include_router(router)
+    mount_live_ws(app)

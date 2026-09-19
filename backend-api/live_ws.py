@@ -191,13 +191,17 @@ class _GeminiSession:
                 continue
             for attr, kind, role in (
                 ("input_transcription", "input_transcript", "you"),
-                ("interim_input_transcription", "input_transcript", "you"),
                 ("output_transcription", "output_transcript", "gemini"),
             ):
                 part = getattr(sc, attr, None)
                 spoken = getattr(part, "text", None) if part is not None else None
                 if spoken:
-                    yield {"kind": kind, "role": role, "text": spoken}
+                    yield {
+                        "kind": kind,
+                        "role": role,
+                        "text": spoken,
+                        "finished": bool(getattr(part, "finished", False)),
+                    }
             if getattr(sc, "interrupted", False):
                 yield {"kind": "interrupted"}
             elif getattr(sc, "turn_complete", False):
@@ -270,6 +274,21 @@ async def _send_error(websocket: WebSocket, lock: asyncio.Lock, message: str) ->
     await _send_json(websocket, lock, {"type": "error", "message": message})
 
 
+def join_transcript(prev: str, nxt: str) -> str:
+    """Glue Live ASR pieces: 'He'+'llo' → Hello, 'Hello.'+'What' → Hello. What."""
+    if not prev:
+        return nxt
+    if not nxt:
+        return prev
+    if nxt[0].isspace() or prev[-1].isspace():
+        return prev + nxt
+    if nxt[0] in ".,!?;:":
+        return prev + nxt
+    if prev[-1].isalpha() and nxt[0].isalpha():
+        return prev + nxt
+    return prev + " " + nxt
+
+
 async def _pump_client(
     websocket: WebSocket, session: Any, lock: asyncio.Lock, state: dict
 ) -> None:
@@ -301,25 +320,40 @@ async def _pump_client(
         await _send_mode(websocket, lock, "thinking")
 
 
+async def _flush_transcript(
+    websocket: WebSocket, lock: asyncio.Lock, buffers: dict[str, str], role: str
+) -> None:
+    text = buffers.get(role, "").strip()
+    buffers[role] = ""
+    if not text:
+        return
+    await _send_json(
+        websocket, lock, {"type": "transcript", "role": role, "text": text}
+    )
+
+
 async def _pump_session(
     websocket: WebSocket, session: Any, lock: asyncio.Lock, state: dict
 ) -> None:
+    buffers = {"you": "", "gemini": ""}
     async for item in _iter_session(session):
         kind = item.get("kind")
         if kind == "audio" and item.get("data") is not None:
+            await _flush_transcript(websocket, lock, buffers, "you")
+            if not state.get("speaking"):
+                await _send_mode(websocket, lock, "speaking")
             state["speaking"] = True
-            await _send_mode(websocket, lock, "speaking")
             await _send_bytes(websocket, lock, item["data"])
         elif kind in {"input_transcript", "output_transcript", "text"} and item.get("text"):
             role = item.get("role") or (
                 "you" if kind == "input_transcript" else "gemini"
             )
-            await _send_json(
-                websocket,
-                lock,
-                {"type": "transcript", "role": role, "text": item["text"]},
-            )
+            buffers[role] = join_transcript(buffers.get(role, ""), str(item["text"]))
+            if item.get("finished") or kind == "text":
+                await _flush_transcript(websocket, lock, buffers, role)
         elif kind in {"turn_complete", "interrupted"}:
+            await _flush_transcript(websocket, lock, buffers, "you")
+            await _flush_transcript(websocket, lock, buffers, "gemini")
             state["speaking"] = False
             await _send_mode(websocket, lock, "listening")
         elif kind == "error":

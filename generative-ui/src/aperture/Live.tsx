@@ -127,6 +127,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
   const cidRef = useRef<string | null>(null);
   const speakingRef = useRef(false);
+  const sealRef = useRef(false);
   const viewerRef = useRef(viewer);
   const focusRef = useRef(focus);
   const pageRef = useRef(page);
@@ -141,6 +142,30 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       const last = r[r.length - 1];
       if (last && last.kind === row.kind && last.text === row.text) return r;
       return [...r, row];
+    });
+  };
+
+  const joinTranscript = (prev: string, next: string) => {
+    if (!prev) return next;
+    if (!next) return prev;
+    if (/^\s/.test(next) || /\s$/.test(prev)) return prev + next;
+    if (/^[.,!?;:]/.test(next)) return prev + next;
+    if (/[A-Za-z]$/.test(prev) && /^[A-Za-z]/.test(next)) return prev + next;
+    return `${prev} ${next}`;
+  };
+
+  const mergeTranscript = (kind: Row["kind"], text: string) => {
+    if (!text) return;
+    const startNew = sealRef.current;
+    sealRef.current = false;
+    setRows((r) => {
+      const last = r[r.length - 1];
+      if (!startNew && last && last.kind === kind) {
+        const joined = joinTranscript(last.text, text);
+        if (joined === last.text) return r;
+        return [...r.slice(0, -1), { kind, text: joined }];
+      }
+      return [...r, { kind, text }];
     });
   };
 
@@ -169,15 +194,14 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       return;
     }
     if (payload.type === "transcript") {
-      appendRow({ kind: rowKind(payload.role ?? payload.kind), text: String(payload.text ?? "") });
+      mergeTranscript(rowKind(payload.role ?? payload.kind), String(payload.text ?? ""));
       return;
     }
     if (payload.type === "mode") {
       const next = asMode(payload.mode);
       if (next) {
-        const wasSpeaking = speakingRef.current;
         speakingRef.current = next === "speaking";
-        if (next === "listening" && wasSpeaking) playerRef.current?.reset();
+        if (next === "listening") sealRef.current = true;
         setMode(next);
       }
       return;
@@ -216,6 +240,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     micRef.current?.stop();
     micRef.current = null;
     speakingRef.current = false;
+    sealRef.current = false;
     setMicOn(false);
     playerRef.current?.close();
     playerRef.current = null;

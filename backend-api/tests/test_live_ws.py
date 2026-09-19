@@ -238,8 +238,73 @@ def test_speaking_drops_followup_mic():
         assert session.audios == []
 
 
+def test_join_transcript_glues_word_pieces():
+    from live_ws import join_transcript
+
+    assert join_transcript("He", "llo") == "Hello"
+    assert join_transcript("Hello.", "What") == "Hello. What"
+    assert join_transcript("Alex", " Chen") == "Alex Chen"
+
+
+def test_streaming_transcripts_are_one_utterance():
+    """Live ASR arrives as word pieces — the bubble must get one line, not one row per word."""
+    _install(
+        MockSession(
+            outgoing=[
+                {"kind": "output_transcript", "role": "gemini", "text": "Alex"},
+                {"kind": "output_transcript", "role": "gemini", "text": " Chen"},
+                {"kind": "output_transcript", "role": "gemini", "text": " has access.", "finished": True},
+            ]
+        )
+    )
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        _recv_json(ws, "mode")
+        msg = _recv_json(ws, "transcript")
+    assert msg == {
+        "type": "transcript",
+        "role": "gemini",
+        "text": "Alex Chen has access.",
+    }
+
+
+def test_two_audio_chunks_speak_once():
+    """Restamping speaking every PCM frame remounts the face and breaks the next turns."""
+    pcm_a = b"\x01\x00"
+    pcm_b = b"\x02\x00"
+    _install(MockSession(outgoing=[{"kind": "audio", "data": pcm_a}, {"kind": "audio", "data": pcm_b}]))
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        _recv_json(ws, "mode")
+        modes: list[str] = []
+        got: list[bytes] = []
+        for _ in range(8):
+            msg = ws.receive()
+            if msg.get("bytes") is not None:
+                got.append(msg["bytes"])
+                if len(got) == 2:
+                    break
+                continue
+            payload = msg.get("text")
+            if not payload:
+                continue
+            data = json.loads(payload) if isinstance(payload, str) else payload
+            if data.get("type") == "mode":
+                modes.append(data["mode"])
+        assert modes == ["speaking"]
+        assert got == [pcm_a, pcm_b]
+
+
 def test_input_transcript_is_you():
-    _install(MockSession(outgoing=[{"kind": "input_transcript", "text": "who is waiting"}]))
+    _install(
+        MockSession(
+            outgoing=[
+                {"kind": "input_transcript", "text": "who is waiting", "finished": True}
+            ]
+        )
+    )
     with _client().websocket_connect("/agent/live/ws") as ws:
         ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
         _recv_json(ws, "ready")

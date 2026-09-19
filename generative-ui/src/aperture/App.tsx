@@ -123,7 +123,6 @@ export default function ApertureApp() {
               </div>
               <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={selected} />
             </div>
-            <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
             <main className="main">
               <div>
                 <div className="sec-h"><h2>Leases</h2></div>
@@ -134,6 +133,7 @@ export default function ApertureApp() {
                 <Recorder events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} />
               </div>
             </main>
+            <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
           </div>
           <Composer selected={selected} users={users} online={snap.online} />
         </div>

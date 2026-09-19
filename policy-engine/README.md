@@ -4,7 +4,7 @@
 that's the security answer to every judge question. Design brief:
 [`docs/ui-surfaces.html`](../docs/ui-surfaces.html) (surfaces 5, 8, 9 and "the one rule").
 
-## Plain-English breakdown
+## Policy Explanation
 
 ### 1. The Policy Engine (The "Automated Guard")
 

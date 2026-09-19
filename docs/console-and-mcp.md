@@ -21,9 +21,18 @@ manager; everyone else → user). `?role=user|manager&user=<id>` opens a state.
   ring dial in the person's colour (time left on the soonest lease), *until*, *waiting*
   (amber only when > 0, naming who), *refused* (red only when > 0), and dot-tick call
   activity over the last three hours. Zero states are dimmed so colour means something.
-- **Gemini** is a bubble at the bottom right of every screen (`Live.tsx`): text chat
-  on `POST /agent/turn` as the current person, mic slot reserved for Gemini Live. It
-  explains and drafts requests; it cannot vote or grant.
+- **Gemini Live** is a bubble at the bottom right of every screen (`Live.tsx`) and the
+  only chat: one conversation on `POST /agent/turn` as the current person, including
+  the confirm-request flow. Voice in via Web Speech (Chrome/Safari), voice out via
+  speech synthesis; a dot-matrix face (blinks, glances, spins while thinking, squints
+  while speaking) and a dot-matrix waveform driven by the mic level. It explains and
+  drafts; it cannot vote or grant.
+- **Timeline layout:** Access grid and Leases stack in the main column; Approvals sit
+  in the right column (where the chat composer used to be).
+- **Model paths need keys:** `.env` (gitignored) with `GEMINI_API_KEY` and
+  `LOGFIRE_TOKEN`; run `uvicorn main:app --env-file ../.env`. Natural-language asks go
+  through Gemini structured output; chat goes through Pydantic AI with Logfire tracing.
+  Without a key the console's Ask falls back to a local keyword parse and says so.
 
 **Demo data is a morning of history, not an instant.** `POST /demo/seed` resets the
 store and replays a scenario through the normal request / vote / revoke paths with the

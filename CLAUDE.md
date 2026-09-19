@@ -76,9 +76,14 @@ key; share it privately, never in git or public chat.
 
 ## Console and MCP conventions (owner: track 1 / luka — see docs/console-and-mcp.md)
 
-- The demo beat we protect: **close the project → the tool vanishes from the agent's
-  MCP session** and the lease bar is cut, in the same second. Don't build anything
-  that makes that slower or less visible.
+- The demo beat we protect: **close the project → the agent's next call is refused and
+  lands red on the chain** and the lease bar is cut, in the same second. Don't build
+  anything that makes that slower or less visible.
+- **Claude Code ignores `tools/list_changed`** (anthropics/claude-code#77314, verified
+  19 Sep on 2.1.278 in both interactive and `-p`). So `mcp_serve.py` lists the whole
+  tool catalog from the start (`APERTURE_STATIC_TOOLS=1`, default) and the grant is
+  enforced at call time — a refused call says who the approval is pending with. Set
+  `APERTURE_STATIC_TOOLS=0` only for clients that honour the notification.
 - `ACTION_EXECUTED` events carry `payload = {"tool", "status": "ok"|"bounced",
   "requester_id"}`; `grant_id` is set when authorised, `null` when bounced. The console
   draws bounces red. The MCP server (`agent-runtime/mcp_serve.py`) writes these; any

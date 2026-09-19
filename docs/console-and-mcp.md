@@ -83,10 +83,12 @@ trail). The decisions that matter to other tracks:
 
 1. **The agent's tool list is the UI.** Every access product surveyed shows the human
    a table and shows the agent nothing. Our thesis, and the one demo beat we protect, is
-   *close the project and the tool vanishes from the agent's session*. So the MCP
-   server derives `tools/list` from live grants and pushes `tools/list_changed` on
-   change. The onboarding view shows the same list to humans, from the same backend
-   derivation (`GET /tools`), so what the audience sees is exactly what Claude Code sees.
+   *close the project and the agent's next call is refused, in the same second*. The MCP
+   server gates every tool on a live grant at call time. (Original design: derive
+   `tools/list` from grants and push `tools/list_changed`; that still works with
+   `APERTURE_STATIC_TOOLS=0`, but **Claude Code ignores the notification** — see
+   "Claude Code and tool refresh" below — so the default lists the whole catalog.) The
+   onboarding view shows the grants humans hold from the same derivation (`GET /tools`).
 
 2. **Policy runs twice, and the second time is at the tool call.** The engine decides
    at request time. The MCP server re-fetches active grants on *every* call and refuses
@@ -179,10 +181,24 @@ trail). The decisions that matter to other tracks:
   the tool isn't in the live set (bounce logged), otherwise return mock data and log an
   `ACTION_EXECUTED` ok.
 - A background task polls grants and calls `session.send_tool_list_changed()` when the
-  tool-name set changes. The session is captured on the first `list_tools` request.
-- Verified with an MCP client over stdio: request → tool appears → call ok → approval
-  → second tool appears → close project → both gone → retry refused and recorded →
-  chain ok.
+  tool-name set changes (only with `APERTURE_STATIC_TOOLS=0`). The session is captured
+  on the first `list_tools` request.
+- Verified with a bare MCP client over stdio (dynamic mode): request → tool appears →
+  call ok → approval → second tool appears → close project → both gone → retry refused
+  and recorded → chain ok. The `list_changed` notification arrives within ~1s.
+
+### Claude Code and tool refresh (verified 19 Sep, Claude Code 2.1.278)
+
+Claude Code does not re-fetch `tools/list` on `notifications/tools/list_changed`
+(anthropics/claude-code#77314, closed "not planned") — interactive or `-p`. A tool
+issued mid-session is invisible until the session restarts; `my_access` shows the grant
+but the tool can't be called. So the server now defaults to **static listing + call-time
+gate**: all catalog tools are listed from the start, a call without a grant is refused
+with a message naming who the approval is pending with, and every attempt lands on the
+chain (`action_executed` ok/bounced). Verified through a real `claude -p` session:
+`gh_read_finance_ledger` refused → `request_access` escalates → refused "pending with
+u-finance-owner-1, u-manager-1" → approval → same call returns the repo. Stage script
+uses this shape; the "tool vanishes" wording is retired.
 
 ### Backend additions (`backend-api/main.py`)
 

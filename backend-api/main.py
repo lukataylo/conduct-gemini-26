@@ -243,6 +243,21 @@ def close_project(project: str) -> dict:
     return {"project": project, "revoked": revoked}
 
 
+@app.post("/audit")
+def append_audit(event: AuditEvent) -> AuditEvent:
+    """Ingest an agent-runtime event; id / prev_hash / timestamp stay server-assigned."""
+    return _audit(
+        event.type,
+        event.actor,
+        event.detail,
+        request_id=event.request_id,
+        grant_id=event.grant_id,
+        escalation_id=event.escalation_id,
+        payload=event.payload,
+        trace_id=event.trace_id,
+    )
+
+
 @app.get("/audit")
 def audit_trail(request_id: str | None = None) -> list[AuditEvent]:
     events = AUDIT_LOG

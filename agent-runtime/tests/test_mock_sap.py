@@ -111,6 +111,11 @@ def test_sap_console_hydrates_from_sap_state():
     assert "/sap/state" in text
     assert "SAP_BACKEND" in text
     assert 'params.get("backend")' in text
+    start = text.index("function hydrateFromBackend")
+    end = text.index("function applyHash", start)
+    body = text[start:end]
+    assert "applyHash()" in body
+    assert body.index("forEach(renderBinding)") < body.index("applyHash()")
 
 
 def test_serve_in_thread_defaults_and_serves_index():

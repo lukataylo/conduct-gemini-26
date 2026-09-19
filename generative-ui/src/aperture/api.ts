@@ -61,6 +61,22 @@ export interface User extends Person {
   short: string;
 }
 
+export interface CuFrame {
+  url: string;
+  turn: number;
+  action?: string | null;
+  timestamp?: string | null;
+  grant_id?: string | null;
+  source: "live" | "replay";
+}
+
+export interface CuPreview {
+  status: "live" | "replay" | "idle";
+  grant_id?: string | null;
+  running: boolean;
+  frames: CuFrame[];
+}
+
 export interface Snapshot {
   grants: Grant[];
   cases: EscalationCase[];
@@ -68,6 +84,7 @@ export interface Snapshot {
   resources: Resource[];
   people: Person[];
   verify: { ok: boolean; length?: number; broken_at?: number } | null;
+  preview: CuPreview;
   online: boolean;
 }
 
@@ -101,19 +118,27 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
   return r.json();
 }
 
+const IDLE_PREVIEW: CuPreview = { status: "idle", grant_id: null, running: false, frames: [] };
+
+export function mediaUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
+  return `/api${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export async function fetchSnapshot(): Promise<Snapshot> {
-  const [grants, cases, events, resources, people, verify] = await Promise.all([
+  const [grants, cases, events, resources, people, verify, preview] = await Promise.all([
     get<Grant[]>(`/grants?include_revoked=true`),
     get<EscalationCase[]>(`/escalations`),
     get<AuditEvent[]>(`/audit`),
     get<Resource[]>(`/resources`),
     get<Person[]>(`/people`),
     get<Snapshot["verify"]>(`/audit/verify`),
+    get<CuPreview>(`/cu/preview`).catch(() => IDLE_PREVIEW),
   ]);
-  return { grants, cases, events, resources, people, verify, online: true };
+  return { grants, cases, events, resources, people, verify, preview, online: true };
 }
 
-const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], verify: null, online: false };
+const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], verify: null, preview: IDLE_PREVIEW, online: false };
 
 export function useSnapshot(intervalMs = 1500): Snapshot {
   const [snap, setSnap] = useState<Snapshot>(EMPTY);

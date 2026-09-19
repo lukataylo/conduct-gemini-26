@@ -86,11 +86,15 @@ FAILURE_REASONS = frozenset(
 def grant_goal(grant: Grant) -> str:
     """Instruction for computer-use: enact this grant and no other."""
     expiry = grant.expires_at.date().isoformat()
+    visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
     return (
-        f"Grant access to {grant.resource_id} for principal {grant.requester_id} "
-        f"expiring {expiry}. Open the resource, open the Permissions tab, "
-        f"click Grant access, fill Principal and Expires, then Confirm. "
-        f"Do not grant any other resource."
+        f"Grant access to {grant.resource_id} ({visible}) for principal "
+        f"{grant.requester_id} expiring {expiry}. This is a Google Cloud Console. "
+        f"Open the matching product in the left nav, open the {visible} resource, "
+        f"open the Permissions tab, click Grant access. In the dialog fill "
+        f"New principals / Principal with {grant.requester_id}, set Expires to "
+        f"{expiry} (YYYY-MM-DD), leave the default role, then click Save "
+        f"(aria-label Confirm). Do not grant any other resource."
     )
 
 
@@ -194,6 +198,65 @@ def _close_recorded_page(browser, context, page, rec: Path | None, stem: str) ->
     finally:
         browser.close()
     return video_path
+
+
+def frame_publisher(grant: Grant, callback_base_url: str | None, mode: str):
+    """POST each turn JPEG to backend-api /cu/frames when a callback origin is set."""
+    if not callback_base_url:
+        return None
+
+    def on_frame(turn: int, data: bytes, mime: str, action: str | None = None) -> str | None:
+        import base64
+
+        from http_emitter import upload_frame
+
+        return upload_frame(
+            callback_base_url,
+            {
+                "grant_id": grant.id,
+                "request_id": grant.request_id,
+                "turn": turn,
+                "mime": mime,
+                "data": base64.b64encode(data).decode("ascii"),
+                "action": action,
+                "mode": mode,
+            },
+        )
+
+    return on_frame
+
+
+def emit_turn_frame(
+    grant: Grant,
+    turn: int,
+    screenshot: bytes,
+    mime: str,
+    *,
+    action: str | None = None,
+    mode: str = "computer_use",
+    on_frame=None,
+) -> str | None:
+    """Publish a board frame. /cu/frames writes the audit row when upload succeeds."""
+    url = None
+    if on_frame is not None:
+        url = on_frame(turn, screenshot, mime, action)
+    if url is None:
+        audit_logger.log(
+            AuditEventType.ACTION_EXECUTED,
+            actor="agent",
+            detail=f"turn {turn}" + (f" · {action}" if action else ""),
+            request_id=grant.request_id,
+            grant_id=grant.id,
+            payload={
+                "phase": "turn",
+                "turn": turn,
+                "screenshot_url": url,
+                "action": action,
+                "mode": mode,
+                "status": "ok",
+            },
+        )
+    return url
 
 
 def completed_event(
@@ -560,6 +623,8 @@ def run_computer_use_loop(
     max_turns: int = 20,
     record_dir: Path | None = None,
     record_stem: str = "cu",
+    on_frame=None,
+    mode: str = "computer_use",
 ) -> dict:
     """Drive `page` with an injectable Computer Use client. Never calls Gemini itself."""
     goal = grant_goal(grant)
@@ -581,6 +646,15 @@ def run_computer_use_loop(
                 "turn_count": turn - 1,
             }
         if batch is None:
+            emit_turn_frame(
+                grant,
+                turn,
+                screenshot,
+                mime_type,
+                action="verify",
+                mode=mode,
+                on_frame=on_frame,
+            )
             ok = _verify_page(page, grant)
             return {
                 "success": ok,
@@ -604,6 +678,12 @@ def run_computer_use_loop(
                 }
             _apply_page_action(page, recorded)
             actions.append(recorded)
+        after, after_mime = capture_screenshot(page)
+        last = actions[-1] if actions else {}
+        label = last.get("intent") or last.get("name")
+        emit_turn_frame(
+            grant, turn, after, after_mime, action=label, mode=mode, on_frame=on_frame
+        )
     return {
         "success": False,
         "reason": "turn_budget",
@@ -789,18 +869,33 @@ def execute_grant(
     *,
     mode: str | None = None,
     watch_url: str | None = None,
+    callback_base_url: str | None = None,
 ) -> AuditEvent:
     """Drive the mock console to perform `grant`. Playwright is one scripted attempt."""
     resolved = mode or os.environ.get("EXECUTE_GRANT_MODE") or "computer_use"
+    callback = (callback_base_url or os.environ.get("BACKEND_PUBLIC_URL") or "").strip() or None
+    if callback:
+        from http_emitter import make_emitter
+
+        audit_logger.set_emitter(make_emitter(callback))
+    on_frame = frame_publisher(grant, callback, resolved)
     if resolved == "playwright":
-        return _execute_playwright(grant, console_url, watch_url=watch_url)
+        return _execute_playwright(
+            grant, console_url, watch_url=watch_url, on_frame=on_frame
+        )
     if resolved == "computer_use":
-        return _execute_computer_use(grant, console_url, watch_url=watch_url)
+        return _execute_computer_use(
+            grant, console_url, watch_url=watch_url, on_frame=on_frame
+        )
     raise ValueError(f"unknown execute mode: {resolved}")
 
 
 def _execute_computer_use(
-    grant: Grant, console_url: str, *, watch_url: str | None
+    grant: Grant,
+    console_url: str,
+    *,
+    watch_url: str | None,
+    on_frame=None,
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -843,7 +938,13 @@ def _execute_computer_use(
             try:
                 page.goto(console_url)
                 result = run_computer_use_loop(
-                    grant, page, client, record_dir=rec, record_stem=stem
+                    grant,
+                    page,
+                    client,
+                    record_dir=rec,
+                    record_stem=stem,
+                    on_frame=on_frame,
+                    mode="computer_use",
                 )
             finally:
                 video_path = _close_recorded_page(browser, context, page, rec, stem)
@@ -881,7 +982,7 @@ def _execute_computer_use(
 
 
 def _execute_playwright(
-    grant: Grant, console_url: str, *, watch_url: str | None
+    grant: Grant, console_url: str, *, watch_url: str | None, on_frame=None
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -918,10 +1019,21 @@ def _execute_playwright(
     rec = recording_dir()
     stem = f"playwright-{grant.resource_id}-{grant.id[:8]}"
     video_path = None
+    html = ""
     with sync_playwright() as playwright:
         browser, context, page, rec, stem = _open_recorded_page(playwright, stem=stem)
         try:
             page.goto(console_url)
+            first, first_mime = capture_screenshot(page)
+            emit_turn_frame(
+                grant,
+                1,
+                first,
+                first_mime,
+                action="open console",
+                mode="playwright",
+                on_frame=on_frame,
+            )
             _open_grant_surface(page, grant)
             card = page.locator(".card").filter(
                 has=page.locator(".name", has_text=visible_name)
@@ -939,6 +1051,16 @@ def _execute_playwright(
             _highlight_locator(page, confirm)
             confirm.click()
             html = page.locator("#active-grants").evaluate("el => el.outerHTML")
+            last, last_mime = capture_screenshot(page)
+            emit_turn_frame(
+                grant,
+                2,
+                last,
+                last_mime,
+                action="confirm grant",
+                mode="playwright",
+                on_frame=on_frame,
+            )
         finally:
             video_path = _close_recorded_page(browser, context, page, rec, stem)
 

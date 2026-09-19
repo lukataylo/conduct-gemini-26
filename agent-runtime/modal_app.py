@@ -73,7 +73,12 @@ def handle_execute(payload: dict, *, execute=execute_grant) -> dict:
     watch_url = payload.get("watch_url")
     if callback_base_url:
         set_emitter(make_emitter(callback_base_url))
-    event = execute(grant, console_url, watch_url=watch_url)
+    event = execute(
+        grant,
+        console_url,
+        watch_url=watch_url,
+        callback_base_url=callback_base_url,
+    )
     return {
         "sandbox_id": current_sandbox_id(),
         "watch_url": watch_url,

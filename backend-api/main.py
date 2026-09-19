@@ -11,6 +11,7 @@ Trust boundaries (see docs/ui-surfaces.html, "Hardening before the demo"):
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import sys
@@ -27,6 +28,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+
+import cu_frames  # noqa: E402
 
 import gcp_iam  # noqa: E402
 from policy_engine_paths import escalation, policy_engine, usecase_demo  # noqa: E402
@@ -165,7 +169,7 @@ def _enqueue_execute(grant: Grant) -> None:
             _agent_runtime_on_path()
             from computer_use import execute_grant
 
-            execute_grant(grant, console, watch_url=watch)
+            execute_grant(grant, console, watch_url=watch, callback_base_url=callback)
         except Exception as exc:
             _audit(
                 AuditEventType.ACTION_EXECUTED,
@@ -551,3 +555,55 @@ def ui_spec(requester_id: str) -> UISpec:
     from a2ui import compose_ui
 
     return compose_ui(grants, pending, "requester", viewer_id=requester_id, watch_urls=watch_urls)
+
+
+class CuFrameIn(BaseModel):
+    grant_id: str
+    request_id: str | None = None
+    turn: int = 0
+    mime: str = "image/jpeg"
+    data: str
+    action: str | None = None
+    mode: str = "computer_use"
+
+
+@app.post("/cu/frames")
+def upload_cu_frame(body: CuFrameIn) -> dict:
+    """Store a computer-use JPEG/PNG and point the audit trail at it."""
+    try:
+        raw = base64.b64decode(body.data, validate=False)
+    except Exception as exc:
+        raise HTTPException(400, f"invalid frame data: {exc}") from exc
+    url = cu_frames.save_frame(grant_id=body.grant_id, turn=body.turn, mime=body.mime, data=raw)
+    event = _audit(
+        AuditEventType.ACTION_EXECUTED,
+        actor="agent",
+        detail=f"turn {body.turn}" + (f" · {body.action}" if body.action else ""),
+        request_id=body.request_id,
+        grant_id=body.grant_id,
+        payload={
+            "phase": "turn",
+            "turn": body.turn,
+            "screenshot_url": url,
+            "action": body.action,
+            "mode": body.mode,
+            "status": "ok",
+        },
+    )
+    return {"url": url, "screenshot_url": url, "id": event.id, "turn": body.turn}
+
+
+@app.get("/cu/frames/{name}")
+def get_cu_frame(name: str) -> FileResponse:
+    return cu_frames.file_response(name)
+
+
+@app.get("/cu/replay/{name}")
+def get_cu_replay(name: str) -> FileResponse:
+    return cu_frames.replay_response(name)
+
+
+@app.get("/cu/preview")
+def cu_preview() -> dict:
+    """Live frames from the audit log, or the newest on-disk recording."""
+    return cu_frames.preview(AUDIT_LOG)

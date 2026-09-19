@@ -1,5 +1,5 @@
 import type { AuditEvent, Grant, Resource, User } from "./api";
-import { ALL, label } from "./api";
+import { ALL, label, mediaUrl } from "./api";
 
 interface Props {
   events: AuditEvent[];
@@ -45,6 +45,7 @@ export function Recorder({ events, grants, resources, users, selected }: Props) 
         const bounced = isCall && e.payload.status === "bounced";
         const g = e.grant_id ? byGrant.get(e.grant_id) : undefined;
         const actor = byUser.get(e.actor) ?? (g ? byUser.get(g.requester_id) : undefined);
+        const shot = typeof e.payload.screenshot_url === "string" ? e.payload.screenshot_url : null;
         const cls = ["rec-row", isCall ? "call" : "", bounced ? "bounced" : "", e.type === "grant_issued" ? "grant" : "", e.type === "grant_revoked" || e.type === "project_closed" ? "revoke" : ""].join(" ");
         return (
           <div className={cls} key={e.id} style={{ ["--u" as string]: actor?.color ?? "#5c5c5c" }}>
@@ -59,6 +60,7 @@ export function Recorder({ events, grants, resources, users, selected }: Props) 
                   {bounced ? "no active grant · re-checked at call time" : g ? `authorised by ${label(g.resource_id, resources)} · ${e.grant_id?.slice(0, 8)}` : "authorised"}
                 </span>
               )}
+              {shot ? <img className="rec-shot" src={mediaUrl(shot)} alt="" /> : null}
             </span>
             <span className="rec-h">{e.prev_hash ? e.prev_hash.slice(0, 6) : "genesis"}</span>
           </div>

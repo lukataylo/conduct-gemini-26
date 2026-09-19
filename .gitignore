@@ -22,6 +22,7 @@ env.local
 
 # Computer-use recordings (webm / gif / turn pngs)
 agent-runtime/recordings/
+backend-api/.cu-frames/
 
 # OS
 .DS_Store

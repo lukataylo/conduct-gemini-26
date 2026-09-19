@@ -3,6 +3,7 @@ import "./aperture.css";
 import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
 import { DemoBar } from "./DemoBar";
+import { Enact } from "./Enact";
 import { Matrix } from "./Matrix";
 import { Onboard } from "./Onboard";
 import { Recorder } from "./Recorder";
@@ -94,6 +95,8 @@ export default function ApertureApp() {
         </div>
         <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={selected} />
       </div>
+
+      <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
 
       <main className="main">
         <div>

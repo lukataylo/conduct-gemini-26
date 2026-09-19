@@ -226,6 +226,33 @@ def test_loop_turn_budget(grant):
     assert result["turn_count"] == 3
 
 
+def test_loop_publishes_turn_frame(grant):
+    seen = []
+
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            return None
+
+    class Page:
+        def screenshot(self, type="png", quality=None):
+            return b"jpeg-bytes"
+
+        def content(self):
+            return (
+                '<ul id="active-grants">'
+                '<li data-resource="bucket-analytics-raw" data-principal="u-newhire-1">ok</li>'
+                "</ul>"
+            )
+
+    def on_frame(turn, data, mime, action=None):
+        seen.append((turn, data, mime, action))
+        return f"/cu/frames/t{turn}.jpg"
+
+    result = run_computer_use_loop(grant, Page(), Client(), on_frame=on_frame)
+    assert result["success"] is True
+    assert seen == [(1, b"jpeg-bytes", "image/jpeg", "verify")]
+
+
 def test_loop_none_verifies_then_succeeds(grant):
     class Client:
         def next_action(self, screenshot_png, goal):

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { AuditEvent, EscalationCase, Grant, Resource, User as Person } from "./api";
-import { label, PROJECT } from "./api";
+import type { AuditEvent, Company, EscalationCase, Grant, Resource, User as Person } from "./api";
+import { ATLAS, hasPlatform, label } from "./api";
 
 interface Props {
   grants: Grant[];
@@ -8,6 +8,7 @@ interface Props {
   events: AuditEvent[];
   resources: Resource[];
   users: Person[];
+  company?: Company;
   selected: string;
   online: boolean;
   now: number;
@@ -66,7 +67,7 @@ function Glyph({ name, on, color }: { name: string; on: boolean; color: string }
   );
 }
 
-export function UserScreen({ grants, cases, events, resources, users, selected, now }: Props) {
+export function UserScreen({ grants, cases, events, resources, users, company: propsCompany, selected, now }: Props) {
   const me = users.find((u) => u.id === selected) ?? users[0];
   const [copied, setCopied] = useState(false);
   const [tools, setTools] = useState<Tool[]>([]);
@@ -98,6 +99,7 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
     return () => clearInterval(id);
   }, []);
 
+  const company = propsCompany ?? ATLAS;
   const cmd = `claude mcp add aperture -e APERTURE_REQUESTER=${me?.id ?? "u-newhire-1"} -- python agent-runtime/mcp_serve.py`;
   const copy = () => navigator.clipboard?.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); });
   const color = me?.color ?? "#f4f4f4";
@@ -115,7 +117,14 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
     <div className="ob" style={{ ["--u" as string]: color }}>
       <section className="ob-hero2">
         <div className="ob-hero-text">
-          <div className="ob-eyebrow">welcome · {me?.team} · {PROJECT}</div>
+          <div className="ob-eyebrow">welcome · {company.name} · {me?.team} · {company.project}</div>
+          {me && (
+            <div className="plats">
+              {company.platforms.filter((p) => hasPlatform(me, p.id)).map((p) => (
+                <span key={p.id} className={`plat ${p.home ? "home" : ""}`}>{p.short}</span>
+              ))}
+            </div>
+          )}
           <h1>Hi {me?.name.split(" ")[0]}.</h1>
           <p className="ob-tag">Exactly the access the task needs.<br />For exactly as long as it takes.</p>
           <div className="ob-stats">

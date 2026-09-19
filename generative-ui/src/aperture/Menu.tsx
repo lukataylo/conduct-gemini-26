@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { EscalationCase, Grant, User } from "./api";
-import { post, PROJECT } from "./api";
+import { isSapOnly, personPlatforms, post, PROJECT } from "./api";
 
 export type Role = "user" | "manager";
 
@@ -18,11 +18,43 @@ const ASKS: Record<string, { resource_ids: string[]; days: number; text: string 
   "u-finance-owner-1": { resource_ids: ["bq-project-x-finance", "repo-finance-ledger"], days: 3, text: "Month-end close on Project X." },
 };
 
+export const SAP_TICKET = "INC-8841";
+export const SAP_ASK = {
+  resource_ids: ["sap-bp-display"],
+  days: 3,
+  text: "I need display on Northwind Trading customer 1710001 in SAP Customer Master to answer INC-8841. I do not need the full customer file.",
+};
+
+function asRequester(u: User) {
+  return {
+    id: u.id,
+    name: u.name,
+    role: u.role,
+    team: u.team,
+    company_id: u.company_id ?? "atlas",
+    platforms: personPlatforms(u),
+  };
+}
+
+export function requestSapAsk(u: User) {
+  return post("/requests", {
+    id: "ui",
+    requester: asRequester(u),
+    task_description: SAP_ASK.text,
+    project: PROJECT,
+    resource_ids: SAP_ASK.resource_ids,
+    requested_duration_days: SAP_ASK.days,
+    raw_text: SAP_ASK.text,
+    context: { active_jira_ticket: SAP_TICKET },
+  });
+}
+
 export function requestAs(u: User) {
+  if (isSapOnly(u)) return requestSapAsk(u);
   const ask = ASKS[u.id] ?? { resource_ids: ["bucket-analytics-raw"], days: 7, text: `Need analytics-raw for ${PROJECT}.` };
   return post("/requests", {
     id: "ui",
-    requester: { id: u.id, name: u.name, role: u.role, team: u.team },
+    requester: asRequester(u),
     task_description: ask.text,
     project: PROJECT,
     resource_ids: ask.resource_ids,
@@ -109,6 +141,7 @@ export function PersonMenu({ role, users, selected, onSelect, grants, cases, onl
           ))}
           <div className="ctl-k">demo</div>
           <A name="Reset demo" fn={() => seedDemo(users)} />
+          <A name="Ask SAP" fn={() => (me ? requestSapAsk(me) : Promise.resolve())} />
           <A name="Approve all" fn={() => approveAll(cases)} off={pending.length === 0} />
           <A name={`${me?.name.split(" ")[0] ?? "Someone"} uses a tool`} fn={() => (me ? useTool(me, grants) : Promise.resolve())} />
           <A name="Close project" fn={() => post(`/projects/${PROJECT}/close`)} off={active.length === 0} />

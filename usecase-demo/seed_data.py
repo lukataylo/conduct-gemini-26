@@ -10,9 +10,19 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from shared.schemas import Requester, Resource, ResourceType, SensitivityTier  # noqa: E402
+from shared.schemas import Company, Platform, Requester, Resource, ResourceType, SensitivityTier  # noqa: E402
 
 TEAMS = ["data-platform", "growth", "finance"]
+
+COMPANY = Company(
+    id="atlas",
+    name="Atlas",
+    project="atlas-migration",
+    platforms=[
+        Platform(id="gcp", name="Google Cloud", short="GCP", home=True),
+        Platform(id="sap", name="SAP S/4HANA", short="SAP", home=False),
+    ],
+)
 
 REQUESTER = Requester(
     id="u-newhire-1",
@@ -20,6 +30,8 @@ REQUESTER = Requester(
     role="Software Engineer (new hire)",
     team="data-platform",
     manager_id="u-manager-1",
+    company_id="atlas",
+    platforms=["gcp"],
 )
 
 MANAGER = Requester(
@@ -27,6 +39,8 @@ MANAGER = Requester(
     name="Priya Nair",
     role="Engineering Manager",
     team="data-platform",
+    company_id="atlas",
+    platforms=["gcp", "sap"],
 )
 
 FINANCE_OWNER = Requester(
@@ -34,11 +48,72 @@ FINANCE_OWNER = Requester(
     name="Jordan Lee",
     role="Finance Data Owner",
     team="finance",
+    company_id="atlas",
+    platforms=["gcp", "sap"],
 )
 
+SALES_OPS = Requester(
+    id="u-sales-1",
+    name="Maya Okonkwo",
+    role="Sales Operations",
+    team="growth",
+    manager_id="u-manager-1",
+    company_id="atlas",
+    platforms=["sap"],
+)
+
+SRE = Requester(
+    id="u-sre-1",
+    name="Devon Hale",
+    role="Site Reliability Engineer",
+    team="data-platform",
+    manager_id="u-manager-1",
+    company_id="atlas",
+    platforms=["gcp"],
+)
+
+HR_BP = Requester(
+    id="u-people-1",
+    name="Chris Vogel",
+    role="HR Business Partner",
+    team="finance",
+    manager_id="u-finance-owner-1",
+    company_id="atlas",
+    platforms=["sap"],
+)
+
+PEOPLE = [REQUESTER, MANAGER, FINANCE_OWNER, SALES_OPS, SRE, HR_BP]
+
+def _with_platform(resource: Resource) -> Resource:
+    if resource.metadata.get("platform") in {"gcp", "sap"}:
+        return resource
+    platform = "sap" if resource.id.startswith("sap-") or resource.type.name.startswith("SAP_") else "gcp"
+    return resource.model_copy(update={"metadata": {**resource.metadata, "platform": platform}})
+
+
 RESOURCES: dict[str, Resource] = {
-    r.id: r
+    r.id: _with_platform(r)
     for r in [
+        Resource(
+            id="platform-gcp",
+            name="Google Cloud",
+            type=ResourceType.PLATFORM,
+            owning_team="data-platform",
+            sensitivity=SensitivityTier.INTERNAL,
+            project="atlas-migration",
+            capability="read",
+            metadata={"platform": "gcp", "kind": "platform"},
+        ),
+        Resource(
+            id="platform-sap",
+            name="SAP S/4HANA",
+            type=ResourceType.PLATFORM,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            project="atlas-migration",
+            capability="read",
+            metadata={"platform": "sap", "kind": "platform"},
+        ),
         Resource(
             id="bucket-analytics-raw",
             name="analytics-raw",
@@ -156,6 +231,8 @@ RESOURCES: dict[str, Resource] = {
 # resource_id -> approver requester ids, used by backend-api to fill in
 # PolicyDecision.required_approver_ids when policy-engine escalates
 APPROVERS: dict[str, list[str]] = {
+    "platform-gcp": [MANAGER.id],
+    "platform-sap": [FINANCE_OWNER.id, MANAGER.id],
     "bucket-analytics-raw": [MANAGER.id],
     "bq-project-x-finance": [FINANCE_OWNER.id, MANAGER.id],  # cross-team: both sides
     "sql-prod-primary": [MANAGER.id, FINANCE_OWNER.id],

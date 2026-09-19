@@ -25,7 +25,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 import httpx
 from pydantic import BaseModel
@@ -48,6 +48,7 @@ from shared.schemas import (  # noqa: E402
     ApprovalVote,
     AuditEvent,
     AuditEventType,
+    Company,
     DecisionType,
     EscalationCase,
     Grant,
@@ -92,9 +93,11 @@ _STREAM_EXTRA_TYPES = {
     AuditEventType.PROJECT_CLOSED: "project_closed",
 }
 
-KNOWN_REQUESTERS: dict[str, Requester] = {
-    r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
-}
+def _people_index() -> dict[str, Requester]:
+    return {r.id: r.model_copy(deep=True) for r in usecase_demo.PEOPLE}
+
+
+KNOWN_REQUESTERS: dict[str, Requester] = _people_index()
 
 LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
 DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
@@ -212,6 +215,8 @@ def _console_url_for(grant: Grant) -> str:
 def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
     if grant.resource_id in NEVER_ENACT_IDS:
+        return
+    if grant.resource_id.startswith("platform-"):
         return
     watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
     if watch:
@@ -652,6 +657,7 @@ def _issue_grant(
     GRANTS[grant.id] = grant
     ttl_label = f"{ttl_hours}h" if ttl_hours is not None else f"{ttl_days}d"
     _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_label}", request_id=request_id, grant_id=grant.id)
+    _sync_requester_platform(requester_id, resource_id, present=True)
     _mirror_to_gcp(grant, add=True)
     _enqueue_execute(grant)
     return grant
@@ -736,6 +742,7 @@ def console_state() -> dict:
         }
         for grant in active_grants()
         if not grant.resource_id.startswith("sap-")
+        and not grant.resource_id.startswith("platform-")
     ]
     return {"resources": list(usecase_demo.RESOURCES.values()), "bindings": bindings}
 
@@ -781,6 +788,11 @@ def sap_export_demo() -> dict:
     return {"status": "bounced", "grant_id": None}
 
 
+@app.get("/company")
+def get_company() -> Company:
+    return usecase_demo.COMPANY
+
+
 @app.get("/people")
 def list_people() -> list[Requester]:
     return list(KNOWN_REQUESTERS.values())
@@ -791,6 +803,44 @@ class NewPerson(BaseModel):
     team: str
     role: str = "Software Engineer"
     manager_id: str | None = None
+    platforms: list[Literal["gcp", "sap"]] = ["gcp"]
+
+
+class PlatformChange(BaseModel):
+    platform: Literal["gcp", "sap"]
+    action: Literal["grant", "revoke"]
+
+
+def _platform_entitlement(resource_id: str) -> str | None:
+    if not resource_id.startswith("platform-"):
+        return None
+    platform = resource_id.removeprefix("platform-")
+    if platform in {"gcp", "sap"}:
+        return platform
+    return None
+
+
+def _set_requester_platform(requester_id: str, platform: str, present: bool) -> None:
+    person = KNOWN_REQUESTERS.get(requester_id)
+    if person is None:
+        return
+    platforms = list(person.platforms)
+    if present:
+        if platform in platforms:
+            return
+        platforms.append(platform)
+    else:
+        if platform not in platforms:
+            return
+        platforms = [p for p in platforms if p != platform]
+    KNOWN_REQUESTERS[requester_id] = person.model_copy(update={"platforms": platforms})
+
+
+def _sync_requester_platform(requester_id: str, resource_id: str, *, present: bool) -> None:
+    platform = _platform_entitlement(resource_id)
+    if platform is None:
+        return
+    _set_requester_platform(requester_id, platform, present)
 
 
 @app.post("/people")
@@ -801,10 +851,39 @@ def add_person(body: NewPerson) -> Requester:
     pid = f"u-{slug}"
     if pid in KNOWN_REQUESTERS:
         raise HTTPException(409, f"{pid} already exists")
-    person = Requester(id=pid, name=body.name.strip(), role=body.role.strip(), team=body.team.strip(), manager_id=body.manager_id or usecase_demo.MANAGER.id)
+    platforms: list[Literal["gcp", "sap"]] = []
+    for platform in body.platforms:
+        if platform not in platforms:
+            platforms.append(platform)
+    person = Requester(
+        id=pid,
+        name=body.name.strip(),
+        role=body.role.strip(),
+        team=body.team.strip(),
+        manager_id=body.manager_id or usecase_demo.MANAGER.id,
+        platforms=platforms or ["gcp"],
+    )
     KNOWN_REQUESTERS[pid] = person
     _audit(AuditEventType.REQUEST_RECEIVED, actor=pid, detail=f"onboarded {person.name} · {person.team}", payload={"onboarded": True})
     return person
+
+
+@app.post("/people/{person_id}/platforms")
+def change_person_platform(person_id: str, body: PlatformChange) -> Requester:
+    person = KNOWN_REQUESTERS.get(person_id)
+    if person is None:
+        raise HTTPException(404, f"unknown person '{person_id}'")
+    resource_id = f"platform-{body.platform}"
+    if body.action == "grant":
+        _set_requester_platform(person_id, body.platform, True)
+        if not any(grant.resource_id == resource_id for grant in active_grants(person_id)):
+            _issue_grant(str(uuid.uuid4()), person_id, resource_id, ttl_days=90)
+    else:
+        for grant in list(active_grants(person_id)):
+            if grant.resource_id == resource_id:
+                revoke_grant(grant.id, reason=f"{body.platform} platform revoked")
+        _set_requester_platform(person_id, body.platform, False)
+    return KNOWN_REQUESTERS[person_id]
 
 
 @app.get("/tools")
@@ -838,6 +917,7 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
     _audit(AuditEventType.GRANT_REVOKED, actor="policy-engine", detail=reason, grant_id=grant_id, request_id=grant.request_id)
     # keep real access if another active grant still covers the same requester + resource
     if not any(g.resource_id == grant.resource_id for g in active_grants(grant.requester_id)):
+        _sync_requester_platform(grant.requester_id, grant.resource_id, present=False)
         _mirror_to_gcp(grant, add=False)
     _enqueue_execute(grant, action="revoke")
     return grant

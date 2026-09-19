@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { AuditEvent, EscalationCase, Grant, Resource, User } from "./api";
-import { label, post } from "./api";
-import { requestAs } from "./Menu";
+import type { AuditEvent, Company, EscalationCase, Grant, Resource, User } from "./api";
+import { ATLAS, hasPlatform, isSapOnly, label, post } from "./api";
+import { requestAs, requestSapAsk } from "./Menu";
 
 interface Props {
   grants: Grant[];
@@ -9,6 +9,7 @@ interface Props {
   events: AuditEvent[];
   resources: Resource[];
   users: User[];
+  company: Company;
   now: number;
   online: boolean;
   onOpen: (userId: string) => void;
@@ -54,12 +55,20 @@ function Ticks({ times, now, color }: { times: number[]; now: number; color: str
 function AddPerson({ online }: { online: boolean }) {
   const [name, setName] = useState("");
   const [team, setTeam] = useState("data-platform");
+  const [gcp, setGcp] = useState(true);
+  const [sap, setSap] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const add = async () => {
     if (!name.trim()) return;
     setBusy(true); setErr(null);
-    try { await post("/people", { name: name.trim(), team: team.trim() || "data-platform" }); setName(""); }
+    const platforms = [...(gcp ? ["gcp"] as const : []), ...(sap ? ["sap"] as const : [])];
+    try {
+      await post("/people", { name: name.trim(), team: team.trim() || "data-platform", platforms: platforms.length ? platforms : ["gcp"] });
+      setName("");
+      setGcp(true);
+      setSap(false);
+    }
     catch (e) { setErr(String(e).includes("409") ? "already here" : "failed"); }
     finally { setBusy(false); }
   };
@@ -68,6 +77,10 @@ function AddPerson({ online }: { online: boolean }) {
       <div className="uc-head"><i /><div><b>Add a person</b><small>they get a card and an agent</small></div></div>
       <input id="add-name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Name" />
       <input id="add-team" value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team" />
+      <div className="uc-checks">
+        <label><input type="checkbox" checked={gcp} onChange={(e) => setGcp(e.target.checked)} /> GCP</label>
+        <label><input type="checkbox" checked={sap} onChange={(e) => setSap(e.target.checked)} /> SAP</label>
+      </div>
       <div className="uc-actions">
         <button className="nb go" disabled={!online || busy || !name.trim()} onClick={add}>{busy ? "…" : "Add"}</button>
         {err && <span className="uc-err">{err}</span>}
@@ -76,11 +89,13 @@ function AddPerson({ online }: { online: boolean }) {
   );
 }
 
-export function Users({ grants, cases, events, resources, users, now, online, onOpen, onOpenAccess }: Props) {
+export function Users({ grants, cases, events, resources, users, company, now, online, onOpen, onOpenAccess }: Props) {
   const tools = useTools(users.map((u) => u.id), grants.length);
   const [busy, setBusy] = useState<string | null>(null);
   const byId = new Map(users.map((u) => [u.id, u]));
+  const plats = company.platforms.length ? company.platforms : ATLAS.platforms;
   const ask = async (u: User) => { setBusy(u.id); try { await requestAs(u); } catch (e) { console.error(e); } finally { setBusy(null); } };
+  const askSap = async (u: User) => { setBusy(u.id); try { await requestSapAsk(u); } catch (e) { console.error(e); } finally { setBusy(null); } };
 
   return (
     <div className="uc-grid">
@@ -95,7 +110,13 @@ export function Users({ grants, cases, events, resources, users, now, online, on
         const waitingOn = [...new Set(pending.flatMap((c) => c.required_approver_ids.filter((a) => !c.votes.some((v) => v.approver_id === a))))].map((a) => byId.get(a)?.name.split(" ")[0] ?? a);
         return (
           <div className="uc" key={u.id} style={{ ["--u" as string]: u.color }}>
-            <div className="uc-head"><i /><div><b>{u.name}</b><small>{u.team} · {u.role}</small></div></div>
+            <div className="uc-head"><i /><div><b>{u.name}</b><small>{u.team} · {u.role}</small></div>
+              <span className="plats">
+                {plats.map((p) => (
+                  <span key={p.id} className={`plat ${p.home ? "home" : ""} ${hasPlatform(u, p.id) ? "on" : "off"}`} title={p.name}>{p.short}</span>
+                ))}
+              </span>
+            </div>
 
             <div className="w-grid">
               <div className={`w w-big ${active.length ? "" : "zero"}`}><b>{active.length}</b><small>open</small></div>
@@ -120,6 +141,7 @@ export function Users({ grants, cases, events, resources, users, now, online, on
 
             <div className="uc-actions">
               <button className="nb go" disabled={!online || busy === u.id} onClick={() => ask(u)}>{busy === u.id ? "…" : "Ask"}</button>
+              {!isSapOnly(u) && <button className="nb" disabled={!online || busy === u.id} onClick={() => askSap(u)}>{busy === u.id ? "…" : "Ask SAP"}</button>}
               <button className="nb" onClick={() => onOpenAccess(u.id)}>Access →</button>
               <button className="nb" onClick={() => onOpen(u.id)}>Timeline →</button>
             </div>

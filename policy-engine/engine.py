@@ -24,6 +24,7 @@ from shared.schemas import (  # noqa: E402
     PolicyEvaluationContext,
     PolicyRule,
     RequestHistoryEvent,
+    Requester,
     Resource,
     ResourceType,
     RevocationAction,
@@ -193,6 +194,10 @@ def _evaluate_single(
     hard_deny_reason = _per_resource_hard_deny_reason(request)
     if hard_deny_reason is not None:
         return _deny(request, resource.id, hard_deny_reason)
+
+    platform_decision = _platform_decision(request, resource, active_grants)
+    if platform_decision is not None:
+        return platform_decision
 
     auth_decision = _authentication_decision(request, resource)
     if auth_decision is not None:
@@ -487,6 +492,51 @@ def _per_resource_hard_deny_reason(request: AccessRequest) -> str | None:
         return "Elevated user risk score"
 
     return None
+
+
+def _resource_platform(resource: Resource) -> str | None:
+    if resource.type == ResourceType.PLATFORM:
+        return None
+    tagged = resource.metadata.get("platform")
+    if tagged in {"gcp", "sap"}:
+        return tagged
+    if resource.type.name.startswith("SAP_") or resource.id.startswith("sap-"):
+        return "sap"
+    return "gcp"
+
+
+def _has_platform(
+    requester: Requester,
+    platform: str,
+    active_grants: Iterable[Grant] | None,
+) -> bool:
+    if platform in requester.platforms:
+        return True
+    entitlement_id = f"platform-{platform}"
+    return any(
+        grant.requester_id == requester.id
+        and grant.resource_id == entitlement_id
+        and not grant.revoked
+        for grant in (active_grants or [])
+    )
+
+
+def _platform_decision(
+    request: AccessRequest,
+    resource: Resource,
+    active_grants: Iterable[Grant] | None,
+) -> PolicyDecision | None:
+    needed = _resource_platform(resource)
+    if needed is None:
+        return None
+    if _has_platform(request.requester, needed, active_grants):
+        return None
+    label = "GCP" if needed == "gcp" else "SAP"
+    return _deny(
+        request,
+        resource.id,
+        f"Auto-Denied: requester does not hold the {label} platform entitlement (Atlas-Platform-01).",
+    )
 
 
 def _effective_requested_duration_days(request: AccessRequest) -> int:

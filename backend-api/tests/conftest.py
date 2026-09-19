@@ -22,14 +22,7 @@ def _reset() -> None:
     main.LIVE_POLICY = main.policy_engine.DEFAULT_POLICY.model_copy(deep=True)
     main.KNOWN_REQUESTERS.clear()
     main.KNOWN_REQUESTERS.update(
-        {
-            r.id: r
-            for r in (
-                main.usecase_demo.REQUESTER,
-                main.usecase_demo.MANAGER,
-                main.usecase_demo.FINANCE_OWNER,
-            )
-        }
+        {r.id: r.model_copy(deep=True) for r in main.usecase_demo.PEOPLE}
     )
 
 

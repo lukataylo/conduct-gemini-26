@@ -30,6 +30,7 @@ def requester(team: str = "data-platform") -> Requester:
         role="Software Engineer",
         team=team,
         manager_id="u-manager",
+        platforms=["gcp", "sap"],
     )
 
 
@@ -694,6 +695,76 @@ def test_sap_sales_order_same_team_internal_auto_grants():
     )
 
     assert decision.decision == DecisionType.AUTO_GRANT
+
+
+def test_gcp_only_requester_asking_sap_bp_is_platform_denied():
+    gcp_only = requester().model_copy(update={"platforms": ["gcp"]})
+
+    decision = evaluate_one(
+        access_request(requester_override=gcp_only, resource_ids=["sap-bp-display"]),
+        resource(
+            resource_id="sap-bp-display",
+            resource_type=ResourceType.SAP_BUSINESS_PARTNER,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            capability="read",
+        ),
+    )
+
+    assert decision.decision == DecisionType.AUTO_DENY
+    assert "Atlas-Platform-01" in decision.reason
+    assert "SAP" in decision.reason
+
+
+def test_sap_only_requester_asking_gcs_bucket_is_platform_denied():
+    sap_only = requester().model_copy(update={"platforms": ["sap"]})
+
+    decision = evaluate_one(access_request(requester_override=sap_only), resource())
+
+    assert decision.decision == DecisionType.AUTO_DENY
+    assert "Atlas-Platform-01" in decision.reason
+    assert "GCP" in decision.reason
+
+
+def test_gcp_and_sap_requester_asking_sap_bp_still_escalates():
+    both = requester().model_copy(update={"platforms": ["gcp", "sap"]})
+
+    decision = evaluate_one(
+        access_request(
+            requester_override=both,
+            requester_team="data-platform",
+            resource_ids=["sap-bp-display"],
+        ),
+        resource(
+            resource_id="sap-bp-display",
+            resource_type=ResourceType.SAP_BUSINESS_PARTNER,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            capability="read",
+        ),
+    )
+
+    assert decision.decision == DecisionType.ESCALATE
+    assert "Cross-team" in decision.reason
+    assert "Atlas-Platform-01" not in decision.reason
+
+
+def test_requesting_platform_sap_is_not_circular_platform_deny():
+    gcp_only = requester().model_copy(update={"platforms": ["gcp"]})
+
+    decision = evaluate_one(
+        access_request(requester_override=gcp_only, resource_ids=["platform-sap"]),
+        resource(
+            resource_id="platform-sap",
+            resource_type=ResourceType.PLATFORM,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            capability="read",
+            metadata={"platform": "sap", "kind": "platform"},
+        ),
+    )
+
+    assert "Atlas-Platform-01" not in decision.reason
 
 
 def test_reaper_revokes_on_ticket_close():

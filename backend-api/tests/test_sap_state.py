@@ -58,11 +58,13 @@ def test_sap_state_lists_only_sap_resources_and_active_bindings():
 def test_console_state_bindings_exclude_sap_ids():
     _grant("sap-bp-display", "g-sap-bp")
     _grant("bucket-analytics-raw", "g-bucket")
+    _grant("platform-sap", "g-platform-sap")
 
     body = TestClient(main.app).get("/console/state").json()
     assert {r["id"] for r in body["resources"]} == set(main.usecase_demo.RESOURCES)
     assert {b["resource_id"] for b in body["bindings"]} == {"bucket-analytics-raw"}
     assert all(not b["resource_id"].startswith("sap-") for b in body["bindings"])
+    assert all(not b["resource_id"].startswith("platform-") for b in body["bindings"])
 
 
 def test_console_url_for_routes_sap_and_gcp(monkeypatch):
@@ -183,10 +185,10 @@ def test_export_demo_writes_bounced_action():
 
 
 def test_evaluate_sales_order_auto_grants_and_directory_denies():
-    alex = main.KNOWN_REQUESTERS["u-newhire-1"]
+    priya = main.KNOWN_REQUESTERS["u-manager-1"]
     request = AccessRequest(
         id="ignored",
-        requester=alex,
+        requester=priya,
         task_description="need sales order and customer directory",
         project="atlas-migration",
         resource_ids=["sap-sales-order-display", "sap-customer-directory"],

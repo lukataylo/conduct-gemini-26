@@ -43,6 +43,7 @@ from shared.schemas import (  # noqa: E402
     DecisionType,
     EscalationCase,
     Grant,
+    PolicyRule,
     Requester,
     UIComponentSpec,
     UISpec,
@@ -71,6 +72,29 @@ CONVERSATIONS: dict[str, dict] = {}
 KNOWN_REQUESTERS: dict[str, Requester] = {
     r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
 }
+
+LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
+DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
+
+
+def _has_business_context(request: AccessRequest) -> bool:
+    ctx = request.context
+    meta = request.metadata or {}
+    return bool(
+        ctx.active_jira_ticket
+        or ctx.active_pagerduty_incident
+        or meta.get("ticket_id")
+        or meta.get("incident_id")
+    )
+
+
+def _ensure_business_context(request: AccessRequest) -> AccessRequest:
+    """Demo default for JIT-Evidence-01. Keep an explicit caller ticket/incident."""
+    if _has_business_context(request):
+        return request
+    return request.model_copy(
+        update={"context": request.context.model_copy(update={"active_jira_ticket": DEMO_TICKET})}
+    )
 
 
 def now() -> datetime:
@@ -367,6 +391,7 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
 
 def _evaluate_request(request: AccessRequest) -> dict:
     requester = request.requester
+    request = _ensure_business_context(request)
     request = request.model_copy(update={"id": str(uuid.uuid4()), "requester": requester})
     REQUESTS[request.id] = request
     _audit(
@@ -381,6 +406,7 @@ def _evaluate_request(request: AccessRequest) -> dict:
     decisions = policy_engine.evaluate_request(
         request,
         resources,
+        policy=LIVE_POLICY,
         active_grants=active_grants(requester.id),
         now=now(),
     )
@@ -509,6 +535,11 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
         g for g in GRANTS.values()
         if not g.revoked and g.expires_at > t and (requester_id is None or g.requester_id == requester_id)
     ]
+
+
+@app.get("/policy")
+def get_policy() -> PolicyRule:
+    return LIVE_POLICY
 
 
 @app.get("/resources")

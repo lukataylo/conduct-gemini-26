@@ -15,6 +15,7 @@ def reset_store():
     main.AGENT_TURN_IMPL = None
     main.EXECUTE_ENQUEUE_IMPL = None
     main.COMPOSE_IMPL = None
+    main.LIVE_POLICY = main.policy_engine.DEFAULT_POLICY.model_copy(deep=True)
     yield
     main.REQUESTS.clear()
     main.GRANTS.clear()
@@ -26,3 +27,4 @@ def reset_store():
     main.AGENT_TURN_IMPL = None
     main.EXECUTE_ENQUEUE_IMPL = None
     main.COMPOSE_IMPL = None
+    main.LIVE_POLICY = main.policy_engine.DEFAULT_POLICY.model_copy(deep=True)

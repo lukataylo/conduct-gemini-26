@@ -94,6 +94,17 @@ key; share it privately, never in git or public chat.
   Nothing on screen is UI-only state.
 - `mcp` Python SDK is pinned `<2` in `agent-runtime/requirements.txt`; 2.x renamed the
   server API.
+- **Write guard:** when `DEMO_KEY` is set in the hub's env, every non-GET request needs
+  `X-Demo-Key: <value>` (the console sends `VITE_DEMO_KEY`, the MCP server sends
+  `APERTURE_TOKEN`). Unset = open, for local dev. Set it on the demo laptop — venue wifi
+  can reach `POST /demo/seed`, `close`, `vote` otherwise.
+- **Hub invariants (from the adversarial review, 19 Sep 15:40):** a decided case takes
+  no more votes and never mints a second grant; approvals are capped at 30 days
+  (`MAX_APPROVED_DAYS`); closing a project also closes its pending cases; `POST /audit`
+  only accepts `action_executed` and never a reserved actor (`policy-engine`,
+  `gcp-iam`); a repeat ask returns the lease already held (`already_held: true`);
+  resource ids are de-duplicated; duration must be ≥ 1 day; blast-radius escalations
+  (`resource_id="multiple"`) route to the manager + finance owner via `APPROVERS`.
 - **Every request needs business context** or the engine hard-denies it
   (JIT-Evidence-01): `context.active_jira_ticket` / `active_pagerduty_incident`, or
   `metadata.ticket_id`. The console, the MCP server and the NL path (`NLSubmit.context`)

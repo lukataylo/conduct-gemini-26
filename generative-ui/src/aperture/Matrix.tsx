@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { AuditEvent, EscalationCase, Grant, Resource, User } from "./api";
-import { ALL } from "./api";
+import type { AuditEvent, Company, EscalationCase, Grant, Resource, User } from "./api";
+import { ALL, ATLAS, platformLabel, resourcePlatform } from "./api";
 
 const COLS = 36;
 const MIN = 60e3, HOUR = 3600e3, DAY = 86400e3;
@@ -11,6 +11,7 @@ interface Props {
   events: AuditEvent[];
   resources: Resource[];
   users: User[];
+  company?: Company;
   selected: string; // user id or ALL
   zoom: "session" | "project";
   now: number;
@@ -18,7 +19,7 @@ interface Props {
 
 type Cell = { fills: { color: string; a: number }[]; pending?: string; red?: boolean };
 
-export function Matrix({ grants, cases, events, resources, users, selected, zoom, now }: Props) {
+export function Matrix({ grants, cases, events, resources, users, company = ATLAS, selected, zoom, now }: Props) {
   const byId = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const visible = selected === ALL ? users : users.filter((u) => u.id === selected);
   const visibleIds = new Set(visible.map((u) => u.id));
@@ -82,19 +83,17 @@ export function Matrix({ grants, cases, events, resources, users, selected, zoom
       ? new Date(t).toLocaleDateString([], { day: "numeric", month: "short" })
       : new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 
-  const rowList = [
-    ...resources.map((r) => ({ id: r.id, name: r.name, sub: `${r.sensitivity} · ${r.owning_team}` })),
+  const groups = (["gcp", "sap"] as const).map((id) => ({
+    id,
+    name: platformLabel(id, company),
+    rows: resources.filter((r) => resourcePlatform(r) === id).map((r) => ({ id: r.id, name: r.name, sub: `${r.sensitivity} · ${r.owning_team}` })),
+  }));
+  const extras = [
     { id: "__calls", name: "calls", sub: "tool calls" },
     { id: "__denied", name: "refused", sub: "denied · bounced" },
   ];
 
-  return (
-    <div className="mx">
-      <div className="mx-axis">
-        <span className="mx-label" />
-        <div className="mx-ticks">{ticks.map((t) => <span key={t}>{fmt(t)}</span>)}</div>
-      </div>
-      {rowList.map((r) => (
+  const renderRow = (r: { id: string; name: string; sub: string }) => (
         <div className="mx-row" key={r.id}>
           <span className="mx-label"><b>{r.name}</b><small>{r.sub}</small></span>
           <div className="mx-cells">
@@ -110,7 +109,21 @@ export function Matrix({ grants, cases, events, resources, users, selected, zoom
             })}
           </div>
         </div>
+  );
+
+  return (
+    <div className="mx">
+      <div className="mx-axis">
+        <span className="mx-label" />
+        <div className="mx-ticks">{ticks.map((t) => <span key={t}>{fmt(t)}</span>)}</div>
+      </div>
+      {groups.map((g) => (
+        <div key={g.id} className="mx-group">
+          <div className="mx-group-h">{g.name}</div>
+          {g.rows.map(renderRow)}
+        </div>
       ))}
+      {extras.map(renderRow)}
       <div className="mx-legend">
         {visible.map((u) => (
           <span key={u.id}><i style={{ background: u.color }} />{u.name}</span>

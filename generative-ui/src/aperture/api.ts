@@ -40,6 +40,32 @@ export interface AuditEvent {
   timestamp: string;
 }
 
+export type PlatformId = "gcp" | "sap";
+
+export interface Platform {
+  id: PlatformId;
+  name: string;
+  short: string;
+  home: boolean;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  project: string;
+  platforms: Platform[];
+}
+
+export const ATLAS: Company = {
+  id: "atlas",
+  name: "Atlas",
+  project: "atlas-migration",
+  platforms: [
+    { id: "gcp", name: "Google Cloud", short: "GCP", home: true },
+    { id: "sap", name: "SAP S/4HANA", short: "SAP", home: false },
+  ],
+};
+
 export interface Resource {
   id: string;
   name: string;
@@ -47,6 +73,7 @@ export interface Resource {
   owning_team: string;
   sensitivity: string;
   capability?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Person {
@@ -54,6 +81,8 @@ export interface Person {
   name: string;
   role: string;
   team: string;
+  company_id?: string;
+  platforms?: PlatformId[];
 }
 
 export interface User extends Person {
@@ -116,6 +145,7 @@ export interface Snapshot {
   events: AuditEvent[];
   resources: Resource[];
   people: Person[];
+  company: Company;
   policy: PolicyRule | null;
   verify: { ok: boolean; length?: number; broken_at?: number } | null;
   preview: CuPreview;
@@ -163,20 +193,44 @@ export function mediaUrl(path: string): string {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot> {
-  const [grants, cases, events, resources, people, policy, verify, preview] = await Promise.all([
+  const [grants, cases, events, resources, people, company, policy, verify, preview] = await Promise.all([
     get<Grant[]>(`/grants?include_revoked=true`),
     get<EscalationCase[]>(`/escalations`),
     get<AuditEvent[]>(`/audit`),
     get<Resource[]>(`/resources`),
     get<Person[]>(`/people`),
+    get<Company>(`/company`).catch(() => ATLAS),
     get<PolicyRule>(`/policy`).catch(() => null),
     get<Snapshot["verify"]>(`/audit/verify`),
     get<CuPreview>(`/cu/preview`).catch(() => IDLE_PREVIEW),
   ]);
-  return { grants, cases, events, resources, people, policy, verify, preview, online: true };
+  return { grants, cases, events, resources, people, company, policy, verify, preview, online: true };
 }
 
-const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], policy: null, verify: null, preview: IDLE_PREVIEW, online: false };
+const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], company: ATLAS, policy: null, verify: null, preview: IDLE_PREVIEW, online: false };
+
+export function personPlatforms(person: Person): PlatformId[] {
+  return person.platforms?.length ? person.platforms : ["gcp"];
+}
+
+export function hasPlatform(person: Person, id: PlatformId): boolean {
+  return personPlatforms(person).includes(id);
+}
+
+export function isSapOnly(person: Person): boolean {
+  return hasPlatform(person, "sap") && !hasPlatform(person, "gcp");
+}
+
+export function resourcePlatform(resource: Resource): PlatformId {
+  const tagged = resource.metadata?.platform;
+  if (tagged === "gcp" || tagged === "sap") return tagged;
+  if (resource.id.startsWith("sap-") || resource.type.startsWith("sap_")) return "sap";
+  return "gcp";
+}
+
+export function platformLabel(id: PlatformId, company: Company = ATLAS): string {
+  return company.platforms.find((p) => p.id === id)?.name ?? (id === "sap" ? "SAP S/4HANA" : "Google Cloud");
+}
 
 export function useSnapshot(intervalMs = 1500): Snapshot {
   const [snap, setSnap] = useState<Snapshot>(EMPTY);

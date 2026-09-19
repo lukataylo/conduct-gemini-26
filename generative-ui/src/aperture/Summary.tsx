@@ -41,6 +41,21 @@ const GUIDE: Record<string, { what: string; cmd: (r: Resource) => string; docs: 
     cmd: (r) => `gcloud sql connect ${r.name}`,
     docs: { title: "Cloud SQL — connecting", url: "https://cloud.google.com/sql/docs/mysql/connect-overview" },
   },
+  sap_business_partner: {
+    what: "Customer Master · Business Partner display",
+    cmd: (r) => `Fiori · Customer Master · BP ${String(r.metadata?.customer_id ?? "1710001")}`,
+    docs: { title: "SAP S/4HANA — Business Partner", url: "https://help.sap.com/docs/SAP_S4HANA_CLOUD" },
+  },
+  sap_billing_document: {
+    what: "Billing document display",
+    cmd: (r) => `Fiori · Manage Billing Documents · ${r.name}`,
+    docs: { title: "SAP S/4HANA — Billing Documents", url: "https://help.sap.com/docs/SAP_S4HANA_CLOUD" },
+  },
+  sap_sales_order: {
+    what: "Sales order display",
+    cmd: (r) => `Fiori · Manage Sales Orders · ${r.name}`,
+    docs: { title: "SAP S/4HANA — Sales Orders", url: "https://help.sap.com/docs/SAP_S4HANA_CLOUD" },
+  },
 };
 
 /** Deterministic composition used when the server has no Gemini composer. Same panel

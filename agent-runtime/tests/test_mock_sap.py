@@ -9,7 +9,7 @@ def test_sap_console_has_fiori_chrome():
     text = HTML.read_text()
     for label in (
         "SAP S/4HANA Cloud",
-        "Helios Manufacturing",
+        "Atlas",
         "1000 London",
         "2000",
         "Frankfurt",
@@ -44,6 +44,7 @@ def test_sap_console_has_fiori_chrome():
         assert label in text
     for gcp in ("Google Cloud", "Cloud Storage", "BigQuery", "Cloud SQL"):
         assert gcp not in text
+    assert "Helios" not in text
 
 
 def test_sap_console_has_dom_contracts():
@@ -132,7 +133,8 @@ def test_serve_in_thread_defaults_and_serves_index():
             body = resp.read().decode()
         assert resp.status == 200
         assert "SAP S/4HANA Cloud" in body
-        assert "Helios Manufacturing" in body
+        assert "Atlas" in body
+        assert "Helios" not in body
         assert 'id="active-grants"' in body
         assert 'id="sap-auth-error"' in body
         assert "Google Cloud" not in body

@@ -96,7 +96,7 @@ def sap_grant_goal(grant: Grant) -> str:
     role = _SAP_ROLES.get(grant.resource_id, "SAP_SD_CUST_DISPLAY")
     return (
         f"Assign business role {role} for principal {grant.requester_id} "
-        f"on SAP S/4HANA Cloud · Helios Manufacturing, resource {grant.resource_id}. "
+        f"on SAP S/4HANA Cloud · Atlas, resource {grant.resource_id}. "
         f"This is a Fiori launchpad, not Google Cloud. "
         f"1) Click the Maintain Business Users tile. "
         f"2) The Principal box is empty — grey hint text is a placeholder, not a value. "
@@ -114,7 +114,7 @@ def sap_grant_goal(grant: Grant) -> str:
 def export_goal() -> str:
     """Instruction for computer-use: bounce a customer-directory dump."""
     return (
-        "Attempt Export Customer List (activity 16 Export) on SAP S/4HANA Cloud · Helios. "
+        "Attempt Export Customer List (activity 16 Export) on SAP S/4HANA Cloud · Atlas. "
         "This is a Fiori launchpad, not Google Cloud. "
         "Open the Export Customer List tile and click Export. "
         "The dump must bounce. Stop immediately when the red authorization "

@@ -17,6 +17,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -25,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 import httpx
 from pydantic import BaseModel
@@ -49,6 +50,7 @@ from shared.schemas import (  # noqa: E402
     ApprovalVote,
     AuditEvent,
     AuditEventType,
+    Company,
     DecisionType,
     EscalationCase,
     Grant,
@@ -102,9 +104,11 @@ _STREAM_EXTRA_TYPES = {
     AuditEventType.PROJECT_CLOSED: "project_closed",
 }
 
-KNOWN_REQUESTERS: dict[str, Requester] = {
-    r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
-}
+def _people_index() -> dict[str, Requester]:
+    return {r.id: r.model_copy(deep=True) for r in usecase_demo.PEOPLE}
+
+
+KNOWN_REQUESTERS: dict[str, Requester] = _people_index()
 
 LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
 DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
@@ -230,6 +234,8 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
     if grant.resource_id in NEVER_ENACT_IDS:
         return
+    if grant.resource_id.startswith("platform-"):
+        return
     watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
     if watch:
         WATCH_URLS[grant.id] = watch
@@ -311,6 +317,8 @@ class AgentTurnIn(BaseModel):
     message: str
     conversation_id: str | None = None
     confirm: bool = False
+    focus_id: str | None = None
+    page: str = "overview"
 
 
 class AgentTurnOut(BaseModel):
@@ -318,6 +326,27 @@ class AgentTurnOut(BaseModel):
     tools_used: list[str] = []
     request_result: dict | None = None
     conversation_id: str
+    enact_result: dict | None = None
+    navigate: str | None = None
+
+
+def _viewer_console_role(viewer: Requester) -> str:
+    if re.search(r"manager|owner|lead|head", viewer.role or "", re.I):
+        return "manager"
+    return "user"
+
+
+def _resolve_person(raw: str) -> Requester | None:
+    key = (raw or "").strip()
+    if not key or key.lower() in {"all", "everyone"}:
+        return None
+    found = KNOWN_REQUESTERS.get(key)
+    if found is not None:
+        return found
+    matches = [person for person in KNOWN_REQUESTERS.values() if person.name.lower() == key.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 
 def _console_request_access(
@@ -335,7 +364,10 @@ def _console_request_access(
         "project": parsed.project,
         "raw_text": raw_text,
     }
-    slot = CONVERSATIONS.setdefault(conversation_id, {"pending_request": None, "pending_raw": None})
+    slot = CONVERSATIONS.setdefault(
+        conversation_id,
+        {"pending_request": None, "pending_raw": None, "messages": [], "actor_id": viewer.id},
+    )
     slot["pending_request"] = parsed
     slot["pending_raw"] = raw_text
     if not evaluate:
@@ -351,19 +383,41 @@ def _console_request_access(
     }
 
 
-def _console_list_scope(viewer: Requester) -> dict:
+def _console_list_scope(viewer: Requester, *, focus: Requester | None = None) -> dict:
     grants = [g.model_dump(mode="json") for g in active_grants(viewer.id)]
     mine = [c for c in ESCALATIONS.values() if c.status == "pending" and c.requester_id == viewer.id]
     awaiting_me = [
         c for c in ESCALATIONS.values()
         if c.status == "pending" and viewer.id in c.required_approver_ids and not any(v.approver_id == viewer.id for v in c.votes)
     ]
-    cases = [c.model_dump(mode="json") for c in mine + awaiting_me]
+    cases = [c.model_dump(mode="json") for c in mine]
+    waiting_on_me = [
+        c.model_dump(mode="json")
+        for c in ESCALATIONS.values()
+        if c.status == "pending" and viewer.id in c.required_approver_ids
+    ]
+    focus_grants = [g.model_dump(mode="json") for g in active_grants(focus.id)] if focus else []
+    focus_cases = [
+        c.model_dump(mode="json")
+        for c in ESCALATIONS.values()
+        if focus is not None and c.status == "pending" and c.requester_id == focus.id
+    ]
     return {
         "grants": grants,
         "cases": cases,
+        "waiting_on_me": waiting_on_me,
+        "focus_grants": focus_grants,
+        "focus_cases": focus_cases,
         "my_requests_pending": [c.id for c in mine],
-        "awaiting_my_vote": [{"case_id": c.id, "resource_id": c.resource_id, "requester_id": c.requester_id, "tier": usecase_demo.RESOURCES[c.resource_id].sensitivity.value if c.resource_id in usecase_demo.RESOURCES else None} for c in awaiting_me],
+        "awaiting_my_vote": [
+            {
+                "case_id": c.id,
+                "resource_id": c.resource_id,
+                "requester_id": c.requester_id,
+                "tier": usecase_demo.RESOURCES[c.resource_id].sensitivity.value if c.resource_id in usecase_demo.RESOURCES else None,
+            }
+            for c in awaiting_me
+        ],
     }
 
 
@@ -442,22 +496,49 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
             conversation_id=conversation_id,
         )
 
+    slot = CONVERSATIONS.get(conversation_id)
+    if slot is not None and slot.get("actor_id") and slot["actor_id"] != viewer.id:
+        conversation_id = str(uuid.uuid4())
+        slot = None
+    if slot is None:
+        slot = {
+            "pending_request": None,
+            "pending_raw": None,
+            "messages": [],
+            "actor_id": viewer.id,
+        }
+        CONVERSATIONS[conversation_id] = slot
+    else:
+        slot.setdefault("messages", [])
+        slot.setdefault("actor_id", viewer.id)
+
     def request_access(raw_text: str) -> dict:
         # The parser calls agent.run_sync; Pydantic AI forbids that inside a sync tool on the
         # same thread, so run it on a fresh one (fresh contextvars).
         with ThreadPoolExecutor(max_workers=1) as ex:
             return ex.submit(_console_request_access, raw_text, viewer, evaluate=False, conversation_id=conversation_id).result()
 
+    focus = _resolve_person(body.focus_id) if body.focus_id else None
+    history = list(slot["messages"][-20:])
+
     _agent_runtime_on_path()
-    from console_agent import ConsoleAgentDeps, run_console_turn
+    from console_agent import ConsoleAgentDeps, ConsoleContext, run_console_turn
 
     deps = ConsoleAgentDeps(
         viewer=viewer,
         request_access=request_access,
-        list_scope=lambda: _console_list_scope(viewer),
+        list_scope=lambda: _console_list_scope(viewer, focus=focus),
         explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
             viewer, request_id, resource_id
         ),
+        context=ConsoleContext(
+            actor_id=viewer.id,
+            focus_id=focus.id if focus else None,
+            page=body.page,
+            role=_viewer_console_role(viewer),
+        ),
+        history=history,
+        focus=focus,
     )
     turn = run_console_turn(
         body.message,
@@ -465,11 +546,17 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         runner=AGENT_TURN_IMPL,
         conversation_id=conversation_id,
     )
+    messages = slot["messages"]
+    messages.append({"role": "user", "content": body.message})
+    messages.append({"role": "assistant", "content": turn.reply})
+    slot["messages"] = messages[-40:]
     return AgentTurnOut(
         reply=turn.reply,
         tools_used=list(turn.tools_used),
         request_result=turn.request_result,
         conversation_id=turn.conversation_id,
+        enact_result=turn.enact_result,
+        navigate=None,
     )
 
 
@@ -621,6 +708,7 @@ def _issue_grant(
     GRANTS[grant.id] = grant
     ttl_label = f"{ttl_hours}h" if ttl_hours is not None else f"{ttl_days}d"
     _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_label}", request_id=request_id, grant_id=grant.id)
+    _sync_requester_platform(requester_id, resource_id, present=True)
     _mirror_to_gcp(grant, add=True)
     _enqueue_execute(grant)
     return grant
@@ -650,6 +738,23 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
 @app.get("/policy")
 def get_policy() -> PolicyRule:
     return LIVE_POLICY
+
+
+@app.get("/policy/routes")
+def policy_routes() -> dict:
+    gcp: list[dict] = []
+    sap: list[dict] = []
+    for resource in usecase_demo.RESOURCES.values():
+        row = {
+            "id": resource.id,
+            "name": resource.name,
+            "approver_ids": list(usecase_demo.APPROVERS.get(resource.id, [])),
+        }
+        if resource.id.startswith("sap-"):
+            sap.append(row)
+        else:
+            gcp.append(row)
+    return {"gcp": gcp, "sap": sap}
 
 
 @app.get("/resources")
@@ -688,6 +793,7 @@ def console_state() -> dict:
         }
         for grant in active_grants()
         if not grant.resource_id.startswith("sap-")
+        and not grant.resource_id.startswith("platform-")
     ]
     return {"resources": list(usecase_demo.RESOURCES.values()), "bindings": bindings}
 
@@ -733,6 +839,11 @@ def sap_export_demo() -> dict:
     return {"status": "bounced", "grant_id": None}
 
 
+@app.get("/company")
+def get_company() -> Company:
+    return usecase_demo.COMPANY
+
+
 @app.get("/people")
 def list_people() -> list[Requester]:
     return list(KNOWN_REQUESTERS.values())
@@ -743,6 +854,44 @@ class NewPerson(BaseModel):
     team: str
     role: str = "Software Engineer"
     manager_id: str | None = None
+    platforms: list[Literal["gcp", "sap"]] = ["gcp"]
+
+
+class PlatformChange(BaseModel):
+    platform: Literal["gcp", "sap"]
+    action: Literal["grant", "revoke"]
+
+
+def _platform_entitlement(resource_id: str) -> str | None:
+    if not resource_id.startswith("platform-"):
+        return None
+    platform = resource_id.removeprefix("platform-")
+    if platform in {"gcp", "sap"}:
+        return platform
+    return None
+
+
+def _set_requester_platform(requester_id: str, platform: str, present: bool) -> None:
+    person = KNOWN_REQUESTERS.get(requester_id)
+    if person is None:
+        return
+    platforms = list(person.platforms)
+    if present:
+        if platform in platforms:
+            return
+        platforms.append(platform)
+    else:
+        if platform not in platforms:
+            return
+        platforms = [p for p in platforms if p != platform]
+    KNOWN_REQUESTERS[requester_id] = person.model_copy(update={"platforms": platforms})
+
+
+def _sync_requester_platform(requester_id: str, resource_id: str, *, present: bool) -> None:
+    platform = _platform_entitlement(resource_id)
+    if platform is None:
+        return
+    _set_requester_platform(requester_id, platform, present)
 
 
 @app.post("/people")
@@ -753,10 +902,39 @@ def add_person(body: NewPerson) -> Requester:
     pid = f"u-{slug}"
     if pid in KNOWN_REQUESTERS:
         raise HTTPException(409, f"{pid} already exists")
-    person = Requester(id=pid, name=body.name.strip(), role=body.role.strip(), team=body.team.strip(), manager_id=body.manager_id or usecase_demo.MANAGER.id)
+    platforms: list[Literal["gcp", "sap"]] = []
+    for platform in body.platforms:
+        if platform not in platforms:
+            platforms.append(platform)
+    person = Requester(
+        id=pid,
+        name=body.name.strip(),
+        role=body.role.strip(),
+        team=body.team.strip(),
+        manager_id=body.manager_id or usecase_demo.MANAGER.id,
+        platforms=platforms or ["gcp"],
+    )
     KNOWN_REQUESTERS[pid] = person
     _audit(AuditEventType.REQUEST_RECEIVED, actor=pid, detail=f"onboarded {person.name} · {person.team}", payload={"onboarded": True})
     return person
+
+
+@app.post("/people/{person_id}/platforms")
+def change_person_platform(person_id: str, body: PlatformChange) -> Requester:
+    person = KNOWN_REQUESTERS.get(person_id)
+    if person is None:
+        raise HTTPException(404, f"unknown person '{person_id}'")
+    resource_id = f"platform-{body.platform}"
+    if body.action == "grant":
+        _set_requester_platform(person_id, body.platform, True)
+        if not any(grant.resource_id == resource_id for grant in active_grants(person_id)):
+            _issue_grant(str(uuid.uuid4()), person_id, resource_id, ttl_days=90)
+    else:
+        for grant in list(active_grants(person_id)):
+            if grant.resource_id == resource_id:
+                revoke_grant(grant.id, reason=f"{body.platform} platform revoked")
+        _set_requester_platform(person_id, body.platform, False)
+    return KNOWN_REQUESTERS[person_id]
 
 
 @app.get("/tools")
@@ -790,6 +968,7 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
     _audit(AuditEventType.GRANT_REVOKED, actor="policy-engine", detail=reason, grant_id=grant_id, request_id=grant.request_id)
     # keep real access if another active grant still covers the same requester + resource
     if not any(g.resource_id == grant.resource_id for g in active_grants(grant.requester_id)):
+        _sync_requester_platform(grant.requester_id, grant.resource_id, present=False)
         _mirror_to_gcp(grant, add=False)
     _enqueue_execute(grant, action="revoke")
     return grant

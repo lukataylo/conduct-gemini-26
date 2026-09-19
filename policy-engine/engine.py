@@ -24,6 +24,7 @@ from shared.schemas import (  # noqa: E402
     PolicyEvaluationContext,
     PolicyRule,
     RequestHistoryEvent,
+    Requester,
     Resource,
     ResourceType,
     RevocationAction,
@@ -193,6 +194,10 @@ def _evaluate_single(
     hard_deny_reason = _per_resource_hard_deny_reason(request)
     if hard_deny_reason is not None:
         return _deny(request, resource.id, hard_deny_reason)
+
+    platform_decision = _platform_decision(request, resource, active_grants)
+    if platform_decision is not None:
+        return platform_decision
 
     auth_decision = _authentication_decision(request, resource)
     if auth_decision is not None:
@@ -489,6 +494,51 @@ def _per_resource_hard_deny_reason(request: AccessRequest) -> str | None:
     return None
 
 
+def _resource_platform(resource: Resource) -> str | None:
+    if resource.type == ResourceType.PLATFORM:
+        return None
+    tagged = resource.metadata.get("platform")
+    if tagged in {"gcp", "sap"}:
+        return tagged
+    if resource.type.name.startswith("SAP_") or resource.id.startswith("sap-"):
+        return "sap"
+    return "gcp"
+
+
+def _has_platform(
+    requester: Requester,
+    platform: str,
+    active_grants: Iterable[Grant] | None,
+) -> bool:
+    if platform in requester.platforms:
+        return True
+    entitlement_id = f"platform-{platform}"
+    return any(
+        grant.requester_id == requester.id
+        and grant.resource_id == entitlement_id
+        and not grant.revoked
+        for grant in (active_grants or [])
+    )
+
+
+def _platform_decision(
+    request: AccessRequest,
+    resource: Resource,
+    active_grants: Iterable[Grant] | None,
+) -> PolicyDecision | None:
+    needed = _resource_platform(resource)
+    if needed is None:
+        return None
+    if _has_platform(request.requester, needed, active_grants):
+        return None
+    label = "GCP" if needed == "gcp" else "SAP"
+    return _deny(
+        request,
+        resource.id,
+        f"Auto-Denied: requester does not hold the {label} platform entitlement (Atlas-Platform-01).",
+    )
+
+
 def _effective_requested_duration_days(request: AccessRequest) -> int:
     if request.requester.type == "SEASONAL_CONTRACTOR":
         return min(request.requested_duration_days, 30)
@@ -673,6 +723,13 @@ def _surface_decision(
 
     if resource.type in {ResourceType.POWERBI_DATASET, ResourceType.POWERBI_DATASET_UPPER}:
         return _powerbi_decision(request, resource, policy, peer_metadata)
+
+    if resource.type in {
+        ResourceType.GCS_BUCKET,
+        ResourceType.BIGQUERY_DATASET,
+        ResourceType.CLOUD_SQL_INSTANCE,
+    }:
+        return _gcp_decision(request, resource, policy, peer_metadata)
 
     if resource.type in {
         ResourceType.SAP_BUSINESS_PARTNER,
@@ -1066,6 +1123,15 @@ def _powerbi_decision(
     return None
 
 
+def _gcp_decision(
+    request: AccessRequest,
+    resource: Resource,
+    policy: PolicyRule,
+    peer_metadata: dict,
+) -> PolicyDecision | None:
+    return None
+
+
 def _sap_decision(
     request: AccessRequest,
     resource: Resource,
@@ -1079,6 +1145,14 @@ def _sap_decision(
             "Auto-Denied: customer-directory export is not grantable; "
             "scope a single Business Partner (Conduct-SAP-01).",
             metadata={**peer_metadata, "policy_violation": "Conduct-SAP-01"},
+        )
+
+    if resource.metadata.get("company_code") == "2000":
+        return _deny(
+            request,
+            resource.id,
+            "Auto-Denied: company 2000 is outside the granted SAP company code.",
+            metadata={**peer_metadata, "policy_violation": "SAP company 2000"},
         )
 
     return None
@@ -1267,7 +1341,12 @@ def _peer_metadata(
         "peer_signal": "Peer comparison unavailable",
         "peer_access_count": len(team_holders),
         "peer_team_size": team_size,
+        "platform": "sap" if resource.type.name.startswith("SAP_") else "gcp",
     }
+    if resource.type.name.startswith("SAP_"):
+        for key in ("role", "company_code", "customer_id", "activity"):
+            if key in resource.metadata:
+                metadata[key] = resource.metadata[key]
     if not team_size:
         return metadata
 

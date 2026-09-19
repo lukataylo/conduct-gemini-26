@@ -1,5 +1,6 @@
-import type { AuditEvent, EscalationCase, Grant, PolicyRule, Resource, User } from "./api";
-import { ALL } from "./api";
+import { useState } from "react";
+import type { AuditEvent, Company, EscalationCase, Grant, PlatformId, PolicyRule, Resource, User } from "./api";
+import { ALL, ATLAS, hasPlatform, post } from "./api";
 import { Approvals } from "./Approvals";
 
 interface Props {
@@ -8,7 +9,9 @@ interface Props {
   events: AuditEvent[];
   resources: Resource[];
   users: User[];
+  company?: Company;
   policy: PolicyRule | null;
+  online?: boolean;
 }
 
 const TIERS = ["public", "internal", "restricted", "critical"] as const;
@@ -28,11 +31,42 @@ function policyRows(policy: PolicyRule | null) {
 }
 
 /** The manager's column: what needs deciding and the live GET /policy table. Gemini lives in the bubble. */
-export function ManagerSide({ grants, cases, events, resources, users, policy }: Props) {
+export function ManagerSide({ grants, cases, events, resources, users, company = ATLAS, policy, online = true }: Props) {
   const rows = policyRows(policy);
+  const plats = company.platforms.length ? company.platforms : ATLAS.platforms;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const setPlatform = async (u: User, platform: PlatformId, action: "grant" | "revoke") => {
+    const key = `${u.id}:${platform}:${action}`;
+    setBusy(key); setErr(null);
+    try { await post(`/people/${u.id}/platforms`, { platform, action }); }
+    catch (e) { console.error(e); setErr("platform update failed"); }
+    finally { setBusy(null); }
+  };
   return (
     <aside className="mgr-side">
       <Approvals cases={cases} grants={grants} events={events} resources={resources} users={users} selected={ALL} />
+      <section className="mgr-settings">
+        <div className="apv-h">Platforms</div>
+        {plats.map((p) => (
+          <div className="mgr-plat" key={p.id}>
+            <div className="mgr-plat-h">{p.name}{p.home ? " · home" : ""}</div>
+            {users.map((u) => {
+              const on = hasPlatform(u, p.id);
+              const key = `${u.id}:${p.id}:${on ? "revoke" : "grant"}`;
+              return (
+                <div className="mgr-plat-row" key={u.id} style={{ ["--u" as string]: u.color }}>
+                  <span><i /><b>{u.name.split(" ")[0]}</b></span>
+                  <button className="nb" disabled={!online || busy !== null} onClick={() => setPlatform(u, p.id, on ? "revoke" : "grant")}>
+                    {busy === key ? "…" : on ? "Revoke" : "Grant"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+        {err && <div className="uc-err">{err}</div>}
+      </section>
       <section className="mgr-settings">
         <div className="apv-h">Policy</div>
         <table className="pol">

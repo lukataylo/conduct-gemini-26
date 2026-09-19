@@ -19,6 +19,7 @@ def test_add_person_then_request_as_them():
     assert person["id"] == "u-sam-rivera"
     assert person["team"] == "growth"
     assert person["manager_id"] == "u-manager-1"
+    assert person["platforms"] == ["gcp"]
     listed = {p["id"] for p in client.get("/people").json()}
     assert "u-sam-rivera" in listed
     again = client.post("/people", json={"name": "Sam Rivera", "team": "growth"})

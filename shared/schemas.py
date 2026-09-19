@@ -53,6 +53,7 @@ class ResourceType(str, Enum):
     SAP_SALES_ORDER = "sap_sales_order"
     SAP_CUSTOMER_DIRECTORY = "sap_customer_directory"
     SAP_HR_PAYROLL = "sap_hr_payroll"
+    PLATFORM = "platform"
 
 
 class AuthType(str, Enum):
@@ -94,6 +95,20 @@ class Resource(BaseModel):
     owner_group: str | None = None
 
 
+class Platform(BaseModel):
+    id: Literal["gcp", "sap"]
+    name: str
+    short: str
+    home: bool = False
+
+
+class Company(BaseModel):
+    id: str
+    name: str
+    project: str
+    platforms: list[Platform]
+
+
 class Requester(BaseModel):
     id: str
     name: str
@@ -110,6 +125,8 @@ class Requester(BaseModel):
     last_hr_sync: datetime = Field(default_factory=_utcnow)
     risk_score: int = Field(default=0, ge=0, le=100)
     auth_type: AuthType = AuthType.FIDO2_MFA
+    company_id: str = "atlas"
+    platforms: list[Literal["gcp", "sap"]] = Field(default_factory=lambda: ["gcp"])
 
 
 class AccessContext(BaseModel):

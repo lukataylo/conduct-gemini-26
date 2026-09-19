@@ -65,7 +65,15 @@ export default function ApertureApp() {
   return (
     <div className="ap" style={{ ["--accent" as string]: accent }}>
       <header className="hd">
-        <span className="brand">APERTURE</span>
+        <span className="brand-row">
+          <span className="brand">APERTURE</span>
+          <span className="who" aria-label="Company">
+            <b>{snap.company.name}</b>
+            {snap.company.platforms.map((p) => (
+              <span key={p.id} className={`plat ${p.home ? "home" : ""}`} title={p.name}>{p.short}</span>
+            ))}
+          </span>
+        </span>
         <nav className="tabs" aria-label="Screens">
           {TABS[role].map((t) => (
             <button key={t.id} className="tab" aria-pressed={current === t.id} onClick={() => setTab((s) => ({ ...s, [role]: t.id }))}>{t.name}</button>
@@ -83,13 +91,13 @@ export default function ApertureApp() {
 
       {role === "manager" && current === "overview" && (
         <div className="mgr">
-          <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={goTimeline} onOpenAccess={goAccess} />
-          <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} policy={snap.policy} />
+          <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} now={now} online={snap.online} onOpen={goTimeline} onOpenAccess={goAccess} />
+          <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} policy={snap.policy} online={snap.online} />
         </div>
       )}
 
       {role === "user" && current === "onboard" && me && (
-        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={me.id} online={snap.online} now={now} />
+        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} selected={me.id} online={snap.online} now={now} />
       )}
 
       {role === "user" && current === "access" && me && (
@@ -118,7 +126,7 @@ export default function ApertureApp() {
             <div className="grid2 single">
               <div>
                 <div className="sec-h"><h2>Access</h2></div>
-                <Matrix grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={timelineFor} zoom="session" now={now} />
+                <Matrix grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} selected={timelineFor} zoom="session" now={now} />
               </div>
             </div>
             <main className="main">

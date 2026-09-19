@@ -25,6 +25,9 @@ SQL_TEXT = (
     "Grant me access to the prod-primary Cloud SQL instance so I can patch a "
     "customer row. Need it today."
 )
+DIRECTORY_TEXT = (
+    "Export the full SAP customer directory so we can dump every account."
+)
 CLOSE_TEXT = "Revoke everything and shut Atlas down."
 
 
@@ -37,6 +40,8 @@ def _parse(raw_text: str, requester: Requester) -> AccessRequest:
         ids.append("bq-project-x-finance")
     if "prod-primary" in low or "cloud sql" in low:
         ids.append("sql-prod-primary")
+    if "customer directory" in low:
+        ids.append("sap-customer-directory")
     days = 14
     if "today" in low:
         days = 1
@@ -417,3 +422,202 @@ def test_policy_routes_split_gcp_and_sap():
     assert set(finance["approver_ids"]) == {PRIYA_ID, JORDAN_ID}
     for row in body["gcp"] + body["sap"]:
         assert set(row) == {"id", "name", "approver_ids"}
+
+
+def _sponsor_jordan(message, deps, system_prompt):
+    return ConsoleTurn(
+        reply="Confirm sponsoring Jordan.",
+        tools_used=["request_access_for"],
+        request_result=deps.request_access_for(JORDAN_ID, message),
+    )
+
+
+def _sponsor_alex(message, deps, system_prompt):
+    return ConsoleTurn(
+        reply="Confirm sponsoring Alex.",
+        tools_used=["request_access_for"],
+        request_result=deps.request_access_for(ALEX_ID, message),
+    )
+
+
+def test_sponsor_jordan_bucket_grant_is_jordans_audit_is_priya():
+    main.AGENT_TURN_IMPL = _sponsor_jordan
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-bucket",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert first.status_code == 200
+    body = first.json()
+    assert body["request_result"]["status"] == "needs_confirmation"
+    preview = body["request_result"]["preview"]
+    assert preview["beneficiary_id"] == JORDAN_ID
+    assert preview["sponsored_by"] == PRIYA_ID
+    assert preview["resource_ids"] == ["bucket-analytics-raw"]
+    assert main.GRANTS == {}
+    assert "Grant(" not in str(body["request_result"])
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-bucket",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    result = second.json()["request_result"]
+    assert result["status"] == "evaluated"
+    stored = main.REQUESTS[result["request_id"]]
+    assert stored.requester.id == JORDAN_ID
+    assert stored.metadata["sponsored_by"] == PRIYA_ID
+    received = [
+        event
+        for event in main.AUDIT_LOG
+        if event.type == main.AuditEventType.REQUEST_RECEIVED and event.request_id == result["request_id"]
+    ]
+    assert received
+    assert received[0].actor == PRIYA_ID
+    assert received[0].payload["beneficiary_id"] == JORDAN_ID
+    assert not any(grant.requester_id == PRIYA_ID for grant in main.GRANTS.values())
+    for grant in main.GRANTS.values():
+        assert grant.requester_id == JORDAN_ID
+    by_id = {row["resource_id"]: row for row in result["results"]}
+    bucket = by_id["bucket-analytics-raw"]
+    if bucket["status"] == "granted":
+        assert main.GRANTS[bucket["grant_id"]].requester_id == JORDAN_ID
+    else:
+        assert bucket["status"] == "escalated"
+        case = main.ESCALATIONS[bucket["escalation_id"]]
+        assert case.requester_id == JORDAN_ID
+        # Priya is the only catalog approver; omitting the sponsor would empty the list.
+        assert case.required_approver_ids == [PRIYA_ID]
+
+
+def test_sponsor_alex_bucket_auto_grant_belongs_to_alex():
+    main.AGENT_TURN_IMPL = _sponsor_alex
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-alex-bucket",
+            "focus_id": ALEX_ID,
+        },
+    )
+    assert first.status_code == 200
+    body = first.json()
+    assert body["request_result"]["status"] == "needs_confirmation"
+    preview = body["request_result"]["preview"]
+    assert preview["beneficiary_id"] == ALEX_ID
+    assert preview["sponsored_by"] == PRIYA_ID
+    assert preview["resource_ids"] == ["bucket-analytics-raw"]
+    assert main.GRANTS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": BUCKET_TEXT,
+            "conversation_id": "c-sponsor-alex-bucket",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    result = second.json()["request_result"]
+    assert result["status"] == "evaluated"
+    stored = main.REQUESTS[result["request_id"]]
+    assert stored.requester.id == ALEX_ID
+    assert stored.metadata["sponsored_by"] == PRIYA_ID
+    by_id = {row["resource_id"]: row for row in result["results"]}
+    bucket = by_id["bucket-analytics-raw"]
+    assert bucket["status"] == "granted"
+    grant = main.GRANTS[bucket["grant_id"]]
+    assert grant.requester_id == ALEX_ID
+    assert grant.resource_id == "bucket-analytics-raw"
+    assert not any(row.requester_id == PRIYA_ID for row in main.GRANTS.values())
+    received = [
+        event
+        for event in main.AUDIT_LOG
+        if event.type == main.AuditEventType.REQUEST_RECEIVED and event.request_id == result["request_id"]
+    ]
+    assert received
+    assert received[0].actor == PRIYA_ID
+    assert received[0].payload["beneficiary_id"] == ALEX_ID
+
+
+def test_sponsor_finance_omits_priya_from_required_approvers():
+    main.AGENT_TURN_IMPL = _sponsor_jordan
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": FINANCE_TEXT,
+            "conversation_id": "c-sponsor-finance",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert first.status_code == 200
+    assert first.json()["request_result"]["status"] == "needs_confirmation"
+    assert first.json()["request_result"]["preview"]["sponsored_by"] == PRIYA_ID
+    assert main.ESCALATIONS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": FINANCE_TEXT,
+            "conversation_id": "c-sponsor-finance",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    rows = second.json()["request_result"]["results"]
+    assert rows[0]["resource_id"] == "bq-project-x-finance"
+    assert rows[0]["status"] == "escalated"
+    case = main.ESCALATIONS[rows[0]["escalation_id"]]
+    assert case.requester_id == JORDAN_ID
+    assert PRIYA_ID not in case.required_approver_ids
+    assert case.required_approver_ids == [JORDAN_ID]
+
+
+def test_sponsor_directory_denied_no_grant():
+    main.AGENT_TURN_IMPL = _sponsor_jordan
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": DIRECTORY_TEXT,
+            "conversation_id": "c-sponsor-dir",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert first.status_code == 200
+    assert first.json()["request_result"]["status"] == "needs_confirmation"
+    assert first.json()["request_result"]["preview"]["resource_ids"] == ["sap-customer-directory"]
+    assert main.GRANTS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": DIRECTORY_TEXT,
+            "conversation_id": "c-sponsor-dir",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    rows = second.json()["request_result"]["results"]
+    assert rows[0]["resource_id"] == "sap-customer-directory"
+    assert rows[0]["status"] == "denied"
+    assert main.GRANTS == {}
+    assert not any(grant.resource_id == "sap-customer-directory" for grant in main.GRANTS.values())

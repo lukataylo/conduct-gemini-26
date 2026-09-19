@@ -52,16 +52,18 @@ the real names are configured by env var (see `.env.example`), not hardcoded:
   - Code making real GCP calls needs a Google identity: either run on a laptop with
     `gcloud auth application-default login`, or run *inside* GCP (Cloud Run / a VM) with
     a service account attached. **Railway can't do real GCP calls** — keep `REAL_GCP=false` there.
-  - Open team decisions: backend on demo laptop vs Cloud Run as `access-granter`; a small
-    `alex-laptop` VM running as `alex-chen-agent` for the proof terminal.
+  - **Decided:** with `REAL_GCP=true`, backend-api runs on the demo laptop using the
+    presenter's gcloud login (`access-granter` stays unused; Cloud Run as `access-granter`
+    is the "production" answer for Q&A). No VM / proof terminal.
 - Never commit credentials; `.env` is gitignored.
 
-### Demo "proof terminal"
+### Showing it's real on stage
 
-The split screen for the demo: a terminal acting as `alex-chen-agent` runs
-`gcloud storage ls` / `bq query` against the real resources and shows
-denied → allowed (after grant) → denied (after revoke). GCS IAM can take up to ~1–2 min
-to propagate, so rehearse the timing.
+The dashboard looks identical with the flag on or off, so real grants must be *visibly
+verified from Google*: after each real grant/revoke, read back the resource's IAM policy
+and emit an `AuditEvent` like "Verified in GCP: alex-chen-agent has objectViewer on
+gs://…". Backup: a browser tab on the bucket's Console permissions page, refreshed live.
+GCS IAM can take up to ~1–2 min to propagate — rehearse the timing.
 
 ## Gemini
 

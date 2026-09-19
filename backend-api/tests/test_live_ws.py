@@ -1,5 +1,6 @@
 import asyncio
 import json
+import threading
 from contextlib import asynccontextmanager
 
 import pytest
@@ -68,6 +69,23 @@ def _recv_json(ws, typ: str, limit: int = 20) -> dict:
         if msg.get("type") == typ:
             return msg
     raise AssertionError(f"did not receive json type={typ!r}")
+
+
+def _recv_or_none(ws, timeout: float = 0.6):
+    box: dict = {}
+
+    def run() -> None:
+        try:
+            box["msg"] = ws.receive()
+        except Exception as exc:  # noqa: BLE001 — test helper
+            box["err"] = exc
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        return None
+    return box.get("msg")
 
 
 def _recv_bytes(ws, limit: int = 20) -> bytes:
@@ -156,8 +174,81 @@ def test_binary_audio_is_forwarded_to_send_audio():
         _recv_json(ws, "ready")
         _recv_json(ws, "mode")
         ws.send_bytes(chunk)
-        _recv_json(ws, "mode")
+        ws.send_json({"type": "text", "text": "probe"})
+        you = _recv_json(ws, "transcript")
+        assert you["text"] == "probe"
         assert session.audios == [chunk]
+
+
+def test_pcm_does_not_restamp_listening():
+    """Mic chunks must not force LISTENING — that wipes Gemini playback and hides end-of-speech."""
+    session = _install(MockSession())
+    chunk = b"\x00\x00" * 160
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        assert _recv_json(ws, "mode")["mode"] == "listening"
+        ws.send_bytes(chunk)
+        ws.send_json({"type": "text", "text": "x"})
+        modes: list[str] = []
+        for _ in range(8):
+            msg = ws.receive_json()
+            if msg.get("type") == "mode":
+                modes.append(msg["mode"])
+            if msg.get("type") == "transcript":
+                break
+        assert "listening" not in modes
+        assert session.audios == [chunk]
+
+
+def test_turn_complete_returns_to_listening():
+    pcm = b"\x03\x00\x04\x00"
+    _install(
+        MockSession(
+            outgoing=[
+                {"kind": "audio", "data": pcm},
+                {"kind": "turn_complete"},
+            ]
+        )
+    )
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        assert _recv_json(ws, "mode")["mode"] == "listening"
+        assert _recv_json(ws, "mode")["mode"] == "speaking"
+        assert _recv_bytes(ws) == pcm
+        nxt = _recv_or_none(ws)
+        assert nxt is not None
+        payload = nxt.get("text")
+        data = json.loads(payload) if isinstance(payload, str) else payload
+        assert data == {"type": "mode", "mode": "listening"}
+
+
+def test_speaking_drops_followup_mic():
+    """While Gemini is talking, do not feed the laptop mic back in (echo keeps VAD open)."""
+    pcm = b"\x09\x00\x0a\x00"
+    session = _install(MockSession(outgoing=[{"kind": "audio", "data": pcm}]))
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        assert _recv_bytes(ws) == pcm
+        ws.send_bytes(b"\x11\x00\x12\x00")
+        ws.send_json({"type": "text", "text": "after"})
+        _recv_json(ws, "transcript")
+        assert session.audios == []
+
+
+def test_input_transcript_is_you():
+    _install(MockSession(outgoing=[{"kind": "input_transcript", "text": "who is waiting"}]))
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        _recv_json(ws, "mode")
+        nxt = _recv_or_none(ws)
+        assert nxt is not None
+        payload = nxt.get("text")
+        data = json.loads(payload) if isinstance(payload, str) else payload
+    assert data == {"type": "transcript", "role": "you", "text": "who is waiting"}
 
 
 def test_mock_audio_comes_back_as_ws_binary():
@@ -187,7 +278,8 @@ def test_speech_button_starts_live_conversation():
         listening = _recv_json(ws, "mode")
         assert listening["mode"] == "listening"
         ws.send_bytes(chunk)
-        assert _recv_json(ws, "mode")["mode"] == "listening"
+        ws.send_json({"type": "text", "text": "probe"})
+        assert _recv_json(ws, "transcript")["text"] == "probe"
         assert session.audios == [chunk]
         assert "api_key" not in json.dumps(ready)
 

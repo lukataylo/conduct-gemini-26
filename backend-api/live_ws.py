@@ -186,6 +186,22 @@ class _GeminiSession:
                 yield {"kind": "audio", "data": data}
             if text:
                 yield {"kind": "text", "text": text}
+            sc = getattr(msg, "server_content", None)
+            if sc is None:
+                continue
+            for attr, kind, role in (
+                ("input_transcription", "input_transcript", "you"),
+                ("interim_input_transcription", "input_transcript", "you"),
+                ("output_transcription", "output_transcript", "gemini"),
+            ):
+                part = getattr(sc, attr, None)
+                spoken = getattr(part, "text", None) if part is not None else None
+                if spoken:
+                    yield {"kind": kind, "role": role, "text": spoken}
+            if getattr(sc, "interrupted", False):
+                yield {"kind": "interrupted"}
+            elif getattr(sc, "turn_complete", False):
+                yield {"kind": "turn_complete"}
 
 
 @asynccontextmanager
@@ -201,6 +217,15 @@ async def _gemini_connect(context: dict) -> AsyncIterator[Any]:
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Kore")
+            )
+        ),
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        realtime_input_config=types.RealtimeInputConfig(
+            automatic_activity_detection=types.AutomaticActivityDetection(
+                disabled=False,
+                end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
+                silence_duration_ms=400,
             )
         ),
     )
@@ -245,15 +270,18 @@ async def _send_error(websocket: WebSocket, lock: asyncio.Lock, message: str) ->
     await _send_json(websocket, lock, {"type": "error", "message": message})
 
 
-async def _pump_client(websocket: WebSocket, session: Any, lock: asyncio.Lock) -> None:
+async def _pump_client(
+    websocket: WebSocket, session: Any, lock: asyncio.Lock, state: dict
+) -> None:
     while True:
         message = await websocket.receive()
         if message["type"] == "websocket.disconnect":
             return
         data = message.get("bytes")
         if data is not None:
+            if state.get("speaking"):
+                continue
             await session.send_audio(data)
-            await _send_mode(websocket, lock, "listening")
             continue
         text = message.get("text")
         if not text:
@@ -273,22 +301,27 @@ async def _pump_client(websocket: WebSocket, session: Any, lock: asyncio.Lock) -
         await _send_mode(websocket, lock, "thinking")
 
 
-async def _pump_session(websocket: WebSocket, session: Any, lock: asyncio.Lock) -> None:
+async def _pump_session(
+    websocket: WebSocket, session: Any, lock: asyncio.Lock, state: dict
+) -> None:
     async for item in _iter_session(session):
         kind = item.get("kind")
         if kind == "audio" and item.get("data") is not None:
+            state["speaking"] = True
             await _send_mode(websocket, lock, "speaking")
             await _send_bytes(websocket, lock, item["data"])
-        elif kind == "text" and item.get("text") is not None:
+        elif kind in {"input_transcript", "output_transcript", "text"} and item.get("text"):
+            role = item.get("role") or (
+                "you" if kind == "input_transcript" else "gemini"
+            )
             await _send_json(
                 websocket,
                 lock,
-                {
-                    "type": "transcript",
-                    "role": item.get("role") or "gemini",
-                    "text": item["text"],
-                },
+                {"type": "transcript", "role": role, "text": item["text"]},
             )
+        elif kind in {"turn_complete", "interrupted"}:
+            state["speaking"] = False
+            await _send_mode(websocket, lock, "listening")
         elif kind == "error":
             await _send_error(
                 websocket,
@@ -298,8 +331,9 @@ async def _pump_session(websocket: WebSocket, session: Any, lock: asyncio.Lock) 
 
 
 async def _relay(websocket: WebSocket, session: Any, lock: asyncio.Lock) -> None:
-    client_task = asyncio.create_task(_pump_client(websocket, session, lock))
-    session_task = asyncio.create_task(_pump_session(websocket, session, lock))
+    state = {"speaking": False}
+    client_task = asyncio.create_task(_pump_client(websocket, session, lock, state))
+    session_task = asyncio.create_task(_pump_session(websocket, session, lock, state))
     done, pending = await asyncio.wait(
         {client_task, session_task}, return_when=asyncio.FIRST_COMPLETED
     )

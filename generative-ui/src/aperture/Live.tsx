@@ -126,6 +126,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const micRef = useRef<{ stop: () => void } | null>(null);
   const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
   const cidRef = useRef<string | null>(null);
+  const speakingRef = useRef(false);
   const viewerRef = useRef(viewer);
   const focusRef = useRef(focus);
   const pageRef = useRef(page);
@@ -174,7 +175,9 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     if (payload.type === "mode") {
       const next = asMode(payload.mode);
       if (next) {
-        if (next === "listening") playerRef.current?.reset();
+        const wasSpeaking = speakingRef.current;
+        speakingRef.current = next === "speaking";
+        if (next === "listening" && wasSpeaking) playerRef.current?.reset();
         setMode(next);
       }
       return;
@@ -212,6 +215,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const tearDownLive = () => {
     micRef.current?.stop();
     micRef.current = null;
+    speakingRef.current = false;
     setMicOn(false);
     playerRef.current?.close();
     playerRef.current = null;
@@ -311,10 +315,14 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     kickPlayer();
     const ws = wsRef.current;
     const viaLive = ws?.readyState === WebSocket.OPEN;
-    if (viaLive) ws.send(JSON.stringify({ type: "text", text: trimmed }));
+    if (viaLive) {
+      ws.send(JSON.stringify({ type: "text", text: trimmed }));
+      setMode("thinking");
+      return;
+    }
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn(payload(trimmed, { conversation_id: cid })), viaLive);
+      applyTurn(await postAgentTurn(payload(trimmed, { conversation_id: cid })));
     } catch (e) {
       appendRow({ kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` });
     } finally {
@@ -349,7 +357,10 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     try {
       await startLiveConversation();
       const handle = await startMic(
-        (buf) => { if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(buf); },
+        (buf) => {
+          if (speakingRef.current) return;
+          if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(buf);
+        },
         (n) => { level.current = n; },
       );
       micRef.current = handle;
@@ -389,7 +400,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
           </div>
           <div className="live-in">
             <button className={`nb mic ${micOn ? "on" : ""}`} title={micOn ? "Stop" : "Talk"} aria-label={micOn ? "Stop live conversation" : "Start live conversation"} aria-pressed={micOn} onClick={toggleMic}>●</button>
-            <input id="live-text" autoFocus value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send(msg)} placeholder={micOn ? "Listening…" : "Who is waiting on me?"} />
+            <input id="live-text" autoFocus value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send(msg)} placeholder={micOn ? "Talk — I'll wait until you pause" : "Who is waiting on me?"} />
             <button className="nb" onClick={() => send(msg)} disabled={mode === "thinking" || !msg.trim()}>Send</button>
           </div>
         </div>

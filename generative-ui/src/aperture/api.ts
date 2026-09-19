@@ -70,11 +70,36 @@ export interface CuFrame {
   source: "live" | "replay";
 }
 
+export interface CuRecording {
+  url: string;
+  name: string;
+  type: string;
+}
+
+export interface CuGroup {
+  id: string;
+  stem: string;
+  kind: string;
+  label: string;
+  frames: CuFrame[];
+  action_frames: CuFrame[];
+  recordings: CuRecording[];
+}
+
+export interface CuSession {
+  id: string;
+  label: string;
+  source: "live" | "replay";
+  grant_id?: string | null;
+  groups: CuGroup[];
+}
+
 export interface CuPreview {
   status: "live" | "replay" | "idle";
   grant_id?: string | null;
   running: boolean;
   frames: CuFrame[];
+  sessions?: CuSession[];
 }
 
 export interface Snapshot {
@@ -118,7 +143,7 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
   return r.json();
 }
 
-const IDLE_PREVIEW: CuPreview = { status: "idle", grant_id: null, running: false, frames: [] };
+const IDLE_PREVIEW: CuPreview = { status: "idle", grant_id: null, running: false, frames: [], sessions: [] };
 
 export function mediaUrl(path: string): string {
   if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;

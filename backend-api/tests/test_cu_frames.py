@@ -72,10 +72,58 @@ def test_preview_falls_back_to_replay(tmp_path, monkeypatch):
     assert out["status"] == "replay"
     assert [f["turn"] for f in out["frames"]] == [1, 3]
     assert out["frames"][0]["url"].startswith("/cu/replay/")
+    assert len(out["sessions"]) == 1
+    assert out["sessions"][0]["groups"][0]["recordings"] == []
     client = TestClient(app)
     got = client.get(out["frames"][0]["url"])
     assert got.status_code == 200
     assert got.content == JPEG_MIN
+
+
+def test_preview_groups_sessions_and_separates_recordings(tmp_path, monkeypatch):
+    frames = tmp_path / "frames"
+    replay = tmp_path / "recordings"
+    a = replay / "20260919-130757"
+    b = replay / "20260919-132503-console"
+    frames.mkdir()
+    a.mkdir(parents=True)
+    b.mkdir(parents=True)
+    (a / "computer_use-bucket-turn-01.jpg").write_bytes(JPEG_MIN)
+    (a / "computer_use-bucket-frame-01.png").write_bytes(JPEG_MIN)
+    (a / "computer_use-bucket.webm").write_bytes(b"RIFF")
+    (a / "playwright-bucket-turn-01.jpg").write_bytes(JPEG_MIN)
+    (b / "computer_use-console-turn-01.jpg").write_bytes(JPEG_MIN)
+    (b / "computer_use-console.webm").write_bytes(b"RIFF")
+    monkeypatch.setenv("CU_FRAME_DIR", str(frames))
+    monkeypatch.setenv("CU_REPLAY_DIR", str(replay))
+    from cu_frames import preview
+
+    out = preview([])
+    assert out["status"] == "replay"
+    ids = [s["id"] for s in out["sessions"]]
+    assert ids == ["20260919-132503-console", "20260919-130757"] or set(ids) == {
+        "20260919-132503-console",
+        "20260919-130757",
+    }
+    by_id = {s["id"]: s for s in out["sessions"]}
+    console = by_id["20260919-132503-console"]
+    assert len(console["groups"]) == 1
+    assert [f["turn"] for f in console["groups"][0]["frames"]] == [1]
+    assert console["groups"][0]["action_frames"] == []
+    assert [r["type"] for r in console["groups"][0]["recordings"]] == ["webm"]
+    assert not any(f["url"].endswith(".webm") for f in console["groups"][0]["frames"])
+
+    mixed = by_id["20260919-130757"]
+    kinds = sorted(g["kind"] for g in mixed["groups"])
+    assert kinds == ["computer_use", "playwright"]
+    cu = next(g for g in mixed["groups"] if g["kind"] == "computer_use")
+    assert [f["turn"] for f in cu["frames"]] == [1]
+    assert [f["turn"] for f in cu["action_frames"]] == [1]
+    assert [r["type"] for r in cu["recordings"]] == ["webm"]
+    client = TestClient(app)
+    rec = cu["recordings"][0]["url"]
+    assert rec.startswith("/cu/replay/20260919-130757/")
+    assert client.get(rec).status_code == 200
 
 
 def test_preview_idle_when_nothing(tmp_path, monkeypatch):
@@ -85,4 +133,10 @@ def test_preview_idle_when_nothing(tmp_path, monkeypatch):
     (tmp_path / "empty-replay").mkdir()
     from cu_frames import preview
 
-    assert preview([]) == {"status": "idle", "grant_id": None, "running": False, "frames": []}
+    assert preview([]) == {
+        "status": "idle",
+        "grant_id": None,
+        "running": False,
+        "frames": [],
+        "sessions": [],
+    }

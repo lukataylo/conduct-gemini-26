@@ -598,6 +598,11 @@ def get_cu_frame(name: str) -> FileResponse:
     return cu_frames.file_response(name)
 
 
+@app.get("/cu/replay/{session_id}/{name}")
+def get_cu_replay_in_session(session_id: str, name: str) -> FileResponse:
+    return cu_frames.replay_response(session_id, name)
+
+
 @app.get("/cu/replay/{name}")
 def get_cu_replay(name: str) -> FileResponse:
     return cu_frames.replay_response(name)
@@ -605,5 +610,5 @@ def get_cu_replay(name: str) -> FileResponse:
 
 @app.get("/cu/preview")
 def cu_preview() -> dict:
-    """Live frames from the audit log, or the newest on-disk recording."""
+    """Live frames plus on-disk recording sessions, grouped and with videos separate."""
     return cu_frames.preview(AUDIT_LOG)

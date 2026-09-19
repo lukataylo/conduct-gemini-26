@@ -17,6 +17,7 @@ import os
 
 DEFAULT_PARSE_MODEL = "google:gemini-3.8-flash"
 DEFAULT_CU_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_LIVE_MODEL = "gemini-2.5-flash-native-audio"
 # 3.8 Flash supports low/medium/high (``minimal`` errors). Lite supports
 # ``minimal``. Official loop uses include_thoughts; we skip thoughts.
 DEFAULT_CU_THINKING = "low"
@@ -37,3 +38,7 @@ def computer_use_thinking() -> str:
     if "lite" in computer_use_model():
         return "minimal"
     return DEFAULT_CU_THINKING
+
+
+def live_model() -> str:
+    return os.environ.get("GEMINI_LIVE_MODEL") or DEFAULT_LIVE_MODEL

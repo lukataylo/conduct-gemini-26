@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en" data-hash-example="#bp/1710001">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAP S/4HANA Cloud · Helios Manufacturing</title>
+  <style>
+    :root {
+      --sap-blue: #0070F2;
+      --sap-blue-deep: #0064D9;
+      --sap-ink: #1D2D3E;
+      --sap-ink-2: #556B82;
+      --sap-line: #E5E5E5;
+      --sap-wash: #F5F6F7;
+      --sap-tile: #fff;
+      --sap-crit: #BB0000;
+      --sap-warn: #E76500;
+      --sap-ok: #256F3A;
+      --sap-shadow: 0 0 0 1px rgba(85, 107, 130, 0.14), 0 2px 8px rgba(29, 45, 62, 0.1);
+      --tile-gap: 2rem;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--sap-wash);
+      color: var(--sap-ink);
+      font: 14px/20px "Segoe UI", "Helvetica Neue", Arial, Helvetica, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    [hidden] { display: none !important; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+    }
+
+    .shell {
+      height: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px 0 8px;
+      background: #fff;
+      border-bottom: 1px solid var(--sap-line);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .home-btn, .icon-btn {
+      width: 36px; height: 36px; border: 0; border-radius: 8px;
+      background: transparent; color: var(--sap-ink-2);
+      display: grid; place-items: center;
+    }
+    .home-btn:hover, .icon-btn:hover { background: var(--sap-wash); }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--sap-ink); white-space: nowrap;
+    }
+    .brand strong { font-size: 16px; font-weight: 700; letter-spacing: 0.01em; }
+    .brand span { color: var(--sap-ink-2); font-size: 13px; }
+    .hex {
+      width: 28px; height: 28px; display: block;
+    }
+    .client {
+      display: flex; align-items: center; gap: 8px;
+      height: 32px; padding: 0 10px;
+      border: 1px solid var(--sap-line); border-radius: 8px; background: #fff;
+    }
+    .client b { font-weight: 700; }
+    .chips { display: flex; gap: 6px; }
+    .chip {
+      height: 24px; padding: 0 8px; border-radius: 12px;
+      background: #E8F3FF; color: var(--sap-blue-deep);
+      font-size: 12px; font-weight: 700; display: inline-flex; align-items: center;
+    }
+    .chip.out {
+      background: #F7F7F7; color: var(--sap-ink-2); text-decoration: line-through;
+    }
+    .search {
+      flex: 1; display: flex; align-items: center; gap: 8px;
+      height: 36px; max-width: 520px; margin: 0 16px;
+      padding: 0 12px; border: 1px solid var(--sap-line); border-radius: 8px; background: var(--sap-wash);
+    }
+    .search input { flex: 1; border: 0; background: transparent; outline: none; color: var(--sap-ink); }
+    .shell-end { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--sap-blue); color: #fff;
+      display: grid; place-items: center; font-weight: 700; font-size: 12px;
+    }
+
+    #auth-strip {
+      min-height: 36px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 16px;
+      background: #E8F3FF;
+      border-bottom: 1px solid #C2E0FF;
+      color: var(--sap-blue-deep);
+      font-size: 13px; font-weight: 700;
+    }
+    #auth-strip::before { content: "Authorization"; font-weight: 700; margin-right: 8px; color: var(--sap-ink); }
+
+    #sap-auth-error {
+      display: none;
+      margin: 16px 16px 0;
+      padding: 12px 14px;
+      border-left: 4px solid var(--sap-crit);
+      background: #FFEBEB;
+      color: var(--sap-crit);
+      font-weight: 700;
+    }
+    #sap-auth-error.visible { display: block; }
+
+    .workspace { padding: 20px 24px 48px; min-height: calc(100% - 84px); }
+    .page-head { margin-bottom: 20px; }
+    .page-head h1 { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+    .page-head p { margin: 0; color: var(--sap-ink-2); }
+    .crumbs { color: var(--sap-blue-deep); font-size: 13px; margin-bottom: 8px; }
+    .crumbs button { border: 0; background: none; color: inherit; padding: 0; }
+
+    .groups { display: flex; flex-direction: column; gap: 28px; }
+    .group h2 { margin: 0 0 12px; font-size: 16px; color: var(--sap-ink-2); font-weight: 700; }
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 11rem);
+      gap: var(--tile-gap);
+    }
+    .tile {
+      width: 11rem; height: 11rem;
+      border: 0; border-radius: 0.75rem;
+      background: var(--sap-tile);
+      box-shadow: var(--sap-shadow);
+      padding: 16px;
+      text-align: left;
+      display: flex; flex-direction: column;
+      color: var(--sap-ink);
+      position: relative;
+    }
+    .tile:hover:not([aria-disabled="true"]) { outline: 2px solid var(--sap-blue); }
+    .tile .icon {
+      width: 32px; height: 32px; color: var(--sap-blue);
+      margin-bottom: 16px;
+    }
+    .tile .title { font-size: 16px; font-weight: 700; line-height: 1.25; }
+    .tile .sub { margin-top: 6px; color: var(--sap-ink-2); font-size: 13px; }
+    .tile .badge {
+      position: absolute; top: 12px; right: 12px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 6px; border-radius: 4px;
+      background: #FDE8D6; color: var(--sap-warn);
+    }
+    .tile.locked {
+      cursor: not-allowed; opacity: 0.72;
+    }
+    .tile.locked .badge { background: #EEE; color: var(--sap-ink-2); }
+    .tile.locked .icon { color: var(--sap-ink-2); }
+
+    .card {
+      background: #fff; border-radius: 0.75rem; box-shadow: var(--sap-shadow); padding: 20px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 6px; color: var(--sap-ink-2); font-size: 13px; }
+    .field input, .field select {
+      height: 36px; padding: 0 10px;
+      border: 1px solid #89919A; border-radius: 4px; background: #fff; color: var(--sap-ink);
+    }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .btn {
+      height: 36px; padding: 0 14px; border-radius: 8px;
+      border: 1px solid var(--sap-line); background: #fff; color: var(--sap-ink);
+    }
+    .btn-emph {
+      height: 36px; padding: 0 16px; border: 0; border-radius: 8px;
+      background: var(--sap-blue); color: #fff; font-weight: 700;
+    }
+    .btn-danger { background: var(--sap-crit); color: #fff; border: 0; }
+
+    .grant-head, #active-grants li {
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr 1fr 0.7fr 0.8fr auto;
+      gap: 8px; align-items: center;
+    }
+    .grant-head {
+      color: var(--sap-ink-2); font-size: 12px; font-weight: 700;
+      padding: 8px 0 4px;
+    }
+    #active-grants {
+      list-style: none; margin: 0; padding: 0;
+    }
+    #active-grants:empty::after {
+      content: "No assigned business roles.";
+      color: var(--sap-ink-2);
+    }
+    #active-grants li {
+      padding: 10px 0; border-top: 1px solid var(--sap-line);
+    }
+
+    table.data { width: 100%; border-collapse: collapse; }
+    table.data th, table.data td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--sap-line); }
+    table.data th { color: var(--sap-ink-2); font-size: 12px; font-weight: 700; }
+    .count { color: var(--sap-ink-2); font-weight: 600; font-size: 13px; margin: 8px 0 0; }
+    .scroll-table { max-height: 420px; overflow: auto; margin-top: 12px; }
+    .redacted .partner-name { letter-spacing: 0.2em; color: var(--sap-ink-2); }
+    .linkish { border: 0; background: none; color: var(--sap-blue-deep); padding: 0; font-weight: 700; }
+
+    .object-header {
+      background: #fff; border-radius: 0.75rem; box-shadow: var(--sap-shadow);
+      padding: 20px 24px; margin-bottom: 16px;
+    }
+    .object-header h1 { margin: 0; font-size: 22px; }
+    .object-header .meta { color: var(--sap-ink-2); margin-top: 6px; }
+    .facets { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .facet { background: #fff; border-radius: 0.75rem; box-shadow: var(--sap-shadow); padding: 16px 20px; }
+    .facet h3 { margin: 0 0 12px; font-size: 14px; color: var(--sap-ink-2); }
+    .kv { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; }
+    .kv dt { color: var(--sap-ink-2); }
+    .kv dd { margin: 0; font-weight: 700; }
+    .wide-facet { grid-column: 1 / -1; }
+    .muted { color: var(--sap-ink-2); font-weight: 400; }
+
+    .dialog-root {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(29, 45, 62, 0.35); z-index: 40;
+    }
+    .dialog {
+      width: min(420px, 92vw); background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(29, 45, 62, 0.2); padding: 20px;
+    }
+    .dialog h2 { margin: 0 0 8px; }
+    .hidden-nav { display: none; }
+  </style>
+</head>
+<body>
+  <header class="shell">
+    <button type="button" class="home-btn" data-nav-home aria-label="Home">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z"/></svg>
+    </button>
+    <div class="brand">
+      <svg class="hex" viewBox="0 0 32 32" aria-hidden="true">
+        <path fill="#0070F2" d="M16 2.2l12 6.9v13.8L16 29.8 4 22.9V9.1L16 2.2z"/>
+        <path fill="#fff" d="M11.4 20.2V11.8h1.7l2.9 5.2V11.8h1.6v8.4h-1.7l-2.9-5.2v5.2h-1.6z"/>
+      </svg>
+      <div>
+        <strong>SAP S/4HANA Cloud</strong>
+        <span> · Helios Manufacturing</span>
+      </div>
+    </div>
+    <div class="client"><b>Helios Manufacturing</b></div>
+    <div class="chips">
+      <span class="chip">1000 London</span>
+      <span class="chip out" title="Unauthorized for this session">2000 Frankfurt</span>
+    </div>
+    <label class="search">
+      <span class="sr-only">Search</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#556B82" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" placeholder="Search">
+    </label>
+    <div class="shell-end">
+      <button type="button" class="icon-btn" aria-label="Notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+      </button>
+      <div class="avatar" title="Alex Chen">AC</div>
+    </div>
+  </header>
+
+  <div id="auth-strip">No business role assigned</div>
+  <div id="sap-auth-error" role="alert">Authorization missing: activity 16 Export. Your grant is display on 1710001 / company 1000.</div>
+
+  <nav class="hidden-nav" aria-hidden="true">
+    <button type="button" data-nav="users">Maintain Business Users</button>
+    <button type="button" data-nav="bp">Customer Master</button>
+    <button type="button" data-nav="billing">Billing Documents</button>
+    <button type="button" data-nav="sales">Sales Orders</button>
+    <button type="button" data-nav="export">Export Customer List</button>
+  </nav>
+
+  <main class="workspace">
+    <section data-view="launchpad">
+      <div class="page-head">
+        <h1>My Home</h1>
+        <p>Helios Manufacturing · company code 1000 London · sales organization 1000</p>
+      </div>
+      <div class="groups">
+        <div class="group">
+          <h2>Sales and Distribution</h2>
+          <div class="tiles">
+            <button type="button" class="tile" data-tile="bp" data-nav="bp">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.2-3 3.6-4.5 7-4.5S17.8 16 19 19"/></svg>
+              <div class="title">Customer Master</div>
+              <div class="sub">32 Business Partners</div>
+            </button>
+            <button type="button" class="tile" data-tile="billing" data-nav="billing">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h10v18H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>
+              <div class="title">Billing Documents</div>
+              <div class="sub">28 customer invoices</div>
+            </button>
+            <button type="button" class="tile" data-tile="sales" data-nav="sales">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16l-1.5 11h-13z"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <div class="title">Sales Orders</div>
+              <div class="sub">24 open / delivered orders</div>
+            </button>
+          </div>
+        </div>
+        <div class="group">
+          <h2>Identity and Access</h2>
+          <div class="tiles">
+            <button type="button" class="tile" data-tile="users" data-nav="users">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="2.6"/><circle cx="16" cy="9" r="2.2"/><path d="M4 19c.8-3 2.8-4.4 5-4.4s4.2 1.4 5 4.4"/><path d="M14 19c.4-2 1.6-3 3.2-3 1.4 0 2.6.8 3.2 3"/></svg>
+              <div class="title">Maintain Business Users</div>
+              <div class="sub">Assign scoped roles</div>
+            </button>
+          </div>
+        </div>
+        <div class="group">
+          <h2>Restricted</h2>
+          <div class="tiles">
+            <button type="button" class="tile" data-tile="export" data-nav="export">
+              <span class="badge">RESTRICTED</span>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 18h14"/></svg>
+              <div class="title">Export Customer List</div>
+              <div class="sub">Activity 16 · directory dump</div>
+            </button>
+            <div class="tile locked" data-tile="payroll" aria-disabled="true">
+              <span class="badge">LOCKED</span>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="6" y="11" width="12" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <div class="title">Employee Payroll</div>
+              <div class="sub">HR · not in this grant</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section data-view="users" hidden>
+      <div class="crumbs"><button type="button" data-nav-home>My Home</button> / Maintain Business Users</div>
+      <div class="page-head">
+        <h1>Maintain Business Users</h1>
+        <p>Assign a stacked role: company 1000, one customer, display activity 03.</p>
+      </div>
+      <div class="card">
+        <form id="role-form" autocomplete="off">
+          <div class="grid-2">
+            <label class="field">Principal
+              <input id="principal" name="principal" aria-label="Principal" required placeholder="u-newhire-1">
+            </label>
+            <label class="field">Role
+              <select id="role" name="role" aria-label="Role">
+                <option value="SAP_SD_CUST_DISPLAY">SAP_SD_CUST_DISPLAY</option>
+                <option value="SAP_SD_BILL_DISPLAY">SAP_SD_BILL_DISPLAY</option>
+                <option value="SAP_SD_SO_DISPLAY">SAP_SD_SO_DISPLAY</option>
+              </select>
+            </label>
+            <label class="field">Company code
+              <input id="company-code" name="company-code" value="1000" required>
+            </label>
+            <label class="field">Customer restriction
+              <input id="customer-id" name="customer-id" value="1710001" required>
+            </label>
+            <label class="field">Valid to
+              <input id="valid-to" name="valid-to" type="date" required>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn-emph" aria-label="Save role">Save role</button>
+          </div>
+        </form>
+        <h3>Assigned business roles</h3>
+        <div class="grant-head" aria-hidden="true">
+          <span>Principal</span><span>Role</span><span>Company / customer</span><span>Act</span><span>Valid to</span><span></span>
+        </div>
+        <ul id="active-grants"></ul>
+      </div>
+    </section>
+
+    <section data-view="bp" hidden>
+      <div class="crumbs"><button type="button" data-nav-home>My Home</button> / Manage Customer Master</div>
+      <div class="page-head">
+        <h1>Manage Customer Master</h1>
+        <p>Business Partner search · company code 1000</p>
+      </div>
+      <div class="card" id="bp-list-card">
+        <label class="field">Search by BP number or name
+          <input id="bp-search" type="search" placeholder="1710001 or Northwind">
+        </label>
+        <p class="count" id="bp-count">32 Business Partners in KNA1 / BUT000</p>
+        <div class="scroll-table">
+        <table class="data" id="bp-table">
+          <thead><tr><th>Business Partner</th><th>Name</th><th>CoCode</th><th>City</th><th>Account group</th><th>Credit limit</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+      </div>
+      <article id="bp-object" data-bp="1710001" hidden>
+        <div class="object-header">
+          <p class="crumbs">Business Partner 1710001</p>
+          <h1>Northwind Trading</h1>
+          <div class="meta">Customer · company 1000 London · sales area 1000 / 10 / 00</div>
+        </div>
+        <div class="facets">
+          <div class="facet">
+            <h3>Address</h3>
+            <dl class="kv">
+              <dt>Street</dt><dd>14 Thames Wharf</dd>
+              <dt>City</dt><dd>London</dd>
+              <dt>Postal code</dt><dd>E14 9GE</dd>
+              <dt>Country</dt><dd>GB</dd>
+            </dl>
+          </div>
+          <div class="facet">
+            <h3>Company code</h3>
+            <dl class="kv">
+              <dt>Company</dt><dd>1000 London</dd>
+              <dt>Recon. account</dt><dd>140000</dd>
+              <dt>Payment terms</dt><dd>NT30</dd>
+              <dt>Currency</dt><dd>GBP</dd>
+            </dl>
+          </div>
+          <div class="facet">
+            <h3>Sales area</h3>
+            <dl class="kv">
+              <dt>Sales org</dt><dd>1000</dd>
+              <dt>Dist. channel</dt><dd>10</dd>
+              <dt>Division</dt><dd>00</dd>
+              <dt>Incoterms</dt><dd>CIP London</dd>
+            </dl>
+          </div>
+          <div class="facet">
+            <h3>Payment terms</h3>
+            <dl class="kv">
+              <dt>Terms</dt><dd>NT30 Net 30 days</dd>
+              <dt>Credit group</dt><dd>STD</dd>
+              <dt>Credit limit</dt><dd>£50,000.00</dd>
+              <dt>Ticket</dt><dd>INC-8841</dd>
+            </dl>
+          </div>
+          <div class="facet">
+            <h3>Identification</h3>
+            <dl class="kv">
+              <dt>VAT</dt><dd>GB 239 1844 01</dd>
+              <dt>Industry</dt><dd>3320 Industrial machinery</dd>
+              <dt>Account group</dt><dd>CUST Sold-to</dd>
+              <dt>Created / changed</dt><dd>12.03.2019 / 18.09.2026</dd>
+            </dl>
+          </div>
+          <div class="facet">
+            <h3>Contacts</h3>
+            <table class="data">
+              <thead><tr><th>Name</th><th>Function</th><th>E-mail</th></tr></thead>
+              <tbody>
+                <tr><td>Priya Nair</td><td>Purchasing</td><td>priya.nair@northwind.example</td></tr>
+                <tr><td>Tom Ellison</td><td>AP clerk</td><td>ap@northwind.example</td></tr>
+                <tr><td>Helen Crowe</td><td>Site manager</td><td>h.crowe@northwind.example</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="facet wide-facet">
+            <h3>Open documents for this customer</h3>
+            <table class="data">
+              <thead><tr><th>Document</th><th>Type</th><th>Date</th><th>Net</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>90001234</td><td>F2 Invoice</td><td>04.09.2026</td><td>£12,480.00</td><td>Posted</td></tr>
+                <tr><td>90001235</td><td>F2 Invoice</td><td>11.09.2026</td><td>£3,960.00</td><td>Posted</td></tr>
+                <tr><td>4500008123</td><td>OR Order</td><td>02.09.2026</td><td>£12,480.00</td><td>Delivered</td></tr>
+                <tr><td>4500008201</td><td>OR Order</td><td>16.09.2026</td><td>£6,140.00</td><td>Open</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section data-view="billing" hidden>
+      <div class="crumbs"><button type="button" data-nav-home>My Home</button> / Manage Billing Documents</div>
+      <div class="page-head">
+        <h1>Manage Billing Documents</h1>
+        <p>Invoices scoped to the granted customer</p>
+      </div>
+      <div class="card">
+        <p class="count" id="bill-count">28 billing documents</p>
+        <div class="scroll-table">
+        <table class="data" id="bill-table">
+          <thead><tr><th>Billing document</th><th>Type</th><th>Customer</th><th>Date</th><th>Amount</th><th>Currency</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+      </div>
+      <article id="billing-object" hidden>
+        <div class="object-header">
+          <h1 id="billing-title">Billing document 90001234</h1>
+          <div class="meta" id="billing-meta">Northwind Trading 1710001 · company 1000 · GBP</div>
+        </div>
+        <div class="card">
+          <table class="data">
+            <thead><tr><th>Item</th><th>Material</th><th>Description</th><th>Qty</th><th>Net</th></tr></thead>
+            <tbody id="billing-lines">
+              <tr><td>10</td><td>HL-GEAR-200</td><td>Helical gearbox 200mm</td><td>40</td><td>£8,200.00</td></tr>
+              <tr><td>20</td><td>HL-SEAL-014</td><td>Shaft seal kit</td><td>120</td><td>£4,280.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section data-view="sales" hidden>
+      <div class="crumbs"><button type="button" data-nav-home>My Home</button> / Manage Sales Orders</div>
+      <div class="page-head">
+        <h1>Manage Sales Orders</h1>
+        <p>Orders scoped to the granted customer</p>
+      </div>
+      <div class="card">
+        <p class="count" id="so-count">24 sales orders</p>
+        <div class="scroll-table">
+        <table class="data" id="so-table">
+          <thead><tr><th>Sales order</th><th>Type</th><th>Customer</th><th>Req. deliv.</th><th>Net value</th><th>Currency</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+      </div>
+      <article id="sales-object" hidden>
+        <div class="object-header">
+          <h1 id="sales-title">Sales order 4500008123</h1>
+          <div class="meta" id="sales-meta">Northwind Trading 1710001 · sales org 1000</div>
+        </div>
+        <div class="card">
+          <table class="data">
+            <thead><tr><th>Item</th><th>Material</th><th>Description</th><th>Plant</th><th>Qty</th><th>Net</th></tr></thead>
+            <tbody id="sales-lines">
+              <tr><td>10</td><td>HL-GEAR-200</td><td>Helical gearbox 200mm</td><td>1000</td><td>40</td><td>£8,200.00</td></tr>
+              <tr><td>20</td><td>HL-SEAL-014</td><td>Shaft seal kit</td><td>1000</td><td>120</td><td>£4,280.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section data-view="export" hidden>
+      <div class="crumbs"><button type="button" data-nav-home>My Home</button> / Export Customer List</div>
+      <div class="page-head">
+        <h1>Export Customer List</h1>
+        <p>Activity 16 Export is not grantable in this client.</p>
+      </div>
+      <div class="card">
+        <p>A customer-directory dump would include every Business Partner in company 1000. This action stays blocked.</p>
+        <button type="button" class="btn" id="export-run">Export</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="dialog-root" id="revoke-dialog" hidden>
+    <div class="dialog" id="revoke-form">
+      <h2>Remove role</h2>
+      <p>This principal will lose the scoped business role.</p>
+      <div class="actions">
+        <button type="button" class="btn" data-close-revoke>Cancel</button>
+        <button type="button" class="btn btn-danger" aria-label="Confirm revoke">Confirm revoke</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ALLOWED_HASH = ["#launchpad", "#users", "#bp", "#bp/1710001", "#billing", "#sales", "#export"];
+    const ROLE_RESOURCE = {
+      SAP_SD_CUST_DISPLAY: "sap-bp-display",
+      SAP_SD_BILL_DISPLAY: "sap-billing-display",
+      SAP_SD_SO_DISPLAY: "sap-sales-order-display",
+    };
+    const GRANTED_CUSTOMER = "1710001";
+    const SEED = {
+      partners: [
+        { id: "1710001", name: "Northwind Trading", city: "London", group: "CUST", credit: "£50,000.00" },
+        { id: "1710002", name: "Contoso Retail", city: "Manchester", group: "CUST", credit: "£35,000.00" },
+        { id: "1710003", name: "Thames Precision Ltd", city: "Greenwich", group: "CUST", credit: "£22,000.00" },
+        { id: "1710004", name: "Meridian Alloys", city: "Sheffield", group: "CUST", credit: "£48,000.00" },
+        { id: "1710005", name: "Oakridge Components", city: "Coventry", group: "CUST", credit: "£18,500.00" },
+        { id: "1710006", name: "Sterling Hydraulics", city: "Leeds", group: "CUST", credit: "£61,000.00" },
+        { id: "1710007", name: "Calder Mill Supplies", city: "Halifax", group: "CUST", credit: "£14,000.00" },
+        { id: "1710008", name: "Peak District Metals", city: "Buxton", group: "CUST", credit: "£27,500.00" },
+        { id: "1710009", name: "Harbour Line Logistics", city: "Felixstowe", group: "EXP", credit: "£90,000.00" },
+        { id: "1710010", name: "Riverside Castings", city: "Derby", group: "CUST", credit: "£33,000.00" },
+        { id: "1710011", name: "Northern Gear Works", city: "Newcastle", group: "CUST", credit: "£41,000.00" },
+        { id: "1710012", name: "Southwark Fasteners", city: "London", group: "CUST", credit: "£12,000.00" },
+        { id: "1710013", name: "Bristol Valve Co", city: "Bristol", group: "CUST", credit: "£29,000.00" },
+        { id: "1710014", name: "Coventry Springs Ltd", city: "Coventry", group: "CUST", credit: "£16,400.00" },
+        { id: "1710015", name: "Sheffield Tooling", city: "Sheffield", group: "CUST", credit: "£24,800.00" },
+        { id: "1710030", name: "Müller Industriebedarf", city: "Düsseldorf", group: "CUST", credit: "€55,000.00" },
+        { id: "1710031", name: "Bayerische Antriebstechnik", city: "Munich", group: "CUST", credit: "€72,000.00" },
+        { id: "1710032", name: "Rheinland Dichtungen", city: "Cologne", group: "CUST", credit: "€38,000.00" },
+        { id: "1710033", name: "Hamburg Hafenhandel", city: "Hamburg", group: "EXP", credit: "€110,000.00" },
+        { id: "1710034", name: "Stuttgart Präzision", city: "Stuttgart", group: "CUST", credit: "€64,000.00" },
+        { id: "1710044", name: "Litware GmbH", city: "Frankfurt", group: "CUST", credit: "€80,000.00" },
+        { id: "1710055", name: "Helvetia Components", city: "Zurich", group: "CUST", credit: "CHF 45,000.00" },
+        { id: "1710060", name: "Loire Industriel", city: "Lyon", group: "CUST", credit: "€36,000.00" },
+        { id: "1710071", name: "Nordic Bearings AB", city: "Gothenburg", group: "CUST", credit: "SEK 420,000.00" },
+        { id: "1710088", name: "Iberia Forgings", city: "Bilbao", group: "CUST", credit: "€52,000.00" },
+        { id: "1710092", name: "Dublin Process Control", city: "Dublin", group: "CUST", credit: "€28,000.00" },
+        { id: "1710108", name: "Adventure Works", city: "Birmingham", group: "CUST", credit: "£42,000.00" },
+        { id: "1710115", name: "Warsaw Machine Parts", city: "Warsaw", group: "CUST", credit: "PLN 180,000.00" },
+        { id: "1710122", name: "Milan Sealing Systems", city: "Milan", group: "CUST", credit: "€31,000.00" },
+        { id: "1710130", name: "Prague Drive Units", city: "Prague", group: "CUST", credit: "CZK 850,000.00" },
+        { id: "1710144", name: "Amsterdam Port Supplies", city: "Amsterdam", group: "EXP", credit: "€95,000.00" },
+        { id: "1710200", name: "Fabrikam Exports", city: "Southampton", group: "EXP", credit: "£120,000.00" },
+      ],
+      bills: [
+        { id: "90001234", type: "F2", customer: "1710001", date: "04.09.2026", amount: "£12,480.00", currency: "GBP", status: "Posted", lines: [
+          ["10", "HL-GEAR-200", "Helical gearbox 200mm", "40", "£8,200.00"],
+          ["20", "HL-SEAL-014", "Shaft seal kit", "120", "£4,280.00"],
+        ]},
+        { id: "90001235", type: "F2", customer: "1710001", date: "11.09.2026", amount: "£3,960.00", currency: "GBP", status: "Posted", lines: [
+          ["10", "HL-OIL-050", "Gear oil ISO VG 220", "80", "£2,160.00"],
+          ["20", "HL-FLT-009", "Suction filter", "40", "£1,800.00"],
+        ]},
+        { id: "90001240", type: "F2", customer: "1710001", date: "18.08.2026", amount: "£7,215.00", currency: "GBP", status: "Posted", lines: [
+          ["10", "HL-COUP-110", "Flexible coupling", "25", "£7,215.00"],
+        ]},
+        { id: "90001255", type: "G2", customer: "1710001", date: "22.08.2026", amount: "£410.00-", currency: "GBP", status: "Posted", lines: [
+          ["10", "HL-SEAL-014", "Credit: damaged seal kit", "10", "£410.00-"],
+        ]},
+        { id: "90001288", type: "F2", customer: "1710001", date: "01.07.2026", amount: "£18,640.00", currency: "GBP", status: "Cleared", lines: [
+          ["10", "HL-GEAR-350", "Helical gearbox 350mm", "12", "£14,400.00"],
+          ["20", "HL-MNT-003", "Mounting kit", "12", "£4,240.00"],
+        ]},
+        { id: "90001301", type: "F2", customer: "1710001", date: "14.06.2026", amount: "£2,175.00", currency: "GBP", status: "Cleared", lines: [
+          ["10", "HL-BRG-6205", "Deep-groove bearing", "150", "£2,175.00"],
+        ]},
+        { id: "90001322", type: "F2", customer: "1710001", date: "29.05.2026", amount: "£9,880.00", currency: "GBP", status: "Cleared", lines: [
+          ["10", "HL-MOTOR-4K", "4kW IE3 motor", "8", "£9,880.00"],
+        ]},
+        { id: "90001340", type: "F2", customer: "1710001", date: "09.09.2026", amount: "£1,248.00", currency: "GBP", status: "Posted", lines: [
+          ["10", "HL-GASK-022", "Flange gasket set", "60", "£1,248.00"],
+        ]},
+        { id: "90001991", type: "F2", customer: "1710002", date: "03.09.2026", amount: "£8,110.00", currency: "GBP", status: "Posted" },
+        { id: "90001992", type: "F2", customer: "1710002", date: "12.09.2026", amount: "£1,905.00", currency: "GBP", status: "Posted" },
+        { id: "90002001", type: "F2", customer: "1710003", date: "07.09.2026", amount: "£4,420.00", currency: "GBP", status: "Posted" },
+        { id: "90002010", type: "F2", customer: "1710044", date: "05.09.2026", amount: "€21,300.00", currency: "EUR", status: "Posted" },
+        { id: "90002011", type: "F2", customer: "1710044", date: "15.08.2026", amount: "€6,780.00", currency: "EUR", status: "Cleared" },
+        { id: "90002018", type: "F2", customer: "1710004", date: "19.08.2026", amount: "£11,050.00", currency: "GBP", status: "Posted" },
+        { id: "90002022", type: "F2", customer: "1710005", date: "21.08.2026", amount: "£2,640.00", currency: "GBP", status: "Posted" },
+        { id: "90002030", type: "F2", customer: "1710030", date: "02.09.2026", amount: "€9,440.00", currency: "EUR", status: "Posted" },
+        { id: "90002041", type: "F2", customer: "1710006", date: "28.08.2026", amount: "£15,900.00", currency: "GBP", status: "Posted" },
+        { id: "90002055", type: "F2", customer: "1710055", date: "30.08.2026", amount: "CHF 7,220.00", currency: "CHF", status: "Posted" },
+        { id: "90002071", type: "F2", customer: "1710071", date: "01.09.2026", amount: "SEK 186,000.00", currency: "SEK", status: "Posted" },
+        { id: "90002088", type: "F2", customer: "1710088", date: "06.09.2026", amount: "€13,275.00", currency: "EUR", status: "Posted" },
+        { id: "90002108", type: "F2", customer: "1710108", date: "08.09.2026", amount: "£5,560.00", currency: "GBP", status: "Posted" },
+        { id: "90002115", type: "F2", customer: "1710115", date: "09.09.2026", amount: "PLN 42,800.00", currency: "PLN", status: "Posted" },
+        { id: "90002122", type: "F2", customer: "1710122", date: "10.09.2026", amount: "€3,180.00", currency: "EUR", status: "Posted" },
+        { id: "90002200", type: "F2", customer: "1710200", date: "11.09.2026", amount: "£27,400.00", currency: "GBP", status: "Posted" },
+        { id: "90002210", type: "F2", customer: "1710009", date: "12.09.2026", amount: "£19,750.00", currency: "GBP", status: "Posted" },
+        { id: "90002230", type: "F2", customer: "1710013", date: "13.09.2026", amount: "£6,020.00", currency: "GBP", status: "Posted" },
+        { id: "90002244", type: "F2", customer: "1710144", date: "14.09.2026", amount: "€8,960.00", currency: "EUR", status: "Posted" },
+        { id: "90002260", type: "F2", customer: "1710060", date: "16.09.2026", amount: "€4,875.00", currency: "EUR", status: "Posted" },
+      ],
+      orders: [
+        { id: "4500008123", type: "OR", customer: "1710001", deliv: "08.09.2026", amount: "£12,480.00", currency: "GBP", status: "Delivered", lines: [
+          ["10", "HL-GEAR-200", "Helical gearbox 200mm", "1000", "40", "£8,200.00"],
+          ["20", "HL-SEAL-014", "Shaft seal kit", "1000", "120", "£4,280.00"],
+        ]},
+        { id: "4500008124", type: "OR", customer: "1710001", deliv: "18.09.2026", amount: "£3,960.00", currency: "GBP", status: "Delivered", lines: [
+          ["10", "HL-OIL-050", "Gear oil ISO VG 220", "1000", "80", "£2,160.00"],
+          ["20", "HL-FLT-009", "Suction filter", "1000", "40", "£1,800.00"],
+        ]},
+        { id: "4500008130", type: "OR", customer: "1710001", deliv: "29.08.2026", amount: "£7,215.00", currency: "GBP", status: "Delivered", lines: [
+          ["10", "HL-COUP-110", "Flexible coupling", "1000", "25", "£7,215.00"],
+        ]},
+        { id: "4500008144", type: "OR", customer: "1710001", deliv: "04.07.2026", amount: "£18,640.00", currency: "GBP", status: "Completed", lines: [
+          ["10", "HL-GEAR-350", "Helical gearbox 350mm", "1000", "12", "£14,400.00"],
+          ["20", "HL-MNT-003", "Mounting kit", "1000", "12", "£4,240.00"],
+        ]},
+        { id: "4500008201", type: "OR", customer: "1710001", deliv: "24.09.2026", amount: "£6,140.00", currency: "GBP", status: "Open", lines: [
+          ["10", "HL-MOTOR-2K", "2.2kW IE3 motor", "1000", "6", "£5,400.00"],
+          ["20", "HL-GASK-022", "Flange gasket set", "1000", "20", "£740.00"],
+        ]},
+        { id: "4500008218", type: "OR", customer: "1710001", deliv: "30.09.2026", amount: "£2,880.00", currency: "GBP", status: "Open", lines: [
+          ["10", "HL-BRG-6205", "Deep-groove bearing", "1000", "200", "£2,880.00"],
+        ]},
+        { id: "4500009001", type: "OR", customer: "1710002", deliv: "20.09.2026", amount: "£8,110.00", currency: "GBP", status: "Open" },
+        { id: "4500009010", type: "OR", customer: "1710044", deliv: "22.09.2026", amount: "€21,300.00", currency: "EUR", status: "Open" },
+        { id: "4500009022", type: "OR", customer: "1710003", deliv: "19.09.2026", amount: "£4,420.00", currency: "GBP", status: "Open" },
+        { id: "4500009034", type: "OR", customer: "1710004", deliv: "25.09.2026", amount: "£11,050.00", currency: "GBP", status: "Open" },
+        { id: "4500009044", type: "OR", customer: "1710005", deliv: "21.09.2026", amount: "£2,640.00", currency: "GBP", status: "Open" },
+        { id: "4500009055", type: "OR", customer: "1710006", deliv: "28.09.2026", amount: "£15,900.00", currency: "GBP", status: "Open" },
+        { id: "4500009108", type: "OR", customer: "1710108", deliv: "23.09.2026", amount: "£5,560.00", currency: "GBP", status: "Open" },
+        { id: "4500009120", type: "OR", customer: "1710200", deliv: "02.10.2026", amount: "£27,400.00", currency: "GBP", status: "Open" },
+        { id: "4500009130", type: "OR", customer: "1710030", deliv: "26.09.2026", amount: "€9,440.00", currency: "EUR", status: "Open" },
+        { id: "4500009144", type: "OR", customer: "1710055", deliv: "27.09.2026", amount: "CHF 7,220.00", currency: "CHF", status: "Open" },
+        { id: "4500009155", type: "OR", customer: "1710071", deliv: "29.09.2026", amount: "SEK 186,000.00", currency: "SEK", status: "Open" },
+        { id: "4500009166", type: "OR", customer: "1710088", deliv: "01.10.2026", amount: "€13,275.00", currency: "EUR", status: "Open" },
+        { id: "4500009177", type: "OR", customer: "1710115", deliv: "03.10.2026", amount: "PLN 42,800.00", currency: "PLN", status: "Open" },
+        { id: "4500009188", type: "OR", customer: "1710122", deliv: "04.10.2026", amount: "€3,180.00", currency: "EUR", status: "Open" },
+        { id: "4500009199", type: "OR", customer: "1710144", deliv: "05.10.2026", amount: "€8,960.00", currency: "EUR", status: "Open" },
+        { id: "4500009210", type: "OR", customer: "1710060", deliv: "06.10.2026", amount: "€4,875.00", currency: "EUR", status: "Open" },
+        { id: "4500009222", type: "OR", customer: "1710013", deliv: "07.10.2026", amount: "£6,020.00", currency: "GBP", status: "Open" },
+        { id: "4500009233", type: "OR", customer: "1710009", deliv: "08.10.2026", amount: "£19,750.00", currency: "GBP", status: "Open" },
+      ],
+    };
+    const PARTNERS = SEED.partners.reduce(function (map, partner) {
+      map[partner.id] = partner.name;
+      return map;
+    }, {});
+    const EXPORT_MSG = "Authorization missing: activity 16 Export. Your grant is display on 1710001 / company 1000.";
+    const BP_MSG = "Authorization missing: B_BUPA_GRP / company 1000. Display is limited to the granted Business Partner.";
+
+    const form = document.getElementById("role-form");
+    const principalInput = document.getElementById("principal");
+    const roleInput = document.getElementById("role");
+    const companyInput = document.getElementById("company-code");
+    const customerInput = document.getElementById("customer-id");
+    const validToInput = document.getElementById("valid-to");
+    const activeGrants = document.getElementById("active-grants");
+    const authStrip = document.getElementById("auth-strip");
+    const authError = document.getElementById("sap-auth-error");
+    const revokeDialog = document.getElementById("revoke-dialog");
+    let pendingRevoke = null;
+    let currentView = "launchpad";
+    let currentId = "";
+
+    function sapBackend() {
+      const params = new URLSearchParams(location.search);
+      return params.get("backend") || window.SAP_BACKEND || "";
+    }
+
+    function expiresLabel(value) {
+      return value ? String(value).slice(0, 10) : "";
+    }
+
+    function granted(resourceId) {
+      return Boolean(document.querySelector('#active-grants li[data-resource="' + resourceId + '"]'));
+    }
+
+    function hideAuthError() {
+      authError.classList.remove("visible");
+    }
+
+    function showAuthError(message) {
+      authError.textContent = message;
+      authError.classList.add("visible");
+    }
+
+    function refreshAuthStrip() {
+      const first = activeGrants.querySelector("li[data-resource]");
+      if (!first) {
+        authStrip.textContent = "No business role assigned";
+        return;
+      }
+      const role = first.getAttribute("data-role") || "";
+      const company = first.getAttribute("data-company") || "1000";
+      const customer = first.getAttribute("data-customer") || "";
+      const until = first.getAttribute("data-valid-to") || "";
+      authStrip.textContent = role + " · company " + company + " · customer " + customer + " · valid to " + until;
+    }
+
+    function partnerName(id) {
+      return PARTNERS[id] || id;
+    }
+
+    function findBill(id) {
+      return SEED.bills.find(function (row) { return row.id === id; });
+    }
+
+    function findOrder(id) {
+      return SEED.orders.find(function (row) { return row.id === id; });
+    }
+
+    function canSeeCustomer(id, resourceId) {
+      return id === GRANTED_CUSTOMER && granted(resourceId);
+    }
+
+    function renderCatalog() {
+      const bpBody = document.querySelector("#bp-table tbody");
+      const billBody = document.querySelector("#bill-table tbody");
+      const soBody = document.querySelector("#so-table tbody");
+      if (bpBody) {
+        bpBody.innerHTML = SEED.partners.map(function (partner) {
+          return (
+            '<tr class="redacted" data-partner="' + partner.id + '" data-open-bp="' + partner.id + '">' +
+              '<td><button type="button" class="linkish" data-open-bp="' + partner.id + '">' + partner.id + "</button></td>" +
+              '<td class="partner-name">••••</td>' +
+              "<td>1000</td>" +
+              '<td class="partner-city">Restricted</td>' +
+              '<td class="partner-group">••••</td>' +
+              '<td class="partner-credit">••••</td>' +
+              '<td class="partner-status">Restricted</td>' +
+            "</tr>"
+          );
+        }).join("");
+      }
+      if (billBody) {
+        billBody.innerHTML = SEED.bills.map(function (bill) {
+          return (
+            '<tr class="redacted" data-doc="' + bill.id + '" data-customer="' + bill.customer + '" data-open-billing="' + bill.id + '">' +
+              '<td><button type="button" class="linkish" data-open-billing="' + bill.id + '">' + bill.id + "</button></td>" +
+              "<td>" + bill.type + "</td>" +
+              '<td class="bill-cust">••••</td>' +
+              "<td>" + bill.date + "</td>" +
+              '<td class="bill-amount">••••</td>' +
+              "<td>" + bill.currency + "</td>" +
+              '<td class="bill-status">Restricted</td>' +
+            "</tr>"
+          );
+        }).join("");
+      }
+      if (soBody) {
+        soBody.innerHTML = SEED.orders.map(function (order) {
+          return (
+            '<tr class="redacted" data-doc="' + order.id + '" data-customer="' + order.customer + '" data-open-sales="' + order.id + '">' +
+              '<td><button type="button" class="linkish" data-open-sales="' + order.id + '">' + order.id + "</button></td>" +
+              "<td>" + order.type + "</td>" +
+              '<td class="so-cust">••••</td>' +
+              "<td>" + order.deliv + "</td>" +
+              '<td class="so-amount">••••</td>' +
+              "<td>" + order.currency + "</td>" +
+              '<td class="so-status">Restricted</td>' +
+            "</tr>"
+          );
+        }).join("");
+      }
+      const bpCount = document.getElementById("bp-count");
+      const billCount = document.getElementById("bill-count");
+      const soCount = document.getElementById("so-count");
+      if (bpCount) bpCount.textContent = SEED.partners.length + " Business Partners in KNA1 / BUT000";
+      if (billCount) billCount.textContent = SEED.bills.length + " billing documents";
+      if (soCount) soCount.textContent = SEED.orders.length + " sales orders";
+    }
+
+    function fillLineTable(tbodyId, rows, withPlant) {
+      const body = document.getElementById(tbodyId);
+      if (!body) return;
+      body.innerHTML = (rows || []).map(function (line) {
+        if (withPlant) {
+          return "<tr><td>" + line[0] + "</td><td>" + line[1] + "</td><td>" + line[2] + "</td><td>" + line[3] + "</td><td>" + line[4] + "</td><td>" + line[5] + "</td></tr>";
+        }
+        return "<tr><td>" + line[0] + "</td><td>" + line[1] + "</td><td>" + line[2] + "</td><td>" + line[3] + "</td><td>" + line[4] + "</td></tr>";
+      }).join("");
+    }
+
+    function openBillingDoc(id) {
+      const bill = findBill(id);
+      const billingObject = document.getElementById("billing-object");
+      if (!bill || !canSeeCustomer(bill.customer, "sap-billing-display")) {
+        if (billingObject) billingObject.hidden = true;
+        showAuthError(BP_MSG);
+        return;
+      }
+      hideAuthError();
+      document.getElementById("billing-title").textContent = "Billing document " + bill.id;
+      document.getElementById("billing-meta").textContent =
+        partnerName(bill.customer) + " " + bill.customer + " · company 1000 · " + bill.currency;
+      fillLineTable("billing-lines", bill.lines || [
+        ["10", "••••", "Restricted item", "•", "••••"],
+      ], false);
+      if (billingObject) billingObject.hidden = false;
+    }
+
+    function openSalesDoc(id) {
+      const order = findOrder(id);
+      const salesObject = document.getElementById("sales-object");
+      if (!order || !canSeeCustomer(order.customer, "sap-sales-order-display")) {
+        if (salesObject) salesObject.hidden = true;
+        showAuthError(BP_MSG);
+        return;
+      }
+      hideAuthError();
+      document.getElementById("sales-title").textContent = "Sales order " + order.id;
+      document.getElementById("sales-meta").textContent =
+        partnerName(order.customer) + " " + order.customer + " · sales org 1000";
+      fillLineTable("sales-lines", order.lines || [
+        ["10", "••••", "Restricted item", "1000", "•", "••••"],
+      ], true);
+      if (salesObject) salesObject.hidden = false;
+    }
+
+    function refreshRedaction() {
+      const bpOk = granted("sap-bp-display");
+      const billOk = granted("sap-billing-display");
+      const soOk = granted("sap-sales-order-display");
+      document.querySelectorAll("#bp-table tbody tr").forEach(function (row) {
+        const id = row.getAttribute("data-partner");
+        const partner = SEED.partners.find(function (item) { return item.id === id; });
+        const open = bpOk && id === GRANTED_CUSTOMER;
+        row.classList.toggle("redacted", !open);
+        const name = row.querySelector(".partner-name");
+        const city = row.querySelector(".partner-city");
+        const group = row.querySelector(".partner-group");
+        const credit = row.querySelector(".partner-credit");
+        const status = row.querySelector(".partner-status");
+        if (name) name.textContent = open && partner ? partner.name : "••••";
+        if (city) city.textContent = open && partner ? partner.city : "Restricted";
+        if (group) group.textContent = open && partner ? partner.group : "••••";
+        if (credit) credit.textContent = open && partner ? partner.credit : "••••";
+        if (status) status.textContent = open ? "Authorized" : "Restricted";
+      });
+      document.querySelectorAll("#bill-table tbody tr").forEach(function (row) {
+        const customer = row.getAttribute("data-customer");
+        const bill = findBill(row.getAttribute("data-doc"));
+        const open = billOk && customer === GRANTED_CUSTOMER;
+        row.classList.toggle("redacted", !open);
+        const cust = row.querySelector(".bill-cust");
+        const amount = row.querySelector(".bill-amount");
+        const status = row.querySelector(".bill-status");
+        if (cust) cust.textContent = open ? partnerName(customer) + " " + customer : "••••";
+        if (amount) amount.textContent = open && bill ? bill.amount : "••••";
+        if (status) status.textContent = open && bill ? bill.status : "Restricted";
+      });
+      document.querySelectorAll("#so-table tbody tr").forEach(function (row) {
+        const customer = row.getAttribute("data-customer");
+        const order = findOrder(row.getAttribute("data-doc"));
+        const open = soOk && customer === GRANTED_CUSTOMER;
+        row.classList.toggle("redacted", !open);
+        const cust = row.querySelector(".so-cust");
+        const amount = row.querySelector(".so-amount");
+        const status = row.querySelector(".so-status");
+        if (cust) cust.textContent = open ? partnerName(customer) + " " + customer : "••••";
+        if (amount) amount.textContent = open && order ? order.amount : "••••";
+        if (status) status.textContent = open && order ? order.status : "Restricted";
+      });
+    }
+
+    function hashFor(view, id) {
+      if (view === "bp" && id === "1710001") return "#bp/1710001";
+      if (view === "launchpad") return "#launchpad";
+      if (view === "users") return "#users";
+      if (view === "bp") return "#bp";
+      if (view === "billing") return "#billing";
+      if (view === "sales") return "#sales";
+      if (view === "export") return "#export";
+      return "#launchpad";
+    }
+
+    function syncHash(view, id) {
+      const next = hashFor(view, id);
+      if (ALLOWED_HASH.indexOf(next) === -1 && next.indexOf("#bp/") !== 0) return;
+      if (location.hash !== next) history.replaceState(null, "", next);
+    }
+
+    function setView(view, id) {
+      currentView = view;
+      currentId = id || "";
+      document.querySelectorAll("[data-view]").forEach(function (el) {
+        el.hidden = el.dataset.view !== view;
+      });
+      hideAuthError();
+      const bpObject = document.getElementById("bp-object");
+      const bpList = document.getElementById("bp-list-card");
+      const billingObject = document.getElementById("billing-object");
+      const salesObject = document.getElementById("sales-object");
+      if (bpObject) bpObject.hidden = true;
+      if (billingObject) billingObject.hidden = true;
+      if (salesObject) salesObject.hidden = true;
+      if (bpList) bpList.hidden = false;
+
+      if (view === "export") {
+        showAuthError(EXPORT_MSG);
+      }
+      if (view === "bp" && id) {
+        openPartner(id);
+      }
+      if (view === "billing" && id) {
+        openBillingDoc(id);
+      }
+      if (view === "sales" && id) {
+        openSalesDoc(id);
+      }
+      refreshRedaction();
+      syncHash(view, currentId);
+    }
+
+    function openPartner(id) {
+      const allowed = id === "1710001" && granted("sap-bp-display");
+      const bpObject = document.getElementById("bp-object");
+      const bpList = document.getElementById("bp-list-card");
+      if (allowed) {
+        hideAuthError();
+        if (bpList) bpList.hidden = true;
+        if (bpObject) bpObject.hidden = false;
+        currentId = "1710001";
+      } else {
+        if (bpObject) bpObject.hidden = true;
+        if (bpList) bpList.hidden = false;
+        showAuthError(BP_MSG);
+      }
+    }
+
+    function renderBinding(binding) {
+      const resourceId = binding.resource_id;
+      const principal = binding.principal;
+      if (!resourceId || !principal) return;
+      const already = document.querySelector(
+        '#active-grants li[data-resource="' + resourceId + '"][data-principal="' + principal + '"]'
+      );
+      if (already) return;
+      const item = document.createElement("li");
+      item.setAttribute("data-resource", resourceId);
+      item.setAttribute("data-principal", principal);
+      item.setAttribute("data-role", binding.role || "");
+      item.setAttribute("data-company", binding.company_code || "1000");
+      item.setAttribute("data-customer", binding.customer_id || "");
+      item.setAttribute("data-valid-to", expiresLabel(binding.expires_at));
+      if (binding.grant_id) item.setAttribute("data-grant-id", binding.grant_id);
+      item.innerHTML =
+        "<span>" + principal + "</span><span>" + (binding.role || resourceId) +
+        "</span><span>" + (binding.company_code || "1000") + " / " + (binding.customer_id || "") +
+        "</span><span>03</span><span>" + expiresLabel(binding.expires_at) +
+        '</span><button type="button" class="btn" data-action="revoke" data-resource="' +
+        resourceId + '" data-principal="' + principal + '">Remove</button>';
+      activeGrants.appendChild(item);
+      refreshAuthStrip();
+      refreshRedaction();
+    }
+
+    function hydrateFromBackend() {
+      const backend = sapBackend();
+      if (!backend) return;
+      fetch(String(backend).replace(/\/$/, "") + "/sap/state")
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("sap state " + resp.status);
+          return resp.json();
+        })
+        .then(function (state) {
+          ((state && state.bindings) || []).forEach(renderBinding);
+          refreshAuthStrip();
+          refreshRedaction();
+        })
+        .catch(function () {
+          // keep in-page empty state (no role assigned)
+        });
+    }
+
+    function applyHash() {
+      const raw = (location.hash || "").replace(/^#/, "") || "launchpad";
+      const parts = raw.split("/");
+      const app = parts[0];
+      if (app === "payroll") {
+        setView("launchpad");
+        return;
+      }
+      if (app === "users" || app === "bp" || app === "billing" || app === "sales" || app === "export" || app === "launchpad") {
+        setView(app, parts[1] || "");
+        return;
+      }
+      setView("launchpad");
+    }
+
+    document.querySelectorAll("[data-nav]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.getAttribute("aria-disabled") === "true") return;
+        setView(btn.dataset.nav);
+      });
+    });
+    document.querySelectorAll("[data-nav-home]").forEach(function (btn) {
+      btn.addEventListener("click", function () { setView("launchpad"); });
+    });
+    document.addEventListener("click", function (event) {
+      const bp = event.target.closest("[data-open-bp]");
+      if (bp) {
+        event.preventDefault();
+        setView("bp", bp.getAttribute("data-open-bp"));
+        return;
+      }
+      const bill = event.target.closest("[data-open-billing]");
+      if (bill) {
+        event.preventDefault();
+        setView("billing", bill.getAttribute("data-open-billing"));
+        return;
+      }
+      const sales = event.target.closest("[data-open-sales]");
+      if (sales) {
+        event.preventDefault();
+        setView("sales", sales.getAttribute("data-open-sales"));
+      }
+    });
+    document.getElementById("export-run").addEventListener("click", function () {
+      showAuthError(EXPORT_MSG);
+    });
+    document.getElementById("bp-search").addEventListener("input", function (event) {
+      const q = event.target.value.toLowerCase();
+      document.querySelectorAll("#bp-table tbody tr").forEach(function (row) {
+        const id = row.getAttribute("data-partner") || "";
+        const name = (PARTNERS[id] || "").toLowerCase();
+        row.hidden = q !== "" && id.indexOf(q) === -1 && name.indexOf(q) === -1;
+      });
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const principal = principalInput.value.trim();
+      const role = roleInput.value;
+      if (!principal || !validToInput.value) return;
+      renderBinding({
+        resource_id: ROLE_RESOURCE[role] || "sap-bp-display",
+        principal: principal,
+        role: role,
+        company_code: companyInput.value.trim() || "1000",
+        customer_id: customerInput.value.trim(),
+        expires_at: validToInput.value,
+      });
+    });
+
+    document.addEventListener("click", function (event) {
+      const btn = event.target.closest("[data-action=revoke]");
+      if (btn) {
+        pendingRevoke = { resource: btn.dataset.resource, principal: btn.dataset.principal };
+        revokeDialog.hidden = false;
+      }
+    });
+    document.querySelectorAll("[data-close-revoke]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        revokeDialog.hidden = true;
+        pendingRevoke = null;
+      });
+    });
+    document.querySelector('[aria-label="Confirm revoke"]').addEventListener("click", function () {
+      if (!pendingRevoke) return;
+      document.querySelectorAll("#active-grants li").forEach(function (li) {
+        if (li.dataset.resource === pendingRevoke.resource && li.dataset.principal === pendingRevoke.principal) {
+          li.remove();
+        }
+      });
+      revokeDialog.hidden = true;
+      pendingRevoke = null;
+      refreshAuthStrip();
+      refreshRedaction();
+      if (currentView === "bp" && currentId) openPartner(currentId);
+    });
+
+    window.addEventListener("hashchange", applyHash);
+    renderCatalog();
+    applyHash();
+    hydrateFromBackend();
+  </script>
+</body>
+</html>

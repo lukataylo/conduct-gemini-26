@@ -6,9 +6,13 @@ touches the request pipeline — everything downstream (policy-engine) is typed.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import uuid
+from datetime import date, datetime
 from pathlib import Path
+
+from pydantic import BaseModel, Field
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -23,6 +27,43 @@ PARSE_PROMPT = """You are extracting a structured access request from an employe
 - how many days they need access for (infer a reasonable default like 14 if unstated)
 Respond only with the fields asked for in the schema.
 """
+
+
+class ParseFields(BaseModel):
+    project: str = "atlas-migration"
+    resource_ids: list[str] = Field(default_factory=list)
+    requested_duration_days: int | None = None
+
+
+def constrain_resource_ids(ids: list[str], known: list[str]) -> list[str]:
+    known_set = set(known)
+    out: list[str] = []
+    for item in ids:
+        if item in known_set and item not in out:
+            out.append(item)
+    return out
+
+
+def duration_days(raw_text: str, parsed_days: int | None, *, today: date | None = None) -> int:
+    if parsed_days is not None and parsed_days > 0:
+        return parsed_days
+    today = today or date.today()
+    match = re.search(
+        r"done by\s+([A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)",
+        raw_text,
+        flags=re.IGNORECASE,
+    )
+    if match:
+        text = match.group(1)
+        for fmt in ("%b %d, %Y", "%B %d, %Y", "%b %d", "%B %d"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                year = parsed.year if "%Y" in fmt else today.year
+                target = date(year, parsed.month, parsed.day)
+                return max(1, (target - today).days)
+            except ValueError:
+                continue
+    return 14
 
 
 def parse_request(raw_text: str, requester: Requester, known_resource_ids: list[str]) -> AccessRequest:

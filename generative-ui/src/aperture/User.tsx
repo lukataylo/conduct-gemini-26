@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AuditEvent, EscalationCase, Grant, Resource, User as Person } from "./api";
-import { label, post, PROJECT } from "./api";
-import { TICKET } from "./Menu";
+import { label, PROJECT } from "./api";
 
 interface Props {
   grants: Grant[];
@@ -14,7 +13,6 @@ interface Props {
   now: number;
 }
 
-interface Result { resource_id: string; status: string; reason?: string }
 interface Tool { name: string }
 
 /** A dot-matrix iris: the opening grows with the number of active leases. */
@@ -25,29 +23,22 @@ function Iris({ open, max, color }: { open: number; max: number; color: string }
     if (!c) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    const N = 23, S = 12, R = (N * S) / 2;
+    const N = 23, S = 12;
     c.width = N * S * 2; c.height = N * S * 2; c.style.width = `${N * S}px`; c.style.height = `${N * S}px`;
     ctx.scale(2, 2);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0, t0 = performance.now();
     const target = 2.5 + (max ? (open / max) * 6.5 : 0);
     const draw = (t: number) => {
-      const pulse = reduce ? 0 : Math.sin((t - t0) / 900) * 0.35;
-      const r = target + pulse;
+      const r = target + (reduce ? 0 : Math.sin((t - t0) / 900) * 0.35);
       ctx.clearRect(0, 0, N * S, N * S);
       for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-        const dx = x - (N - 1) / 2, dy = y - (N - 1) / 2;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        const ring = Math.abs(d - r);
-        let a = 0.08;
-        if (d < r) a = 0.02;
-        if (ring < 0.9) a = 1 - ring * 0.6;
-        else if (ring < 2.2) a = 0.35 - (ring - 0.9) * 0.2;
+        const dx = x - (N - 1) / 2, dy = y - (N - 1) / 2, d = Math.sqrt(dx * dx + dy * dy), ring = Math.abs(d - r);
+        let a = d < r ? 0.02 : 0.08;
+        if (ring < 0.9) a = 1 - ring * 0.6; else if (ring < 2.2) a = 0.35 - (ring - 0.9) * 0.2;
         ctx.globalAlpha = Math.max(0.03, Math.min(1, a));
         ctx.fillStyle = ring < 2.2 ? color : "#ffffff";
-        ctx.beginPath();
-        ctx.arc(x * S + S / 2, y * S + S / 2, ring < 0.9 ? 3.2 : 2.2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(x * S + S / 2, y * S + S / 2, ring < 0.9 ? 3.2 : 2.2, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 1;
       if (!reduce) raf = requestAnimationFrame(draw);
@@ -58,19 +49,40 @@ function Iris({ open, max, color }: { open: number; max: number; color: string }
   return <canvas ref={ref} className="iris" aria-label={`${open} of ${max} leases open`} />;
 }
 
-export function UserScreen({ grants, cases, events, resources, users, selected, online, now }: Props) {
+/** Dot-matrix glyphs for the five stages, 7×7. */
+const GLYPHS: Record<string, string[]> = {
+  ask:     ["..###..", ".#...#.", "....#..", "...#...", "...#...", ".......", "...#..."],
+  decide:  [".......", "#.....#", ".#...#.", "..#.#..", "...#...", "...#...", "...#..."],
+  approve: [".......", "......#", ".....#.", "#...#..", ".#.#...", "..#....", "......."],
+  use:     ["..###..", ".#...#.", "#..#..#", "#..##.#", "#.....#", ".#...#.", "..###.."],
+  expire:  ["..###..", ".#...#.", "#..#..#", "#..#..#", "#.....#", ".#...#.", "..###.."],
+};
+
+function Glyph({ name, on, color }: { name: string; on: boolean; color: string }) {
+  return (
+    <div className="fl-glyph" aria-hidden="true">
+      {GLYPHS[name].map((row, y) => row.split("").map((ch, x) => <i key={`${y}${x}`} style={ch === "#" ? { background: on ? color : "#f4f4f4", opacity: on ? 1 : 0.55 } : undefined} />))}
+    </div>
+  );
+}
+
+export function UserScreen({ grants, cases, events, resources, users, selected, now }: Props) {
   const me = users.find((u) => u.id === selected) ?? users[0];
-  const [text, setText] = useState("I need the atlas-ingestion repo and the analytics-raw bucket for the Atlas pipeline, until Nov 15.");
-  const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState<Result[] | null>(null);
-  const [ms, setMs] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [tools, setTools] = useState<Tool[]>([]);
+  const [stage, setStage] = useState(0);
 
   const byId = new Map(users.map((u) => [u.id, u]));
   const mine = me ? grants.filter((g) => g.requester_id === me.id && !g.revoked && Date.parse(g.expires_at) > now) : [];
   const waiting = me ? cases.filter((c) => c.requester_id === me.id && c.status === "pending") : [];
-  const calls = me ? events.filter((e) => e.type === "action_executed" && e.payload.requester_id === me.id).length : 0;
+  const myRequests = new Set([...grants, ...cases].filter((x) => x.requester_id === me?.id).map((x) => x.request_id));
+  const myEvents = me ? events.filter((e) => e.actor === me.id || e.payload.requester_id === me.id || (e.request_id !== null && myRequests.has(e.request_id))) : [];
+  const asked = myEvents.filter((e) => e.type === "request_received").length;
+  const granted = myEvents.filter((e) => e.type === "grant_issued").length;
+  const escalated = myEvents.filter((e) => e.type === "escalated").length;
+  const approvedBy = [...new Set(cases.filter((c) => c.requester_id === me?.id).flatMap((c) => c.votes.filter((v) => v.approved).map((v) => byId.get(v.approver_id)?.name.split(" ")[0] ?? v.approver_id)))];
+  const calls = myEvents.filter((e) => e.type === "action_executed").length;
+  const ended = me ? grants.filter((g) => g.requester_id === me.id && (g.revoked || Date.parse(g.expires_at) <= now)).length : 0;
   const next = mine.map((g) => Date.parse(g.expires_at)).sort((a, b) => a - b)[0];
 
   useEffect(() => {
@@ -80,30 +92,24 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
     return () => { alive = false; };
   }, [me?.id, grants.length]);
 
-  const ask = async () => {
-    if (!me) return;
-    setBusy(true); setResults(null); setMs(null);
-    const t0 = performance.now();
-    try {
-      let body: { results: Result[] };
-      try {
-        body = await post("/requests", { raw_text: text, requester_id: me.id, context: { active_jira_ticket: TICKET } });
-      } catch {
-        const ids = resources.filter((r) => text.toLowerCase().replace(/[_-]/g, " ").includes(r.name.replace(/[_-]/g, " ").split(" ")[0].toLowerCase())).map((r) => r.id);
-        body = await post("/requests", { id: "ui", requester: { id: me.id, name: me.name, role: me.role, team: me.team }, task_description: text, project: PROJECT, resource_ids: ids, requested_duration_days: 14, raw_text: text, context: { active_jira_ticket: TICKET } });
-      }
-      setMs(Math.round(performance.now() - t0));
-      setResults(body.results);
-    } catch (e) {
-      setResults([{ resource_id: "request", status: "failed", reason: String(e) }]);
-    } finally {
-      setBusy(false);
-    }
-  };
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setStage((s) => (s + 1) % 5), 1600);
+    return () => clearInterval(id);
+  }, []);
 
   const cmd = `claude mcp add aperture -e APERTURE_REQUESTER=${me?.id ?? "u-newhire-1"} -- python agent-runtime/mcp_serve.py`;
   const copy = () => navigator.clipboard?.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); });
   const color = me?.color ?? "#f4f4f4";
+  const fmtDay = (t: number) => new Date(t).toLocaleDateString([], { day: "numeric", month: "short" });
+
+  const stages = [
+    { id: "ask", title: "Your agent asks", n: String(asked), sub: asked ? "requests, in plain language" : "nothing asked yet" },
+    { id: "decide", title: "The engine decides", n: `${granted}·${escalated}`, sub: "granted · escalated, in milliseconds" },
+    { id: "approve", title: "A human only if needed", n: String(approvedBy.length), sub: approvedBy.length ? `approved by ${approvedBy.join(", ")}` : "no one needed yet" },
+    { id: "use", title: "Tools appear", n: String(calls), sub: calls ? "calls, each re-checked" : "no calls yet" },
+    { id: "expire", title: "Then they vanish", n: next ? fmtDay(next) : String(ended), sub: next ? "next expiry — or when the project closes" : `${ended} already ended` },
+  ];
 
   return (
     <div className="ob" style={{ ["--u" as string]: color }}>
@@ -116,7 +122,7 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
             <div><span className="n" style={{ color }}>{mine.length}</span><span className="k">open</span></div>
             <div><span className="n amber">{waiting.length}</span><span className="k">waiting</span></div>
             <div><span className="n">{calls}</span><span className="k">calls</span></div>
-            <div><span className="n">{next ? new Date(next).toLocaleDateString([], { day: "numeric", month: "short" }) : "—"}</span><span className="k">until</span></div>
+            <div><span className="n">{next ? fmtDay(next) : "—"}</span><span className="k">until</span></div>
           </div>
         </div>
         <Iris open={mine.length} max={Math.max(3, resources.length)} color={color} />
@@ -127,41 +133,36 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
           <div className="ob-n">1</div>
           <div className="ob-body">
             <h2>Connect your agent</h2>
+            <p>One line. Your agent gets <code>request_access</code>; every tool it's granted appears — and disappears — on its own.</p>
             <div className="ob-cmd"><code>{cmd}</code><button className="nb" onClick={copy}>{copied ? "Copied" : "Copy"}</button></div>
           </div>
         </section>
 
         <section className="ob-step">
           <div className="ob-n">2</div>
-          <div className="ob-body">
-            <h2>Say what the task is</h2>
-            <textarea id="ob-text" value={text} onChange={(e) => setText(e.target.value)} rows={2} />
-            <div className="ob-row">
-              <button className="nb go" disabled={!online || busy || !text.trim()} onClick={ask}>{busy ? "…" : "Ask"}</button>
-              {ms !== null && <span className="ob-ms">decided in <b>{ms} ms</b></span>}
+          <div className="ob-body wide">
+            <h2>How it works</h2>
+            <div className="fl">
+              {stages.map((s, i) => (
+                <div className={`fl-stage ${stage === i ? "on" : ""}`} key={s.id} onMouseEnter={() => setStage(i)}>
+                  <Glyph name={s.id} on={stage === i} color={color} />
+                  <b>{s.n}</b>
+                  <span className="fl-t">{s.title}</span>
+                  <small>{s.sub}</small>
+                </div>
+              ))}
             </div>
-            {results && (
-              <div className="ob-results">
-                {results.map((r, i) => (
-                  <div className={`ob-res ${r.status}`} key={i}>
-                    <span className="ob-res-st">{r.status}</span>
-                    <span className="ob-res-name">{label(r.resource_id, resources)}</span>
-                    <span className="ob-res-why">{r.status === "granted" ? "yours now · expires with the task" : r.status === "escalated" ? "a human is deciding" : r.reason ?? ""}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </section>
 
         <section className="ob-step">
           <div className="ob-n">3</div>
           <div className="ob-body">
-            <h2>Use it — then lose it</h2>
+            <h2>Where you stand</h2>
             <div className="ob-status">
-              {mine.map((g) => <div className="ob-res granted" key={g.id}><span className="ob-res-st">open</span><span className="ob-res-name">{label(g.resource_id, resources)}</span><span className="ob-res-why">until {new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" })}</span></div>)}
+              {mine.map((g) => <div className="ob-res granted" key={g.id}><span className="ob-res-st">open</span><span className="ob-res-name">{label(g.resource_id, resources)}</span><span className="ob-res-why">until {fmtDay(Date.parse(g.expires_at))}</span></div>)}
               {waiting.map((c) => <div className="ob-res escalated" key={c.id}><span className="ob-res-st">waiting</span><span className="ob-res-name">{label(c.resource_id, resources)}</span><span className="ob-res-why">on {c.required_approver_ids.filter((a) => !c.votes.some((v) => v.approver_id === a)).map((a) => byId.get(a)?.name.split(" ")[0] ?? a).join(", ") || "—"}</span></div>)}
-              {mine.length === 0 && waiting.length === 0 && <div className="ob-tool none"><b>—</b><span>nothing yet</span></div>}
+              {mine.length === 0 && waiting.length === 0 && <div className="ob-tool none"><b>—</b><span>nothing yet — ask through your agent, or the Gemini bubble</span></div>}
             </div>
             <div className="ob-tools-row">
               <span>request_access</span><span>my_access</span>

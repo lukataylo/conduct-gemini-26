@@ -290,6 +290,22 @@ export function fetchPolicyRoutes(): Promise<PolicyRoutes> {
   return get<PolicyRoutes>("/policy/routes");
 }
 
+export interface LiveSessionOut {
+  ok: boolean;
+  conversation_id: string;
+  model?: string | null;
+  fallback?: string | null;
+}
+
+export function postLiveSession(body: {
+  viewer_id: string;
+  focus_id?: string | null;
+  page?: string;
+  conversation_id?: string | null;
+}): Promise<LiveSessionOut> {
+  return post<LiveSessionOut>("/agent/live/session", body);
+}
+
 export function postAgentTurn(body: {
   viewer_id: string;
   message: string;

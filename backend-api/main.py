@@ -39,6 +39,7 @@ from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 import cu_frames  # noqa: E402
+from live_session_route import mount_live_session  # noqa: E402
 
 import gcp_iam  # noqa: E402
 from policy_engine_paths import escalation, policy_engine, usecase_demo  # noqa: E402
@@ -73,6 +74,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+mount_live_session(app)
 
 # --- in-memory store -------------------------------------------------------------------
 REQUESTS: dict[str, AccessRequest] = {}

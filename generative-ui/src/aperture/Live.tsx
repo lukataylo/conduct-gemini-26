@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentTurnOut, User } from "./api";
-import { postAgentTurn } from "./api";
+import { postAgentTurn, postLiveSession } from "./api";
 
 type Mode = "idle" | "listening" | "thinking" | "speaking";
 type Row = { kind: "you" | "gemini" | "tool"; text: string };
@@ -108,6 +108,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [cid, setCid] = useState<string | null>(null);
   const [pending, setPending] = useState<AgentTurnOut | null>(null);
   const [voice, setVoice] = useState(false);
+  const [voiceOffline, setVoiceOffline] = useState(false);
   const [interim, setInterim] = useState("");
   const level = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
@@ -115,7 +116,22 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const audioRef = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
 
   useEffect(() => { logRef.current?.scrollTo({ top: 1e6 }); }, [rows, pending, mode]);
-  useEffect(() => { setRows([]); setCid(null); setPending(null); }, [viewer?.id]);
+  useEffect(() => { setRows([]); setCid(null); setPending(null); setVoiceOffline(false); }, [viewer?.id]);
+  useEffect(() => {
+    if (!open || !viewer) return;
+    const hasSpeech = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    void postLiveSession({
+      viewer_id: viewer.id,
+      focus_id: focus?.id ?? "all",
+      page,
+      conversation_id: cid,
+    }).then((session) => {
+      setCid((current) => current ?? session.conversation_id);
+      if (!session.ok && !hasSpeech) setVoiceOffline(true);
+    }).catch(() => {
+      if (!hasSpeech) setVoiceOffline(true);
+    });
+  }, [open, viewer?.id, focus?.id, page]);
 
   const speak = (text: string) => {
     if (!voice || !("speechSynthesis" in window)) return;
@@ -204,7 +220,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   return (
     <>
       <button className={`live-bubble ${open ? "open" : ""}`} aria-expanded={open} aria-label="Gemini" onClick={() => setOpen((o) => !o)}>
-        <Face mode={mode} small /><span>{open ? "Close" : "Gemini"}</span>
+        <Face mode={mode} small /><span>{open ? "Close" : voiceOffline ? "voice offline — use chat" : "Gemini"}</span>
       </button>
       {open && (
         <div className="live-panel" style={{ ["--u" as string]: viewer?.color ?? "#f4f4f4" }}>

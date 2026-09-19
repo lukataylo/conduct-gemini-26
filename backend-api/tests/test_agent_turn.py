@@ -63,32 +63,55 @@ def test_unknown_viewer_is_400():
     assert "unknown requester" in resp.json()["detail"]
 
 
-def test_injected_agent_request_access_grants_bucket_and_escalates_finance():
+def test_request_access_needs_confirmation_before_evaluate():
     def runner(message, deps, system_prompt):
-        payload = deps.request_access(message)
         return ConsoleTurn(
-            reply="Submitted to policy.",
+            reply="Confirm this request.",
             tools_used=["request_access"],
-            request_result=payload,
+            request_result=deps.request_access(message),
         )
 
     main.AGENT_TURN_IMPL = runner
-    resp = _client().post(
+    client = _client()
+    first = client.post(
         "/agent/turn",
-        json={"viewer_id": ALEX_ID, "message": BOTH_TEXT, "conversation_id": "c-golden"},
+        json={"viewer_id": ALEX_ID, "message": BOTH_TEXT, "conversation_id": "c-confirm"},
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["conversation_id"] == "c-golden"
-    assert body["tools_used"] == ["request_access"]
-    result = body["request_result"]
+    assert first.status_code == 200
+    body = first.json()
+    assert body["request_result"]["status"] == "needs_confirmation"
+    preview = body["request_result"]["preview"]
+    assert preview["resource_ids"] == ["bucket-analytics-raw", "bq-project-x-finance"]
+    assert preview["project"] == "atlas-migration"
+    assert preview["requested_duration_days"] == 14
+    assert main.GRANTS == {}
+    assert main.ESCALATIONS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": ALEX_ID,
+            "message": BOTH_TEXT,
+            "conversation_id": "c-confirm",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    result = second.json()["request_result"]
     assert result["status"] == "evaluated"
     by_id = {row["resource_id"]: row for row in result["results"]}
     assert by_id["bucket-analytics-raw"]["status"] == "granted"
     assert by_id["bq-project-x-finance"]["status"] == "escalated"
-    assert result["request_id"] in main.REQUESTS
     assert any(g.resource_id == "bucket-analytics-raw" for g in main.GRANTS.values())
-    assert any(c.resource_id == "bq-project-x-finance" for c in main.ESCALATIONS.values())
+
+
+def test_confirm_without_pending_is_400():
+    resp = _client().post(
+        "/agent/turn",
+        json={"viewer_id": ALEX_ID, "message": "ok", "confirm": True, "conversation_id": "c-none"},
+    )
+    assert resp.status_code == 400
+    assert "nothing to confirm" in resp.json()["detail"]
 
 
 def test_sql_critical_goes_through_policy_not_client_ids():
@@ -100,9 +123,27 @@ def test_sql_critical_goes_through_policy_not_client_ids():
         )
 
     main.AGENT_TURN_IMPL = runner
-    resp = _client().post("/agent/turn", json={"viewer_id": ALEX_ID, "message": SQL_TEXT})
-    assert resp.status_code == 200
-    rows = resp.json()["request_result"]["results"]
+    client = _client()
+    first = client.post(
+        "/agent/turn",
+        json={"viewer_id": ALEX_ID, "message": SQL_TEXT, "conversation_id": "c-sql"},
+    )
+    assert first.status_code == 200
+    assert first.json()["request_result"]["status"] == "needs_confirmation"
+    assert main.GRANTS == {}
+    assert main.ESCALATIONS == {}
+
+    second = client.post(
+        "/agent/turn",
+        json={
+            "viewer_id": ALEX_ID,
+            "message": SQL_TEXT,
+            "conversation_id": "c-sql",
+            "confirm": True,
+        },
+    )
+    assert second.status_code == 200
+    rows = second.json()["request_result"]["results"]
     assert rows[0]["resource_id"] == "sql-prod-primary"
     assert rows[0]["status"] == "escalated"  # CRITICAL always_escalate_tiers
 

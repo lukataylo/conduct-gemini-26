@@ -217,14 +217,34 @@ class AgentTurnOut(BaseModel):
     conversation_id: str
 
 
-def _console_request_access(raw_text: str, viewer: Requester) -> dict:
+def _console_request_access(
+    raw_text: str,
+    viewer: Requester,
+    *,
+    evaluate: bool,
+    conversation_id: str,
+) -> dict:
     parsed = _parse_nl(raw_text, viewer)
     parsed = parsed.model_copy(update={"requester": viewer, "raw_text": raw_text})
+    preview = {
+        "resource_ids": list(parsed.resource_ids),
+        "requested_duration_days": parsed.requested_duration_days,
+        "project": parsed.project,
+        "raw_text": raw_text,
+    }
+    slot = CONVERSATIONS.setdefault(conversation_id, {"pending_request": None, "pending_raw": None})
+    slot["pending_request"] = parsed
+    slot["pending_raw"] = raw_text
+    if not evaluate:
+        return {"status": "needs_confirmation", "preview": preview}
     evaluated = _evaluate_request(parsed)
+    slot["pending_request"] = None
+    slot["pending_raw"] = None
     return {
         "status": "evaluated",
         "request_id": evaluated["request_id"],
         "results": evaluated["results"],
+        "preview": preview,
     }
 
 
@@ -260,12 +280,19 @@ def _console_explain_decision(
 
 
 def _run_injected_or_live(message: str, viewer: Requester, conversation_id: str | None):
+    conversation_id = conversation_id or str(uuid.uuid4())
+
+    def request_access(raw_text: str) -> dict:
+        return _console_request_access(
+            raw_text, viewer, evaluate=False, conversation_id=conversation_id
+        )
+
     _agent_runtime_on_path()
     from console_agent import ConsoleAgentDeps, run_console_turn
 
     deps = ConsoleAgentDeps(
         viewer=viewer,
-        request_access=lambda raw: _console_request_access(raw, viewer),
+        request_access=request_access,
         list_scope=lambda: _console_list_scope(viewer),
         explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
             viewer, request_id, resource_id
@@ -284,7 +311,55 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     viewer = KNOWN_REQUESTERS.get(body.viewer_id)
     if viewer is None:
         raise HTTPException(400, f"unknown requester '{body.viewer_id}'")
-    turn = _run_injected_or_live(body.message, viewer, body.conversation_id)
+    conversation_id = body.conversation_id or str(uuid.uuid4())
+    if body.confirm:
+        slot = CONVERSATIONS.get(conversation_id) or {}
+        pending = slot.get("pending_request")
+        if pending is None:
+            raise HTTPException(400, "nothing to confirm")
+        evaluated = _evaluate_request(pending)
+        slot["pending_request"] = None
+        slot["pending_raw"] = None
+        preview = {
+            "resource_ids": list(pending.resource_ids),
+            "requested_duration_days": pending.requested_duration_days,
+            "project": pending.project,
+            "raw_text": pending.raw_text,
+        }
+        return AgentTurnOut(
+            reply="Policy decided.",
+            tools_used=["request_access"],
+            request_result={
+                "status": "evaluated",
+                "request_id": evaluated["request_id"],
+                "results": evaluated["results"],
+                "preview": preview,
+            },
+            conversation_id=conversation_id,
+        )
+
+    def request_access(raw_text: str) -> dict:
+        return _console_request_access(
+            raw_text, viewer, evaluate=False, conversation_id=conversation_id
+        )
+
+    _agent_runtime_on_path()
+    from console_agent import ConsoleAgentDeps, run_console_turn
+
+    deps = ConsoleAgentDeps(
+        viewer=viewer,
+        request_access=request_access,
+        list_scope=lambda: _console_list_scope(viewer),
+        explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
+            viewer, request_id, resource_id
+        ),
+    )
+    turn = run_console_turn(
+        body.message,
+        deps,
+        runner=AGENT_TURN_IMPL,
+        conversation_id=conversation_id,
+    )
     return AgentTurnOut(
         reply=turn.reply,
         tools_used=list(turn.tools_used),

@@ -5,6 +5,11 @@
 use them for what they're actually for. Design brief: [`docs/ui-surfaces.html`](../docs/ui-surfaces.html)
 (surfaces 1, 3, 7).
 
+**Shipping this session (track 2 owner):** parse + Logfire, **computer use must ship**,
+and **A2UI `compose_ui`** for track 1. MCP stays in the team brief as a parallel
+thesis; it does not replace those three. Plan:
+[`docs/superpowers/plans/2026-09-19-agent-runtime-core.md`](../docs/superpowers/plans/2026-09-19-agent-runtime-core.md).
+
 ## Ambition ladder
 
 | | What | Done when |

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "policy-engine"))
 sys.path.append(str(ROOT))
 
-from engine import evaluate_request  # noqa: E402
+from engine import evaluate_request, review_active_grants  # noqa: E402
 from escalation import open_case  # noqa: E402
 from shared.schemas import (  # noqa: E402
     AccessRequest,
@@ -635,3 +635,126 @@ def test_seasonal_contractor_auto_grant_is_capped_to_thirty_days_and_no_renew():
     assert decision.decision == DecisionType.AUTO_GRANT
     assert decision.ttl_hours <= 30 * 24
     assert decision.metadata["renew_access_disabled"] is True
+
+
+def test_reaper_revokes_on_ticket_close():
+    grant = Grant(
+        id="grant-finance",
+        request_id="req-finance",
+        resource_id="finance-db",
+        requester_id="u-requester",
+        capability="write",
+        metadata={"ticket_id": "ATLAS-101"},
+        granted_at=datetime(2026, 9, 19, 10, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 9, 20, 10, tzinfo=timezone.utc),
+    )
+    resources = {
+        "finance-db": resource(
+            resource_id="finance-db",
+            surface="FINANCE_PROD",
+            capability="write",
+        )
+    }
+    context = PolicyEvaluationContext(
+        current_date=datetime(2026, 9, 19, 12, tzinfo=timezone.utc),
+        hr_system={"u-requester": {"status": "ACTIVE"}},
+        external_signals={"jira": {"ATLAS-101": {"status": "DONE"}}},
+    )
+
+    revocations = review_active_grants([grant], resources, context)
+
+    assert len(revocations) == 1
+    assert revocations[0].grant_id == "grant-finance"
+    assert "ATLAS-101" in revocations[0].reason
+    assert revocations[0].metadata["reaper_trigger"] == "justification_sunset"
+
+
+def test_reaper_revokes_on_hr_termination():
+    grant = Grant(
+        id="grant-1",
+        request_id="req-1",
+        resource_id="resource-1",
+        requester_id="u-requester",
+        metadata={"ticket_id": "ATLAS-102"},
+        expires_at=datetime(2026, 9, 20, 10, tzinfo=timezone.utc),
+    )
+    context = PolicyEvaluationContext(
+        current_date=datetime(2026, 9, 19, 12, tzinfo=timezone.utc),
+        hr_system={"u-requester": "LEAVER"},
+    )
+
+    revocations = review_active_grants([grant], {"resource-1": resource()}, context)
+
+    assert len(revocations) == 1
+    assert revocations[0].grant_id == "grant-1"
+    assert revocations[0].reason == "User identity no longer active in HR heartbeat."
+    assert revocations[0].metadata["hr_status"] == "LEAVER"
+
+
+def test_reaper_revokes_finance_write_when_quiet_period_starts():
+    grant = Grant(
+        id="grant-write",
+        request_id="req-write",
+        resource_id="finance-db",
+        requester_id="u-requester",
+        capability="write",
+        metadata={"ticket_id": "ATLAS-103"},
+        granted_at=datetime(2026, 9, 18, 12, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 9, 20, 12, tzinfo=timezone.utc),
+    )
+    context = PolicyEvaluationContext(
+        current_date=datetime(2026, 9, 19, 12, tzinfo=timezone.utc),
+        hr_system={"u-requester": "ACTIVE"},
+        company_calendar={
+            "quiet_period": {
+                "start": "2026-09-19T00:00:00Z",
+                "end": "2026-09-30T23:59:59Z",
+            }
+        },
+    )
+
+    revocations = review_active_grants(
+        [grant],
+        {
+            "finance-db": resource(
+                resource_id="finance-db",
+                surface="FINANCE_PROD",
+                capability="write",
+            )
+        },
+        context,
+    )
+
+    assert len(revocations) == 1
+    assert "Quiet Period" in revocations[0].reason
+    assert revocations[0].metadata["restriction"] == "READ_ONLY"
+
+
+def test_reaper_revokes_iot_when_user_leaves_geofence():
+    grant = Grant(
+        id="grant-iot",
+        request_id="req-iot",
+        resource_id="iot-scanner",
+        requester_id="u-requester",
+        expires_at=datetime(2026, 9, 20, 12, tzinfo=timezone.utc),
+    )
+    context = PolicyEvaluationContext(
+        current_date=datetime(2026, 9, 19, 12, tzinfo=timezone.utc),
+        hr_system={"u-requester": "ACTIVE"},
+        requester_location={"lat": 51.5074, "lon": -0.1278},
+    )
+
+    revocations = review_active_grants(
+        [grant],
+        {
+            "iot-scanner": resource(
+                resource_id="iot-scanner",
+                resource_type=ResourceType.WMS_IOT,
+                metadata={"geofence_center": {"lat": 51.5000, "lon": -0.1000}},
+            )
+        },
+        context,
+    )
+
+    assert len(revocations) == 1
+    assert "physical authorized range" in revocations[0].reason

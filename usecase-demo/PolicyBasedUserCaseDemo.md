@@ -1,276 +1,166 @@
-# Project Atlas User Case Demo
+# Policy-Based User Case Demo
 
-## One-Line Pitch
+## Final Story: The Friday Finance Freeze
 
-Project Atlas is a just-in-time access system for modern engineering teams. It lets safe
-work move fast, but blocks or escalates dangerous access before it becomes a Cisco-style
-offboarding incident, a Capital One-style blast-radius incident, or a regulated-data
-compliance failure.
+Project Atlas is a deterministic just-in-time access system. The LLM may parse or
+explain a request, but the policy engine decides access using auditable Python rules.
 
-## What The Policy Engine Includes
+It is Friday afternoon before earnings week. Alex, a platform engineer, is helping the
+finance systems team investigate a dashboard outage. Alex and Alex's AI coding agent ask
+for access across normal engineering tools, finance systems, BI data, customer support,
+warehouse devices, and secrets.
 
-The policy engine is the deterministic security core. It never calls an LLM. LLMs may
-parse natural language into structured requests, but every grant, deny, escalation, and
-witness requirement comes from typed Python rules.
+The demo proves Project Atlas is not a one-time approval gate. It is a continuous
+governance loop: safe access is granted quickly, risky access escalates with evidence,
+dangerous access is denied, and stale access is reclaimed automatically when business
+context changes.
 
-### Core Identity And Context Guards
+## Policy Engine Coverage
 
-- **Employment heartbeat:** inactive users or stale HR syncs are hard-denied.
-- **No context, no access:** requests need a ticket or incident ID.
-- **Device and risk checks:** non-compliant devices and high user risk are denied.
-- **Step-up auth:** weak auth returns `STEP_UP_AUTH_REQUIRED`.
-- **Blast-radius protection:** requests for more than 5 resources, or more than 20 active
-  resources held by one requester, escalate to `VP_ENG`.
+### Identity And Context
 
-### Capability And Sensitivity Rules
+- Inactive users or stale HR heartbeat are hard-denied.
+- Requests need a ticket or incident ID.
+- Weak auth returns `STEP_UP_AUTH_REQUIRED`.
+- High-risk users or non-compliant devices are denied.
+- Too many requested or active resources escalates to `VP_ENG`.
 
-- Internal same-team read access can auto-grant.
-- Cross-team or restricted access escalates to manager and owner.
-- Critical access escalates to SecOps and owner.
-- Destructive actions such as `delete`, `drop`, `terminate`, and `iam_change` are upgraded
-  to critical risk.
-- On-call engineers with a live incident get fast 4-hour access.
-- AI agents are session-bound and denied if they look like runaway scrapers.
+### Capability And Surface Rules
 
-### Multi-Surface Enterprise Rules
+- Same-team internal read access can auto-grant.
+- Cross-team, restricted, and critical access escalates.
+- Destructive actions are upgraded to critical risk.
+- GitHub admin/main-branch access is hard-denied.
+- PowerBI `VIEW` grants, while `EXPORT` escalates to Data Steward.
+- PII data adds `DISABLE_EXPORT`.
+- Payment rails require `WITNESS_REQUIRED`.
+- Warehouse IoT requires physical geofence presence.
+- Support impersonation requires Zendesk requester/customer match.
+- Build pipeline access escalates after recent critical security findings.
+- Vault secret harvesting is denied with anomaly alarm.
 
-- **GitHub:** critical repos requested by new hires escalate to Security Lead; admin or
-  main-branch access is hard-denied.
-- **PowerBI:** view access can auto-grant; export or Power Query escalates to Data Steward;
-  PII datasets include a `DISABLE_EXPORT` restriction.
-- **Payment rails:** require witness approval with two authorized humans.
-- **Warehouse IoT:** physical geofence is enforced before device-control access.
-- **Support impersonation:** Zendesk ticket requester must match the customer being
-  impersonated.
-- **Build pipelines:** recent critical Snyk/SonarQube findings escalate to Security
-  Architect.
-- **Vault secrets:** requesting more than 3 unique secrets within 60 minutes triggers an
-  anomaly hard-deny.
+### Reaper Loop
 
-### Adversarial Defense
+`review_active_grants(...)` reviews active grants against live business signals and
+returns `RevocationAction` objects when access should be reclaimed early:
 
-- **5x rejection rule:** repeated denied attempts for the same resource trigger a 24-hour
-  lock and then SOC escalation.
-- **Cross-pollination risk:** combinations of existing and requested grants that could
-  de-anonymize data escalate as potential data-correlation risk.
-- **Peer signal:** escalation metadata tells the approver how unusual the request is for
-  the requester’s team.
+- HR status becomes non-active.
+- Jira/PagerDuty justification is closed.
+- Finance quiet period starts and the grant is `write`.
+- Warehouse IoT user leaves the geofence.
 
-### Escalation Engine
+## Demo Beats
 
-The escalation engine turns an `ESCALATE` or `WITNESS_REQUIRED` decision into a human
-approval case. It adds:
+1. **Safe internal access**
+   Alex has Jira `ATLAS-101` and asks for internal runbook read access. Atlas grants it
+   with a TTL.
 
-- human-readable summary,
-- routing rationale,
-- peer percentile,
-- risk score,
-- policy violation,
-- suggested downgrade such as “Grant READ for 4 hours,”
-- SLA deadline,
-- N-of-M approval with any-deny veto.
+2. **PowerBI separation**
+   Alex can view the revenue dashboard. Exporting the dataset escalates to the Data
+   Steward and carries `DISABLE_EXPORT`.
 
-## Final Presentation Demo Story
+3. **Finance quiet-period lock**
+   Alex asks for finance production write access during earnings quiet period. Atlas
+   downgrades the access to read-only and escalates to the CFO with `SOX-404`.
 
-### Title
+4. **Warehouse geofence deny**
+   A seasonal contractor tries to control warehouse IoT scanners from home. Atlas
+   denies the request because physical presence is required.
 
-**“The Friday Finance Freeze”**
-
-### Relatable Story
-
-It is Friday afternoon before earnings week. Alex, a newly onboarded platform engineer,
-is helping the finance systems team investigate a dashboard outage. Alex’s AI coding
-agent asks for several kinds of access in one workflow:
-
-1. View the internal runbook bucket.
-2. Read a PowerBI revenue dashboard.
-3. Export the PowerBI dataset.
-4. Write to the finance production database.
-5. Control warehouse IoT scanners from home.
-6. Impersonate a customer account using a Zendesk ticket.
-7. Pull a fourth vault secret.
-
-The demo shows that Project Atlas is not a dumb approval queue. It understands context:
-who Alex is, whether Alex is active in HR, what Alex is asking to do, whether there is a
-ticket, whether the company is in a finance quiet period, whether Alex is physically at
-the warehouse, whether the customer opened the support ticket, and whether this access
-pattern looks like secret harvesting.
-
-### Demo Beats
-
-1. **Safe work moves fast.**
-   Alex requests internal read access with a valid ticket. The policy engine auto-grants
-   temporary access and the UI shows an active grant with an expiry.
-
-2. **BI view is allowed, export is not rubber-stamped.**
-   PowerBI `VIEW` auto-grants, but `EXPORT` escalates to the Data Steward and shows
-   `DISABLE_EXPORT` for PII.
-
-3. **Earnings quiet period protects finance.**
-   Alex asks for write access to finance production during a quiet period. The policy
-   engine downgrades the request to read-only and escalates to the CFO with a SOX
-   breadcrumb.
-
-4. **Warehouse control requires physical presence.**
-   A seasonal contractor tries to control warehouse IoT devices from home. The engine
-   hard-denies with “Physical presence required for IoT control.”
-
-5. **Support impersonation is trust-bound.**
+5. **Support impersonation mismatch**
    Alex tries to impersonate a customer, but the Zendesk ticket requester does not match
-   the target customer profile. The request is hard-denied.
+   the target customer. Atlas hard-denies the request.
 
-6. **Secret harvesting is stopped early.**
-   Alex already has three recent secret grants and asks for a fourth. The policy engine
-   hard-denies and raises an anomaly alarm.
+6. **Secret harvesting alarm**
+   Alex already has three recent vault-secret grants and asks for a fourth. Atlas denies
+   it with an anomaly alarm.
 
-7. **Approvers get useful cards, not vague asks.**
-   Escalation cards show the policy violation, risk score, peer signal, suggested
-   downgrade, and required approver group.
+7. **Evidence-based escalation**
+   The approval card shows policy violation, risk score, peer signal, suggested
+   downgrade, required approvers, and SLA.
 
-### Why This Story Works
+8. **Reaper closing beat**
+   The presenter marks Jira `ATLAS-101` as `DONE`. The Reaper loop returns a
+   `RevocationAction` for Alex's finance grant before TTL expiry.
 
-This story is relatable because every company has some version of it:
+   UI toast:
 
-- an engineer trying to move quickly,
-- a finance system that must not be changed during sensitive reporting windows,
-- a support team that must not impersonate the wrong customer,
-- warehouse or operational devices that should not be controlled remotely,
-- dashboards that are safe to view but dangerous to export,
-- secrets that should never be harvested in bulk.
+   ```text
+   Access reclaimed: Jira ATLAS-101 is complete.
+   ```
 
-The presentation message is simple: **Project Atlas gives developers speed without
-giving attackers, stale employees, or runaway agents a path to damage.**
-
-## Backend Testing Prompt
-
-Use this prompt for the backend owner:
+## Backend Test Prompt
 
 ```text
-Implement a deterministic policy-engine test endpoint or seed script for the Project
-Atlas final demo.
+Create a deterministic final-demo endpoint:
 
-Goal:
-Exercise policy-engine.evaluate_request against the final presentation story in
-user-case.md and return the raw PolicyDecision objects to the frontend.
+GET /demo/policy/final-story
 
-Requirements:
-1. Create seeded resources for:
-   - internal runbook bucket
-   - PowerBI revenue dataset with has_pii=true
-   - finance production database with surface=FINANCE_PROD
-   - warehouse IoT scanner with a geofence_center
-   - support impersonation tool
-   - vault secrets: secret-1 through secret-4
-2. Create seeded requester profiles:
-   - Alex, active employee, data-platform team
-   - seasonal contractor located outside the warehouse geofence
-   - optional AI agent requester for bot-scraper tests
-3. Add a deterministic PolicyEvaluationContext containing:
-   - company_calendar.quiet_period covering the demo date
-   - requester_location for home and warehouse scenarios
-   - external_signals.zendesk with one matching and one mismatching ticket
-   - external_signals.security_scans with a recent critical finding
-4. Add active_grants for:
-   - three recent vault-secret grants for Alex
-   - any grants needed for peer/correlation signals
-5. Expose either:
-   - POST /demo/policy/run with scenario_name, or
-   - GET /demo/policy/final-story returning all scenario results.
-6. For escalation decisions, call escalation.open_case and include the generated
-   EscalationCase fields in the response.
-7. Never call an LLM from backend policy evaluation.
+Seed:
+- Alex active employee
+- seasonal contractor outside warehouse geofence
+- internal runbook bucket
+- PowerBI revenue dataset with has_pii=true
+- finance production database with surface=FINANCE_PROD
+- warehouse IoT scanner with geofence_center
+- support impersonation tool
+- vault secrets secret-1 through secret-4
+- active finance DB grant linked to Jira ATLAS-101
+- three active recent secret grants
 
-Expected response shape:
-{
-  "scenario": "finance_quiet_period",
-  "request": {...},
-  "decisions": [...],
-  "escalation_cases": [...]
-}
+Context:
+- company_calendar.quiet_period covers the demo date
+- zendesk has matching and mismatching tickets
+- jira has ATLAS-101 as IN_PROGRESS, then DONE
+- hr_system has active and leaver identities
+
+Return:
+- request payload
+- PolicyDecision list
+- EscalationCase list when applicable
+- RevocationAction list for Reaper scenarios
+
+Never call an LLM from policy evaluation.
 ```
 
-## Frontend Testing Prompt
-
-Use this prompt for the frontend owner:
+## Frontend Test Prompt
 
 ```text
-Build a demo view for the Project Atlas final policy-engine story.
+Build a scenario-driven policy demo page.
 
-Goal:
-Let judges click through the final user-case.md story and see how each access request is
-granted, denied, escalated, or witness-required.
+Scenarios:
+- Safe Internal Access
+- PowerBI View vs Export
+- Earnings Quiet Period
+- Warehouse Geofence Deny
+- Support Impersonation Mismatch
+- Secret Harvesting Alarm
+- Evidence-Based Escalation Card
+- Reaper: Jira ATLAS-101 Done -> Auto-Revoke
 
-Required UI:
-1. A scenario selector with these demo beats:
-   - Safe Internal Access
-   - PowerBI View vs Export
-   - Earnings Quiet Period
-   - Warehouse Geofence Deny
-   - Support Impersonation Mismatch
-   - Secret Harvesting Alarm
-   - Evidence-Based Escalation Card
-2. For each scenario, show:
-   - requester identity and role
-   - resource and capability requested
-   - ticket or incident context
-   - decision outcome
-   - reason string from PolicyDecision
-   - compliance breadcrumbs
-   - context snapshot
-3. For auto-grants, show:
-   - TTL / expiry
-   - restrictions such as DISABLE_EXPORT
-4. For hard-denies, show:
-   - red deny state
-   - exact business-risk reason
-   - audit tags / anomaly alarm if present
-5. For escalations, render an approval card showing:
-   - policy_violation
-   - risk_score
-   - peer_percentile / peer_signal
-   - suggested_downgrade
-   - required_approval_groups
-   - SLA deadline if backend returns an EscalationCase
-6. For witness-required payment rail, show:
-   - WITNESS_REQUIRED state
-   - two-human approval requirement
-7. The UI must use deterministic backend responses; do not invent policy results in the
-   frontend.
+For each scenario display:
+- requester
+- resource
+- capability
+- ticket/incident context
+- decision outcome
+- exact policy reason
+- compliance breadcrumbs
+- context snapshot
+
+For the Reaper scenario, show the active finance grant first. Then simulate Jira
+ATLAS-101 becoming DONE and show the grant turning red or disappearing with:
+"Access reclaimed: Jira ATLAS-101 is complete."
 ```
 
 ## Frontend Success Criteria
 
-The final frontend policy-engine test is successful when a judge can see all of these
-without reading code:
-
-- **Auto-grant path:** internal read access with a valid ticket becomes an active grant.
-- **PowerBI separation:** `VIEW` is granted, `EXPORT` escalates to Data Steward.
-- **PII restriction:** PowerBI PII decisions show `DISABLE_EXPORT`.
-- **Finance quiet period:** finance production write becomes read-only and escalates to
-  CFO with `SOX-404`.
-- **Warehouse geofence:** out-of-office warehouse IoT control is hard-denied.
-- **Support trust check:** impersonation is denied when Zendesk requester does not match
-  the target customer.
-- **Secret harvesting:** fourth secret request is denied and marked with anomaly alarm.
-- **Evidence card:** escalation card shows risk score, policy violation, peer signal,
-  suggested downgrade, and approver groups.
-- **Auditability:** every decision displays the exact reason returned by the policy
-  engine.
-- **No black box:** the UI makes clear that the LLM parsed the request, but the policy
-  engine made the security decision deterministically.
-
-## Suggested Demo Script
-
-1. “Alex has a valid ticket and needs internal runbook access. This is low-risk, so Atlas
-   grants it instantly with an expiry.”
-2. “Now Alex asks to view the revenue dashboard. View is fine. But exporting a PII dataset
-   is different, so Atlas escalates to the Data Steward and disables export.”
-3. “Alex asks to write to finance production during earnings quiet period. Atlas catches
-   the SOX risk, downgrades the request to read-only, and routes it to the CFO.”
-4. “A contractor tries to control warehouse scanners from home. Atlas checks physical
-   location and denies it.”
-5. “Support impersonation requires the ticket requester to match the customer. This
-   ticket belongs to someone else, so Atlas blocks it.”
-6. “Finally, Alex asks for a fourth secret in under an hour. Atlas detects secret
-   harvesting and raises an anomaly alarm.”
-7. “The key point: the AI never grants access. The deterministic policy engine does.”
+- Safe internal access auto-grants.
+- PowerBI view grants and export escalates.
+- Finance write during quiet period escalates to CFO and becomes read-only.
+- Warehouse IoT access from outside the geofence is denied.
+- Support impersonation mismatch is denied.
+- Secret harvesting is denied with anomaly alarm.
+- Escalation card shows risk, violation, peer signal, downgrade, approvers, and SLA.
+- Reaper revokes the finance grant when Jira `ATLAS-101` is marked `DONE`.
+- The UI clearly shows: AI can parse; deterministic policy decides.

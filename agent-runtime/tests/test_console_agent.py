@@ -5,7 +5,9 @@ from console_agent import (
     LEGAL_TOOLS,
     SYSTEM_PROMPT,
     ConsoleAgentDeps,
+    ConsoleContext,
     ConsoleTurn,
+    build_system_prompt,
     run_console_turn,
 )
 from shared.schemas import Requester
@@ -27,6 +29,12 @@ def _deps(**overrides) -> ConsoleAgentDeps:
             "results": [{"resource_id": "bucket-analytics-raw", "status": "granted"}],
         }
 
+    def request_access_for(beneficiary_id: str, raw_text: str) -> dict:
+        return {}
+
+    def enact(action: str, raw_text: str, resource_id: str | None = None) -> dict:
+        return {}
+
     return ConsoleAgentDeps(
         viewer=ALEX,
         request_access=overrides.get("request_access", request_access),
@@ -35,20 +43,69 @@ def _deps(**overrides) -> ConsoleAgentDeps:
             "explain_decision",
             lambda request_id=None, resource_id=None: {"explanation": "typed reason"},
         ),
+        request_access_for=overrides.get("request_access_for", request_access_for),
+        enact=overrides.get("enact", enact),
     )
 
 
-def test_legal_tools_are_exactly_the_three():
-    assert LEGAL_TOOLS == ("request_access", "list_scope", "explain_decision")
+def test_legal_tools_include_sponsor_and_enact():
+    assert "request_access_for" in LEGAL_TOOLS
+    assert "enact" in LEGAL_TOOLS
     for name in ILLEGAL_TOOLS:
         assert name not in LEGAL_TOOLS
 
 
-def test_system_prompt_refuses_illegal_verbs():
+def test_system_prompt_still_refuses_illegal_verbs():
     lowered = SYSTEM_PROMPT.lower()
     for name in ILLEGAL_TOOLS:
         assert name in lowered
     assert "never grant" in lowered or "must not grant" in lowered
+    built = build_system_prompt(
+        ConsoleContext(actor_id="u-manager-1", focus_id="u-finance-owner-1", page="overview", role="manager"),
+        actor=Requester(id="u-manager-1", name="Priya Nair", role="Engineering Manager", team="data-platform"),
+        focus_name="Jordan Lee",
+    ).lower()
+    assert "priya nair" in built
+    assert "jordan lee" in built
+    assert "overview" in built
+    assert "request_access_for" in built
+    assert "enact" in built
+    for name in ILLEGAL_TOOLS:
+        assert name in built
+
+
+def test_request_access_for_and_enact_do_not_write_grants():
+    seen: list[tuple] = []
+
+    def request_access_for(beneficiary_id: str, raw_text: str) -> dict:
+        seen.append(("sponsor", beneficiary_id, raw_text))
+        return {"status": "needs_confirmation", "preview": {"beneficiary_id": beneficiary_id}}
+
+    def enact(action: str, raw_text: str, resource_id: str | None = None) -> dict:
+        seen.append(("enact", action, raw_text, resource_id))
+        return {"status": "enqueued", "action": action}
+
+    def runner(message, deps, system_prompt):
+        assert "priya" in system_prompt.lower()
+        if "grant jordan" in message.lower():
+            payload = deps.request_access_for("u-finance-owner-1", message)
+            return ConsoleTurn(reply="Confirm sponsoring Jordan.", tools_used=["request_access_for"], request_result=payload)
+        payload = deps.enact("query", message, "bq-project-x-finance")
+        return ConsoleTurn(reply="Looking at finance.", tools_used=["enact"], enact_result=payload)
+
+    deps = _deps(request_access_for=request_access_for, enact=enact)
+    deps.context = ConsoleContext(actor_id="u-manager-1", focus_id="u-finance-owner-1", page="timeline", role="manager")
+    deps.focus = Requester(id="u-finance-owner-1", name="Jordan Lee", role="Finance Data Owner", team="finance")
+    deps.viewer = Requester(id="u-manager-1", name="Priya Nair", role="Engineering Manager", team="data-platform")
+
+    turn = run_console_turn("grant Jordan read on analytics-raw for Atlas", deps, runner=runner)
+    assert turn.tools_used == ["request_access_for"]
+    assert seen[0][0] == "sponsor"
+    assert "Grant(" not in str(turn.request_result)
+
+    turn2 = run_console_turn("invoice lines in finance", deps, runner=runner)
+    assert turn2.tools_used == ["enact"]
+    assert turn2.enact_result["status"] == "enqueued"
 
 
 def test_request_access_returns_evaluate_payload():
@@ -161,3 +218,37 @@ def test_default_console_runner_registers_tools_without_nameerror(monkeypatch):
 
     turn = default_console_runner("hello", _deps(), SYSTEM_PROMPT)
     assert turn.reply == "ok"
+
+
+@pytest.mark.filterwarnings("ignore:.*_UnionGenericAlias.*:DeprecationWarning")
+def test_history_is_prepended_to_model_message_not_tools(monkeypatch):
+    captured: dict = {}
+
+    class _Result:
+        output = "ok"
+
+    def run_sync(self, message, deps=None):
+        captured["message"] = message
+        return _Result()
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-not-live")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-not-live")
+    monkeypatch.setattr("console_agent.load_local_env", lambda: None)
+    monkeypatch.setattr("console_agent.export_gemini_keys", lambda: "test-not-live")
+    monkeypatch.setattr("console_agent._ensure_logfire", lambda: None)
+
+    from pydantic_ai import Agent
+
+    monkeypatch.setattr(Agent, "run_sync", run_sync)
+
+    from console_agent import SYSTEM_PROMPT, default_console_runner
+
+    deps = _deps()
+    deps.history = [{"role": "user", "content": f"old-{i}"} for i in range(25)]
+    turn = default_console_runner("latest ask", deps, SYSTEM_PROMPT)
+    assert turn.reply == "ok"
+    model_message = captured["message"]
+    assert model_message.endswith("latest ask")
+    assert "old-0" not in model_message
+    assert "old-5" in model_message
+    assert "old-24" in model_message

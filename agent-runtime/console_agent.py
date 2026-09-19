@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from envutil import export_gemini_keys, load_local_env  # noqa: E402
 from gemini_models import parse_model  # noqa: E402
+from pydantic_ai import RunContext  # noqa: E402
 from shared.schemas import Requester  # noqa: E402
 
 LEGAL_TOOLS = ("request_access", "list_scope", "explain_decision")
@@ -69,7 +70,7 @@ def _ensure_logfire() -> None:
 
 def default_console_runner(message: str, deps: ConsoleAgentDeps, system_prompt: str) -> ConsoleTurn:
     """Live Gemini path. Unit tests inject `runner` and never call this."""
-    from pydantic_ai import Agent, RunContext
+    from pydantic_ai import Agent
 
     load_local_env()
     export_gemini_keys()

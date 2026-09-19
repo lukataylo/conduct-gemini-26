@@ -1,3 +1,5 @@
+import pytest
+
 from console_agent import (
     ILLEGAL_TOOLS,
     LEGAL_TOOLS,
@@ -137,3 +139,25 @@ def test_run_console_turn_assigns_conversation_id_when_missing():
 
     turn = run_console_turn("hello", _deps(), runner=runner)
     assert turn.conversation_id
+
+
+@pytest.mark.filterwarnings("ignore:.*_UnionGenericAlias.*:DeprecationWarning")
+def test_default_console_runner_registers_tools_without_nameerror(monkeypatch):
+    """Live @agent.tool annotations must resolve; else POST /agent/turn 500s."""
+    class _Result:
+        output = "ok"
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-not-live")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-not-live")
+    monkeypatch.setattr("console_agent.load_local_env", lambda: None)
+    monkeypatch.setattr("console_agent.export_gemini_keys", lambda: "test-not-live")
+    monkeypatch.setattr("console_agent._ensure_logfire", lambda: None)
+
+    from pydantic_ai import Agent
+
+    monkeypatch.setattr(Agent, "run_sync", lambda self, message, deps=None: _Result())
+
+    from console_agent import SYSTEM_PROMPT, default_console_runner
+
+    turn = default_console_runner("hello", _deps(), SYSTEM_PROMPT)
+    assert turn.reply == "ok"

@@ -64,6 +64,23 @@ RESOURCES: dict[str, Resource] = {
             sensitivity=SensitivityTier.CRITICAL,
             project="atlas-migration",
         ),
+        Resource(
+            id="repo-atlas-ingestion",
+            name="atlas-ingestion",
+            type=ResourceType.GITHUB_REPO,
+            owning_team="data-platform",
+            sensitivity=SensitivityTier.INTERNAL,
+            project="atlas-migration",
+            capability="write",
+        ),
+        Resource(
+            id="repo-finance-ledger",
+            name="finance-ledger",
+            type=ResourceType.GITHUB_REPO,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            project="atlas-migration",
+        ),
     ]
 }
 
@@ -73,6 +90,8 @@ APPROVERS: dict[str, list[str]] = {
     "bucket-analytics-raw": [MANAGER.id],
     "bq-project-x-finance": [FINANCE_OWNER.id, MANAGER.id],  # cross-team: both sides
     "sql-prod-primary": [MANAGER.id, FINANCE_OWNER.id],
+    "repo-atlas-ingestion": [MANAGER.id],
+    "repo-finance-ledger": [FINANCE_OWNER.id, MANAGER.id],
 }
 
 # The natural-language request agent-runtime parses at the start of the demo

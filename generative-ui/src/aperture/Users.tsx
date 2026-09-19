@@ -12,6 +12,7 @@ interface Props {
   now: number;
   online: boolean;
   onOpen: (userId: string) => void;
+  onOpenAccess: (userId: string) => void;
 }
 
 interface Tool { name: string }
@@ -29,7 +30,7 @@ function useTools(userIds: string[], tick: number): Record<string, Tool[]> {
   return tools;
 }
 
-export function Users({ grants, cases, events, resources, users, now, online, onOpen }: Props) {
+export function Users({ grants, cases, events, resources, users, now, online, onOpen, onOpenAccess }: Props) {
   const tools = useTools(users.map((u) => u.id), grants.length);
   const [busy, setBusy] = useState<string | null>(null);
   const byId = new Map(users.map((u) => [u.id, u]));
@@ -74,6 +75,7 @@ export function Users({ grants, cases, events, resources, users, now, online, on
 
             <div className="uc-actions">
               <button className="nb go" disabled={!online || busy === u.id} onClick={() => ask(u)}>{busy === u.id ? "…" : "Ask"}</button>
+              <button className="nb" onClick={() => onOpenAccess(u.id)}>Access →</button>
               <button className="nb" onClick={() => onOpen(u.id)}>Timeline →</button>
             </div>
           </div>

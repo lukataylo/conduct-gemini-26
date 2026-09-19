@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { EscalationCase, Grant, User } from "./api";
 import { post, PROJECT } from "./api";
 
-export type Mode = "users" | "manager" | "console";
+export type Mode = "users" | "onboard" | "me" | "manager" | "console";
 const SCREENS: { id: Mode; name: string; sub: string }[] = [
-  { id: "users", name: "Users", sub: "everyone's access" },
+  { id: "users", name: "Users", sub: "everyone" },
+  { id: "onboard", name: "Onboard", sub: "new hire" },
+  { id: "me", name: "My access", sub: "generated" },
   { id: "manager", name: "Manager", sub: "decide" },
   { id: "console", name: "Timeline", sub: "deep-dive" },
 ];
@@ -19,9 +21,9 @@ interface Props {
 }
 
 const ASKS: Record<string, { resource_ids: string[]; days: number; text: string }> = {
-  "u-newhire-1": { resource_ids: ["bucket-analytics-raw", "bq-project-x-finance"], days: 14, text: "I need the analytics-raw bucket and the project-x-finance dataset to build the Atlas ingestion pipeline, done by Nov 15." },
-  "u-manager-1": { resource_ids: ["bucket-analytics-raw"], days: 7, text: "Reviewing the Atlas ingestion output this week." },
-  "u-finance-owner-1": { resource_ids: ["bq-project-x-finance"], days: 3, text: "Month-end close on Project X." },
+  "u-newhire-1": { resource_ids: ["repo-atlas-ingestion", "bucket-analytics-raw", "bq-project-x-finance"], days: 14, text: "I need the atlas-ingestion repo, the analytics-raw bucket and the project-x-finance dataset to build the Atlas ingestion pipeline, done by Nov 15." },
+  "u-manager-1": { resource_ids: ["bucket-analytics-raw", "repo-atlas-ingestion"], days: 7, text: "Reviewing the Atlas ingestion output this week." },
+  "u-finance-owner-1": { resource_ids: ["bq-project-x-finance", "repo-finance-ledger"], days: 3, text: "Month-end close on Project X." },
 };
 
 export function requestAs(u: User) {

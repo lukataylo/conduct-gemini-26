@@ -283,6 +283,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .us-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .us .nb.go { background: var(--u); border-color: var(--u); color: var(--bg); font-weight: 600; padding: 9px 18px; font-size: 14px; }
 .us .nb.go:disabled { background: transparent; color: var(--fg-3); border-color: var(--line); }
+.us-status { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px 24px; }
 .us-res { font-family: var(--dot); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--fg-2); }
 .us-res.granted { border-color: var(--green); color: var(--green); }
 .us-res.escalated { border-color: var(--amber); color: var(--amber); }

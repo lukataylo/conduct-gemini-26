@@ -27,6 +27,20 @@ TOOL_SPECS: dict[str, dict[str, str]] = {
             "{grant_id} is active (expires {expires})."
         ),
     },
+    "repo-atlas-ingestion": {
+        "name": "gh_push_atlas_ingestion",
+        "description": (
+            "Read and push to the atlas-ingestion GitHub repo. Only while grant "
+            "{grant_id} is active (expires {expires})."
+        ),
+    },
+    "repo-finance-ledger": {
+        "name": "gh_read_finance_ledger",
+        "description": (
+            "Read the finance-ledger GitHub repo. Only while grant "
+            "{grant_id} is active (expires {expires})."
+        ),
+    },
 }
 
 

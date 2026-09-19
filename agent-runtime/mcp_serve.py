@@ -177,6 +177,10 @@ async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent
     if name.startswith("gcs_"):
         out = "gs://atlas-analytics-raw/events/2026-09-18.parquet\ngs://atlas-analytics-raw/events/2026-09-19.parquet"
         await _audit(name, grant, True, f"{name} · 2 objects")
+    elif name.startswith("gh_"):
+        repo = spec["resource_id"].removeprefix("repo-")
+        out = f"{repo}: main @ 3f9a2c1\n  README.md\n  pipeline/ingest.py\n  pipeline/schema.sql"
+        await _audit(name, grant, True, f"{name} · main @ 3f9a2c1")
     else:
         sql = str(arguments.get("sql", ""))
         out = f"{sql.strip() or 'SELECT COUNT(*)'}\n+-------+\n| 48213 |\n+-------+"

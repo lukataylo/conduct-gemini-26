@@ -8,12 +8,14 @@ import { Manager } from "./Manager";
 import { Matrix } from "./Matrix";
 import { Menu, seedDemo, type Mode } from "./Menu";
 import { Recorder } from "./Recorder";
+import { Summary } from "./Summary";
 import { Timeline } from "./Timeline";
+import { UserScreen } from "./User";
 import { Users } from "./Users";
 
 function initialMode(): Mode {
   const m = new URLSearchParams(window.location.search).get("screen");
-  return m === "manager" || m === "console" ? m : "users";
+  return m === "manager" || m === "console" || m === "onboard" || m === "me" ? m : "users";
 }
 function initialUser(): string {
   return new URLSearchParams(window.location.search).get("user") ?? ALL;
@@ -24,7 +26,7 @@ export default function ApertureApp() {
   const users = useMemo(() => toUsers(snap.people), [snap.people]);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [selected, setSelected] = useState<string>(initialUser); // only the Timeline deep-dive filters by person
-  const [zoom, setZoom] = useState<"session" | "project">("session");
+  const zoom = "session" as const;
   const [now, setNow] = useState(Date.now());
   const seeded = useRef(false);
 
@@ -48,25 +50,22 @@ export default function ApertureApp() {
   const revoked = snap.grants.filter((g) => g.revoked && mine(g.requester_id));
   const bounced = snap.events.filter((e) => e.type === "action_executed" && e.payload.status === "bounced").length;
   const openConsole = (uid: string) => { setSelected(uid); setMode("console"); };
+  const openAccess = (uid: string) => { setSelected(uid); setMode("me"); };
+  const person = selected === ALL ? "u-newhire-1" : selected;
+  const personal = mode === "onboard" || mode === "me";
 
   return (
     <div className="ap" style={{ ["--accent" as string]: accent }}>
       <header className="hd">
         <span className="brand">APERTURE</span>
         <span className="right">
-          {mode === "console" && (
-            <>
-              <span className="people" role="tablist" aria-label="Person">
-                <button className="person" aria-pressed={selected === ALL} onClick={() => setSelected(ALL)} style={{ ["--u" as string]: "#f4f4f4" }}><i className="multi" /><span>Everyone</span></button>
-                {users.map((u) => (
-                  <button key={u.id} className="person" aria-pressed={selected === u.id} onClick={() => setSelected(u.id)} style={{ ["--u" as string]: u.color }}><i /><span>{u.name.split(" ")[0]}</span></button>
-                ))}
-              </span>
-              <span className="seg" role="group" aria-label="Zoom">
-                <button aria-pressed={zoom === "session"} onClick={() => setZoom("session")}>session</button>
-                <button aria-pressed={zoom === "project"} onClick={() => setZoom("project")}>project</button>
-              </span>
-            </>
+          {(mode === "console" || personal) && (
+            <span className="people" role="tablist" aria-label="Person">
+              {mode === "console" && <button className="person" aria-pressed={selected === ALL} onClick={() => setSelected(ALL)} style={{ ["--u" as string]: "#f4f4f4" }}><i className="multi" /><span>Everyone</span></button>}
+              {users.map((u) => (
+                <button key={u.id} className="person" aria-pressed={selected === u.id} onClick={() => setSelected(u.id)} style={{ ["--u" as string]: u.color }}><i /><span>{u.name.split(" ")[0]}</span></button>
+              ))}
+            </span>
           )}
           <span className={`dotst ${!snap.online ? "" : snap.verify?.ok ? "ok" : "bad"}`}><i />{!snap.online ? "offline" : snap.verify?.ok ? `chain ${snap.verify.length}` : "chain broken"}</span>
           <Menu mode={mode} onMode={setMode} users={users} grants={snap.grants} cases={snap.cases} online={snap.online} />
@@ -74,7 +73,15 @@ export default function ApertureApp() {
       </header>
 
       {mode === "users" && (
-        <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={openConsole} />
+        <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={openConsole} onOpenAccess={openAccess} />
+      )}
+
+      {mode === "onboard" && (
+        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={person} online={snap.online} now={now} />
+      )}
+
+      {mode === "me" && (
+        <Summary grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={person} now={now} />
       )}
 
       {mode === "manager" && (

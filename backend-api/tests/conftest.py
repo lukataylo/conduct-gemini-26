@@ -12,6 +12,7 @@ def _reset() -> None:
     main.AUDIT_LOG.clear()
     main.WATCH_URLS.clear()
     main.CONVERSATIONS.clear()
+    main.ENACT_RUNNING.clear()
     main.STREAM_SUBSCRIBERS.clear()
     main.CLOCK_OFFSET = timedelta(0)
     main._CLOCK_OVERRIDE = None

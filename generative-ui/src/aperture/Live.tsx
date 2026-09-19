@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentTurnOut, User } from "./api";
-import { postAgentTurn } from "./api";
+import { postAgentTurn, postLiveSession } from "./api";
 
 type Mode = "idle" | "listening" | "thinking" | "speaking";
 type Row = { kind: "you" | "gemini" | "tool"; text: string };
 
 interface Props {
   viewer: User | undefined;
+  focus?: User;
+  page: string;
+  onNavigateTimeline: (focusId: string) => void;
 }
 
 /** Dot-matrix face: two eyes that blink, glance, squint when speaking, and spin when thinking. */
@@ -97,7 +100,7 @@ function Wave({ mode, level }: { mode: Mode; level: React.MutableRefObject<numbe
   return <canvas ref={ref} className="wave" aria-hidden="true" />;
 }
 
-export function Live({ viewer }: Props) {
+export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("idle");
   const [msg, setMsg] = useState("");
@@ -105,6 +108,7 @@ export function Live({ viewer }: Props) {
   const [cid, setCid] = useState<string | null>(null);
   const [pending, setPending] = useState<AgentTurnOut | null>(null);
   const [voice, setVoice] = useState(false);
+  const [voiceOffline, setVoiceOffline] = useState(false);
   const [interim, setInterim] = useState("");
   const level = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
@@ -112,7 +116,22 @@ export function Live({ viewer }: Props) {
   const audioRef = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
 
   useEffect(() => { logRef.current?.scrollTo({ top: 1e6 }); }, [rows, pending, mode]);
-  useEffect(() => { setRows([]); setCid(null); setPending(null); }, [viewer?.id]);
+  useEffect(() => { setRows([]); setCid(null); setPending(null); setVoiceOffline(false); }, [viewer?.id]);
+  useEffect(() => {
+    if (!open || !viewer) return;
+    const hasSpeech = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    void postLiveSession({
+      viewer_id: viewer.id,
+      focus_id: focus?.id ?? "all",
+      page,
+      conversation_id: cid,
+    }).then((session) => {
+      setCid((current) => current ?? session.conversation_id);
+      if (!session.ok && !hasSpeech) setVoiceOffline(true);
+    }).catch(() => {
+      if (!hasSpeech) setVoiceOffline(true);
+    });
+  }, [open, viewer?.id, focus?.id, page]);
 
   const speak = (text: string) => {
     if (!voice || !("speechSynthesis" in window)) return;
@@ -128,7 +147,16 @@ export function Live({ viewer }: Props) {
     for (const name of turn.tools_used) setRows((r) => [...r, { kind: "tool", text: name }]);
     if (turn.reply) { setRows((r) => [...r, { kind: "gemini", text: turn.reply }]); speak(turn.reply); }
     setPending(turn.request_result?.status === "needs_confirmation" ? turn : null);
+    if (turn.navigate === "timeline") onNavigateTimeline(focus?.id ?? "all");
   };
+
+  const payload = (message: string, extra?: { conversation_id?: string | null; confirm?: boolean }) => ({
+    viewer_id: viewer!.id,
+    focus_id: focus?.id ?? "all",
+    page,
+    message,
+    ...extra,
+  });
 
   const send = async (text: string) => {
     if (!viewer || !text.trim()) return;
@@ -136,7 +164,7 @@ export function Live({ viewer }: Props) {
     setMsg(""); setInterim("");
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn({ viewer_id: viewer.id, message: text.trim(), conversation_id: cid }));
+      applyTurn(await postAgentTurn(payload(text.trim(), { conversation_id: cid })));
     } catch (e) {
       setRows((r) => [...r, { kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` }]);
     } finally {
@@ -148,7 +176,7 @@ export function Live({ viewer }: Props) {
     if (!viewer || !pending) return;
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn({ viewer_id: viewer.id, message: pending.request_result?.preview?.raw_text || "confirm", conversation_id: pending.conversation_id, confirm: true }));
+      applyTurn(await postAgentTurn(payload(pending.request_result?.preview?.raw_text || "confirm", { conversation_id: pending.conversation_id, confirm: true })));
     } catch (e) {
       setRows((r) => [...r, { kind: "gemini", text: String(e) }]);
     } finally {
@@ -192,11 +220,11 @@ export function Live({ viewer }: Props) {
   return (
     <>
       <button className={`live-bubble ${open ? "open" : ""}`} aria-expanded={open} aria-label="Gemini" onClick={() => setOpen((o) => !o)}>
-        <Face mode={mode} small /><span>{open ? "Close" : "Gemini"}</span>
+        <Face mode={mode} small /><span>{open ? "Close" : voiceOffline ? "voice offline — use chat" : "Gemini"}</span>
       </button>
       {open && (
         <div className="live-panel" style={{ ["--u" as string]: viewer?.color ?? "#f4f4f4" }}>
-          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{mode}</b><small>as {viewer?.name ?? "…"}</small></div></div>
+          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{mode}</b><small>as {viewer?.name ?? "…"} · looking at {focus?.name ?? "everyone"}</small></div></div>
           <Wave mode={mode} level={level} />
           <div className="live-log" ref={logRef}>
             {rows.length === 0 && <div className="live-empty">Ask what's waiting, why something was refused, or ask for access. Gemini explains and drafts; it never grants.</div>}

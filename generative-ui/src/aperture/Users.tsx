@@ -14,6 +14,8 @@ interface Props {
   online: boolean;
   onOpen: (userId: string) => void;
   onOpenAccess: (userId: string) => void;
+  focusId?: string;
+  onFocus?: (userId: string) => void;
 }
 
 interface Tool { name: string }
@@ -89,7 +91,7 @@ function AddPerson({ online }: { online: boolean }) {
   );
 }
 
-export function Users({ grants, cases, events, resources, users, company, now, online, onOpen, onOpenAccess }: Props) {
+export function Users({ grants, cases, events, resources, users, company, now, online, onOpen, onOpenAccess, focusId, onFocus }: Props) {
   const tools = useTools(users.map((u) => u.id), grants.length);
   const [busy, setBusy] = useState<string | null>(null);
   const byId = new Map(users.map((u) => [u.id, u]));
@@ -109,14 +111,14 @@ export function Users({ grants, cases, events, resources, users, company, now, o
         const frac = soonest ? (Date.parse(soonest.expires_at) - now) / (Date.parse(soonest.expires_at) - Date.parse(soonest.granted_at)) : 0;
         const waitingOn = [...new Set(pending.flatMap((c) => c.required_approver_ids.filter((a) => !c.votes.some((v) => v.approver_id === a))))].map((a) => byId.get(a)?.name.split(" ")[0] ?? a);
         return (
-          <div className="uc" key={u.id} style={{ ["--u" as string]: u.color }}>
-            <div className="uc-head"><i /><div><b>{u.name}</b><small>{u.team} · {u.role}</small></div>
+          <div className={`uc${focusId === u.id ? " on" : ""}`} key={u.id} style={{ ["--u" as string]: u.color }}>
+            <button type="button" className="uc-head" onClick={() => onFocus?.(u.id)}><i /><div><b>{u.name}</b><small>{u.team} · {u.role}</small></div>
               <span className="plats">
                 {plats.map((p) => (
                   <span key={p.id} className={`plat ${p.home ? "home" : ""} ${hasPlatform(u, p.id) ? "on" : "off"}`} title={p.name}>{p.short}</span>
                 ))}
               </span>
-            </div>
+            </button>
 
             <div className="w-grid">
               <div className={`w w-big ${active.length ? "" : "zero"}`}><b>{active.length}</b><small>open</small></div>

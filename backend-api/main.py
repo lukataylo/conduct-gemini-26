@@ -40,6 +40,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 import cu_frames  # noqa: E402
+from live_session_route import mount_live_session  # noqa: E402
 
 import gcp_iam  # noqa: E402
 import policy_demo  # noqa: E402
@@ -75,6 +76,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+mount_live_session(app)
 
 DEMO_KEY = os.environ.get("DEMO_KEY")  # when set, every write needs X-Demo-Key; unset = open (local dev)
 
@@ -96,6 +98,7 @@ EXECUTE_ENQUEUE_IMPL: Callable[..., None] | None = None
 COMPOSE_IMPL: Callable[..., UISpec] | None = None
 AGENT_TURN_IMPL: Callable[..., object] | None = None
 CONVERSATIONS: dict[str, dict] = {}
+ENACT_RUNNING: set[str] = set()
 STREAM_SUBSCRIBERS: list[Callable] = []
 CLOCK_OFFSET = timedelta(0)
 _STREAM_EXTRA_TYPES = {
@@ -113,6 +116,9 @@ KNOWN_REQUESTERS: dict[str, Requester] = _people_index()
 LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
 DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
 NEVER_ENACT_IDS = frozenset({"sql-prod-primary", "sap-customer-directory", "sap-hr-payroll"})
+_CHAT_ENACT_ACTIONS = frozenset({"browse", "query", "inspect", "export"})
+_REFUSE_ENACT_IDS = frozenset({"sql-prod-primary", "sap-hr-payroll"})
+_DIRECTORY_EXPORT_ID = "sap-customer-directory"
 
 
 def _has_business_context(request: AccessRequest) -> bool:
@@ -230,9 +236,10 @@ def _console_url_for(grant: Grant) -> str:
     return os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
 
 
-def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
+def _enqueue_execute(grant: Grant, action: str = "grant", ask: str | None = None) -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
-    if grant.resource_id in NEVER_ENACT_IDS:
+    directory_export = action == "export" and grant.resource_id == _DIRECTORY_EXPORT_ID
+    if grant.resource_id in NEVER_ENACT_IDS and not directory_export:
         return
     if grant.resource_id.startswith("platform-"):
         return
@@ -245,7 +252,9 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
             nparams = len(inspect.signature(impl).parameters)
         except (TypeError, ValueError):
             nparams = 2
-        if nparams >= 2:
+        if nparams >= 3:
+            impl(grant, action, ask)
+        elif nparams >= 2:
             impl(grant, action)
         else:
             impl(grant)
@@ -269,6 +278,7 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
             "callback_base_url": callback,
             "watch_url": watch,
             "action": action,
+            "ask": ask,
         }
         try:
             if url:
@@ -277,7 +287,17 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
             _agent_runtime_on_path()
             from computer_use import execute_grant
 
-            execute_grant(grant, console, watch_url=watch, callback_base_url=callback, action=action)
+            kwargs: dict = {
+                "watch_url": watch,
+                "callback_base_url": callback,
+                "action": action,
+            }
+            try:
+                if "ask" in inspect.signature(execute_grant).parameters:
+                    kwargs["ask"] = ask
+            except (TypeError, ValueError):
+                pass
+            execute_grant(grant, console, **kwargs)
         except Exception as exc:
             _audit(
                 AuditEventType.ACTION_EXECUTED,
@@ -502,6 +522,82 @@ def _console_explain_decision(
     return {"explanation": "No typed policy decision found for that id."}
 
 
+def _named_person_from_text(raw_text: str) -> Requester | None:
+    text = (raw_text or "").lower()
+    hits = [person for person in KNOWN_REQUESTERS.values() if person.name.lower() in text]
+    if len(hits) == 1:
+        return hits[0]
+    return None
+
+
+def _resolve_enact_resource(
+    raw_text: str,
+    requester: Requester,
+    resource_id: str | None,
+) -> str | None:
+    if resource_id:
+        return resource_id
+    parsed = _parse_nl(raw_text, requester)
+    ids = list(parsed.resource_ids or [])
+    if not ids:
+        return None
+    return ids[0]
+
+
+def _console_enact(
+    action: str,
+    raw_text: str,
+    resource_id: str | None,
+    *,
+    focus: Requester | None,
+    actor: Requester,
+) -> dict:
+    verb = (action or "").strip().lower()
+    subject = focus or _named_person_from_text(raw_text)
+    resolved = _resolve_enact_resource(raw_text, subject or actor, resource_id)
+    if verb not in _CHAT_ENACT_ACTIONS or resolved in _REFUSE_ENACT_IDS:
+        return {"status": "refused", "action": verb, "resource_id": resolved}
+    if subject is None:
+        return {"status": "need_focus", "action": verb, "resource_id": resolved}
+    directory_export = verb == "export" and resolved == _DIRECTORY_EXPORT_ID
+    if directory_export:
+        grant = Grant(
+            id=str(uuid.uuid4()),
+            request_id="",
+            resource_id=_DIRECTORY_EXPORT_ID,
+            requester_id=subject.id,
+            granted_at=now(),
+            expires_at=now() + timedelta(hours=1),
+        )
+        _enqueue_execute(grant, action="export", ask=raw_text)
+        return {
+            "status": "enqueued",
+            "action": "export",
+            "grant_id": None,
+            "resource_id": _DIRECTORY_EXPORT_ID,
+            "ask": raw_text,
+        }
+    matches = [
+        grant
+        for grant in active_grants(subject.id)
+        if resolved is not None and grant.resource_id == resolved
+    ]
+    if not matches:
+        return {"status": "no_grant", "action": verb, "resource_id": resolved}
+    grant = matches[0]
+    if grant.id in ENACT_RUNNING:
+        return {"status": "running", "action": verb, "grant_id": grant.id, "resource_id": resolved}
+    ENACT_RUNNING.add(grant.id)
+    _enqueue_execute(grant, action=verb, ask=raw_text)
+    return {
+        "status": "enqueued",
+        "action": verb,
+        "grant_id": grant.id,
+        "resource_id": resolved,
+        "ask": raw_text,
+    }
+
+
 @app.post("/agent/turn")
 def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     viewer = KNOWN_REQUESTERS.get(body.viewer_id)
@@ -573,6 +669,9 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     focus = _resolve_person(body.focus_id) if body.focus_id else None
     history = list(slot["messages"][-20:])
 
+    def enact(action: str, raw_text: str, resource_id: str | None = None) -> dict:
+        return _console_enact(action, raw_text, resource_id, focus=focus, actor=viewer)
+
     _agent_runtime_on_path()
     from console_agent import ConsoleAgentDeps, ConsoleContext, run_console_turn
 
@@ -584,6 +683,7 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
             viewer, request_id, resource_id
         ),
+        enact=enact,
         context=ConsoleContext(
             actor_id=viewer.id,
             focus_id=focus.id if focus else None,
@@ -603,13 +703,15 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     messages.append({"role": "user", "content": body.message})
     messages.append({"role": "assistant", "content": turn.reply})
     slot["messages"] = messages[-40:]
+    enact_result = turn.enact_result
+    navigate = "timeline" if enact_result and enact_result.get("status") == "enqueued" else None
     return AgentTurnOut(
         reply=turn.reply,
         tools_used=list(turn.tools_used),
         request_result=turn.request_result,
         conversation_id=turn.conversation_id,
-        enact_result=turn.enact_result,
-        navigate=None,
+        enact_result=enact_result,
+        navigate=navigate,
     )
 
 

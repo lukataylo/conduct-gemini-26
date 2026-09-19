@@ -621,3 +621,137 @@ def test_sponsor_directory_denied_no_grant():
     assert rows[0]["status"] == "denied"
     assert main.GRANTS == {}
     assert not any(grant.resource_id == "sap-customer-directory" for grant in main.GRANTS.values())
+
+
+def _enact_runner(action: str, resource_id: str | None = None):
+    def runner(message, deps, system_prompt):
+        return ConsoleTurn(
+            reply=f"enact {action}",
+            tools_used=["enact"],
+            enact_result=deps.enact(action, message, resource_id),
+        )
+
+    return runner
+
+
+def test_enact_without_grant_does_not_enqueue():
+    seen: list = []
+    main.EXECUTE_ENQUEUE_IMPL = lambda grant, action="grant", ask=None: seen.append(
+        (grant.id, action, ask)
+    )
+    main.AGENT_TURN_IMPL = _enact_runner("query", "bq-project-x-finance")
+    resp = _client().post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": FINANCE_TEXT,
+            "conversation_id": "c-enact-none",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enact_result"]["status"] == "no_grant"
+    assert body["navigate"] is None
+    assert seen == []
+    assert main.GRANTS == {}
+
+
+def test_enact_jordan_finance_query_enqueues_ask():
+    seen: list[dict] = []
+
+    def impl(grant, action="grant", ask=None):
+        seen.append(
+            {
+                "grant_id": grant.id,
+                "resource_id": grant.resource_id,
+                "requester_id": grant.requester_id,
+                "action": action,
+                "ask": ask,
+            }
+        )
+
+    main.EXECUTE_ENQUEUE_IMPL = impl
+    grant = main._issue_grant(
+        "r-jordan-fin", JORDAN_ID, "bq-project-x-finance", ttl_days=14
+    )
+    seen.clear()
+    ask = "Query Jordan's finance dataset for Atlas invoice lines."
+    main.AGENT_TURN_IMPL = _enact_runner("query", "bq-project-x-finance")
+    resp = _client().post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": ask,
+            "conversation_id": "c-enact-fin",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enact_result"]["status"] == "enqueued"
+    assert body["enact_result"]["action"] == "query"
+    assert body["enact_result"]["grant_id"] == grant.id
+    assert body["navigate"] == "timeline"
+    assert seen == [
+        {
+            "grant_id": grant.id,
+            "resource_id": "bq-project-x-finance",
+            "requester_id": JORDAN_ID,
+            "action": "query",
+            "ask": ask,
+        }
+    ]
+
+
+def test_enact_sql_is_refused():
+    seen: list = []
+    main.EXECUTE_ENQUEUE_IMPL = lambda grant, action="grant", ask=None: seen.append(grant.id)
+    main.AGENT_TURN_IMPL = _enact_runner("query", "sql-prod-primary")
+    resp = _client().post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": SQL_TEXT,
+            "conversation_id": "c-enact-sql",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enact_result"]["status"] == "refused"
+    assert body["navigate"] is None
+    assert seen == []
+    assert main._CHAT_ENACT_ACTIONS == frozenset({"browse", "query", "inspect", "export"})
+    assert main._REFUSE_ENACT_IDS == frozenset({"sql-prod-primary", "sap-hr-payroll"})
+
+
+def test_enact_directory_export_has_null_grant_id():
+    seen: list[tuple] = []
+
+    def impl(grant, action="grant", ask=None):
+        seen.append((grant.resource_id, action, ask, grant.id))
+
+    main.EXECUTE_ENQUEUE_IMPL = impl
+    before = dict(main.GRANTS)
+    main.AGENT_TURN_IMPL = _enact_runner("export", "sap-customer-directory")
+    resp = _client().post(
+        "/agent/turn",
+        json={
+            "viewer_id": PRIYA_ID,
+            "message": DIRECTORY_TEXT,
+            "conversation_id": "c-enact-dir",
+            "focus_id": JORDAN_ID,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enact_result"]["status"] == "enqueued"
+    assert body["enact_result"]["grant_id"] is None
+    assert body["enact_result"]["action"] == "export"
+    assert body["navigate"] == "timeline"
+    assert seen and seen[0][0] == "sap-customer-directory"
+    assert seen[0][1] == "export"
+    assert seen[0][2] == DIRECTORY_TEXT
+    assert main.GRANTS == before
+    assert not any(grant.resource_id == "sap-customer-directory" for grant in main.GRANTS.values())

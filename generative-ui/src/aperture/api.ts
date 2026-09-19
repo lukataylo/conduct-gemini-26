@@ -274,6 +274,39 @@ export interface AgentTurnOut {
   tools_used: string[];
   request_result: AgentTurnResult | null;
   conversation_id: string;
+  enact_result?: Record<string, unknown> | null;
+  navigate?: string | null;
+}
+
+export interface PolicyRouteRow {
+  id: string;
+  name: string;
+  approver_ids: string[];
+}
+
+export interface PolicyRoutes {
+  gcp: PolicyRouteRow[];
+  sap: PolicyRouteRow[];
+}
+
+export function fetchPolicyRoutes(): Promise<PolicyRoutes> {
+  return get<PolicyRoutes>("/policy/routes");
+}
+
+export interface LiveSessionOut {
+  ok: boolean;
+  conversation_id: string;
+  model?: string | null;
+  fallback?: string | null;
+}
+
+export function postLiveSession(body: {
+  viewer_id: string;
+  focus_id?: string | null;
+  page?: string;
+  conversation_id?: string | null;
+}): Promise<LiveSessionOut> {
+  return post<LiveSessionOut>("/agent/live/session", body);
 }
 
 export function postAgentTurn(body: {
@@ -281,6 +314,8 @@ export function postAgentTurn(body: {
   message: string;
   conversation_id?: string | null;
   confirm?: boolean;
+  focus_id?: string | null;
+  page?: string;
 }): Promise<AgentTurnOut> {
   return post<AgentTurnOut>("/agent/turn", body);
 }

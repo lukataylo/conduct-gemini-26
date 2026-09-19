@@ -97,6 +97,7 @@ KNOWN_REQUESTERS: dict[str, Requester] = {
 
 LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
 DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
+NEVER_ENACT_IDS = frozenset({"sql-prod-primary", "sap-customer-directory", "sap-hr-payroll"})
 
 
 def _has_business_context(request: AccessRequest) -> bool:
@@ -201,8 +202,16 @@ def _parse_nl(raw_text: str, requester: Requester) -> AccessRequest:
     return parse_request(raw_text, requester, known)
 
 
+def _console_url_for(grant: Grant) -> str:
+    if grant.resource_id.startswith("sap-"):
+        return os.environ.get("SAP_CONSOLE_URL") or "http://127.0.0.1:8766/"
+    return os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+
+
 def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
+    if grant.resource_id in NEVER_ENACT_IDS:
+        return
     watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
     if watch:
         WATCH_URLS[grant.id] = watch
@@ -228,7 +237,7 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
         return
 
     def _run() -> None:
-        console = os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+        console = _console_url_for(grant)
         callback = os.environ.get("BACKEND_PUBLIC_URL") or "http://127.0.0.1:8000"
         payload = {
             "grant": grant.model_dump(mode="json"),
@@ -632,8 +641,50 @@ def console_state() -> dict:
             "grant_id": grant.id,
         }
         for grant in active_grants()
+        if not grant.resource_id.startswith("sap-")
     ]
     return {"resources": list(usecase_demo.RESOURCES.values()), "bindings": bindings}
+
+
+def _sap_binding(grant: Grant) -> dict:
+    resource = usecase_demo.RESOURCES.get(grant.resource_id)
+    meta = resource.metadata if resource is not None else {}
+    return {
+        "resource_id": grant.resource_id,
+        "principal": grant.requester_id,
+        "role": meta.get("role") or _console_role(grant.resource_id),
+        "company_code": meta.get("company_code"),
+        "customer_id": meta.get("customer_id"),
+        "activity": meta.get("activity"),
+        "expires_at": grant.expires_at,
+        "grant_id": grant.id,
+    }
+
+
+@app.get("/sap/state")
+def sap_state() -> dict:
+    """SAP resources and active sap-* bindings the Fiori console hydrates from."""
+    resources = [r for r in usecase_demo.RESOURCES.values() if r.id.startswith("sap-")]
+    bindings = [_sap_binding(grant) for grant in active_grants() if grant.resource_id.startswith("sap-")]
+    return {"resources": resources, "bindings": bindings}
+
+
+@app.post("/sap/export-demo")
+def sap_export_demo() -> dict:
+    """Presenter bounce: no grant, no enqueue — records a dumped customer-list attempt."""
+    _audit(
+        AuditEventType.ACTION_EXECUTED,
+        actor="agent",
+        detail="sap_export_customer_list · bounced · no active grant",
+        grant_id=None,
+        payload={
+            "tool": "sap_export_customer_list",
+            "status": "bounced",
+            "action": "export",
+            "requester_id": "u-newhire-1",
+        },
+    )
+    return {"status": "bounced", "grant_id": None}
 
 
 @app.get("/people")

@@ -1,800 +1,552 @@
 <title>Aperture UI Directions</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   :root {
-    --ground: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf2;
-    --ink: #17212b; --ink-2: #4f5f70; --ink-3: #8593a2;
-    --line: #d3dae2; --line-2: #b9c3cf;
-    --accent: #1d5cc2; --accent-ink: #ffffff; --accent-soft: #e4edfb;
-    --good: #14663d; --warn: #8a4f00; --crit: #b83a3a;
+    --ground: #0d1117; --surface: #131a23; --surface-2: #1b2430;
+    --ink: #e6ecf3; --ink-2: #9aa8b8; --ink-3: #66748a;
+    --line: #26303d; --line-2: #36424f;
+    --accent: #f0a04b; --accent-ink: #0d1117;
+    --good: #4ade80; --warn: #f0a04b; --crit: #f87171;
     --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground: #0e1318; --surface: #161c23; --surface-2: #1e262f;
-      --ink: #e4eaf1; --ink-2: #a3b0be; --ink-3: #6f7d8c;
-      --line: #2a343f; --line-2: #3a4653;
-      --accent: #6ea3f5; --accent-ink: #0b1524; --accent-soft: #172a45;
-      --good: #4cc48a; --warn: #e2a24a; --crit: #ef7b7b;
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ground: #f4f5f7; --surface: #ffffff; --surface-2: #e9edf2;
+      --ink: #17212b; --ink-2: #4f5f70; --ink-3: #8593a2;
+      --line: #d3dae2; --line-2: #b9c3cf;
+      --accent: #b8621b; --accent-ink: #ffffff;
+      --good: #14663d; --warn: #8a4f00; --crit: #b83a3a;
     }
   }
-  :root[data-theme="dark"] {
-    --ground: #0e1318; --surface: #161c23; --surface-2: #1e262f;
-    --ink: #e4eaf1; --ink-2: #a3b0be; --ink-3: #6f7d8c;
-    --line: #2a343f; --line-2: #3a4653;
-    --accent: #6ea3f5; --accent-ink: #0b1524; --accent-soft: #172a45;
-    --good: #4cc48a; --warn: #e2a24a; --crit: #ef7b7b;
+  :root[data-theme="light"] {
+    --ground: #f4f5f7; --surface: #ffffff; --surface-2: #e9edf2;
+    --ink: #17212b; --ink-2: #4f5f70; --ink-3: #8593a2;
+    --line: #d3dae2; --line-2: #b9c3cf;
+    --accent: #b8621b; --accent-ink: #ffffff;
+    --good: #14663d; --warn: #8a4f00; --crit: #b83a3a;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; padding-block: 0 4rem; padding-inline: 20px; }
-  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-  h1, h2, h3, h4 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
-  h1 { font-size: 2.2rem; font-weight: 600; } h2 { font-size: 1.4rem; font-weight: 600; } h3 { font-size: 1.05rem; font-weight: 600; }
-  p { margin: 0; } ul { margin: 0; padding-left: 1.1rem; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; padding-block: 0 3rem; padding-inline: 20px; }
+  a { color: var(--accent); text-decoration: none; }
+  h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
+  h1 { font-size: 2rem; font-weight: 600; } h2 { font-size: 1.3rem; font-weight: 600; } h3 { font-size: 1rem; font-weight: 600; }
+  p { margin: 0; }
   code { font-family: var(--mono); font-size: 0.86em; background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 3px; }
   .wrap { max-width: 1120px; margin: 0 auto; }
   .eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
-  header.masthead { padding-block: 3rem 2rem; display: grid; gap: 0.8rem; border-bottom: 1px solid var(--line); }
-  .lede { font-size: 1.08rem; color: var(--ink-2); max-width: 64ch; }
-  section { padding-block: 2.4rem; border-bottom: 1px solid var(--line); display: grid; gap: 1.2rem; }
-  .sub { color: var(--ink-2); max-width: 66ch; }
+  header.masthead { padding-block: 2.2rem 1.2rem; display: grid; gap: 0.5rem; }
+  .lede { color: var(--ink-2); max-width: 60ch; }
+  section { padding-block: 1.6rem; border-top: 1px solid var(--line); display: grid; gap: 0.8rem; }
 
-  .field { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-  .field h3 { padding-bottom: 0.4rem; border-bottom: 1px solid var(--line-2); margin-bottom: 0.6rem; }
-  .field li { padding-block: 0.2rem; }
-  .field li b { font-weight: 500; }
+  .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding-bottom: 1.4rem; }
+  @media (max-width: 720px) { .gallery { grid-template-columns: 1fr; } }
+  .thumb { display: grid; gap: 0.4rem; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+  .thumb .shot { width: 100%; aspect-ratio: 960 / 560; overflow: hidden; position: relative; border: 1px solid var(--line-2); background: var(--surface-2); }
+  .thumb .shot .frame { position: absolute; top: 0; left: 0; width: 960px; height: 560px; min-height: 560px; transform-origin: top left; pointer-events: none; }
+  .thumb:hover .shot, .thumb:focus-visible .shot { border-color: var(--accent); }
+  .thumb .cap { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+  .thumb .cap b { font-weight: 600; } .thumb .cap span { color: var(--ink-2); font-size: 0.9rem; }
 
-  .dirnav { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
-  .dirnav button { text-align: left; background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 0.9rem 1rem; cursor: pointer; font: inherit; display: grid; gap: 0.25rem; }
-  .dirnav button .k { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; }
-  .dirnav button .n { font-weight: 600; font-size: 1.05rem; }
-  .dirnav button .t { color: var(--ink-2); font-size: 0.9rem; }
-  .dirnav button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-
-  .dir { display: grid; gap: 1rem; }
-  .dir-head { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-  @media (max-width: 760px) { .dir-head { grid-template-columns: 1fr; } }
-  .dir-head .thesis { font-size: 1.05rem; max-width: 60ch; }
-  .facts { display: grid; gap: 0.35rem; font-size: 0.88rem; }
-  .facts div { display: grid; grid-template-columns: 110px 1fr; gap: 0.6rem; }
-  .facts .k { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-top: 0.15rem; }
-  .screens { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-  .screens button { font: inherit; font-size: 0.85rem; background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); padding: 0.3rem 0.7rem; cursor: pointer; border-radius: 999px; }
-  .screens button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
-  .framewrap { overflow-x: auto; border: 1px solid var(--line-2); background: var(--surface-2); }
-  .frame { min-width: 960px; width: 100%; min-height: 560px; display: grid; }
-  .cap { font-size: 0.85rem; color: var(--ink-2); max-width: 70ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip { font-family: var(--mono); font-size: 0.72rem; padding: 0.18rem 0.55rem; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink-2); white-space: nowrap; }
+  .dir { display: grid; gap: 0.7rem; }
+  .dir .head { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; }
+  .dir .head .thesis { color: var(--ink-2); }
+  .framewrap { overflow-x: auto; border: 1px solid var(--line-2); }
+  .frame { width: 960px; min-width: 960px; height: 560px; display: grid; position: relative; }
+  .try { font-size: 0.85rem; color: var(--ink-2); }
+  .try b { color: var(--accent); font-weight: 500; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* ---------- shared mock bits ---------- */
-  .badge { display: inline-block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.04em; padding: 0.12rem 0.45rem; border-radius: 3px; text-transform: uppercase; white-space: nowrap; }
+  /* shared mock atoms */
+  .m-btn { font: inherit; font-size: 12px; padding: 0.35rem 0.8rem; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; border-radius: 3px; }
+  .m-btn[aria-pressed="true"] { background: currentColor; }
+  .m-btn[aria-pressed="true"] span { color: #0d1117; }
+  .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.12rem 0.4rem; border-radius: 3px; }
 
-  /* ---------- A · Console ---------- */
-  .console { --g: #f8f9fb; --s: #ffffff; --s2: #eef1f5; --i: #1f2933; --i2: #5b6b7b; --i3: #8a98a6; --l: #dde3ea; --a: #1a5fd0; --a-soft: #e6eefb; --ok: #1a7f4b; --pend: #9a6200; --den: #b3261e;
-    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 13px; grid-template-columns: 200px 1fr; }
-  .console .side { background: #0f172a; color: #cbd5e1; padding: 1rem 0; display: grid; align-content: start; gap: 0.2rem; }
-  .console .side .logo { color: #fff; font-weight: 600; padding: 0.2rem 1rem 0.9rem; letter-spacing: 0.02em; }
-  .console .side a { color: #cbd5e1; padding: 0.45rem 1rem; display: block; }
-  .console .side a.on { background: #1e293b; color: #fff; border-left: 3px solid var(--a); padding-left: calc(1rem - 3px); }
-  .console .main { display: grid; align-content: start; }
-  .console .top { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); }
-  .console .top .proj { font-family: var(--mono); font-size: 12px; background: var(--s2); padding: 0.25rem 0.6rem; border-radius: 4px; }
-  .console .tabs { display: flex; gap: 1.4rem; padding: 0 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); }
-  .console .tabs span { padding: 0.7rem 0; color: var(--i2); }
-  .console .tabs span.on { color: var(--a); border-bottom: 2px solid var(--a); font-weight: 500; }
-  .console .body { padding: 1rem 1.2rem; display: grid; gap: 1rem; }
-  .console .composed { border: 1px dashed var(--l); background: var(--s); padding: 0.7rem 0.9rem; display: grid; gap: 0.6rem; }
-  .console .composed .lab { font-family: var(--mono); font-size: 11px; color: var(--i3); display: flex; justify-content: space-between; }
-  .console .composed .row { display: flex; gap: 0.7rem; flex-wrap: wrap; }
-  .console .mini { border: 1px solid var(--l); border-radius: 4px; padding: 0.55rem 0.75rem; min-width: 210px; display: grid; gap: 0.15rem; }
-  .console .mini b { font-weight: 500; } .console .mini span { color: var(--i2); font-size: 12px; }
-  .console table { width: 100%; border-collapse: collapse; background: var(--s); font-size: 13px; }
-  .console th { text-align: left; font-weight: 500; color: var(--i2); font-size: 12px; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--l); }
-  .console td { padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--l); vertical-align: top; }
-  .console td.mono, .console .mono { font-family: var(--mono); font-size: 12px; }
-  .console .st { font-weight: 500; } .console .st.ok { color: var(--ok); } .console .st.pend { color: var(--pend); } .console .st.den { color: var(--den); }
-  .console .btn { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 4px; border: 1px solid var(--l); background: var(--s); color: var(--i); font-size: 12px; }
-  .console .btn.p { background: var(--a); color: #fff; border-color: var(--a); }
-  .console .drawer { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
-  .console .panel { background: var(--s); border: 1px solid var(--l); border-radius: 4px; padding: 0.9rem 1rem; display: grid; gap: 0.6rem; align-content: start; }
-  .console .kv { display: grid; grid-template-columns: 110px 1fr; gap: 0.3rem 0.6rem; font-size: 12.5px; }
-  .console .kv .k { color: var(--i3); }
-  .console .quote { border-left: 3px solid var(--l); padding: 0.3rem 0.6rem; color: var(--i2); font-size: 12.5px; background: var(--s2); }
-  .console .quote .q { font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
-  .console .actions { display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--l); padding-top: 0.7rem; }
+  /* ---------- 1 · Territory ---------- */
+  .ter { --g: #0a0f16; --s: #10161f; --l: #1f2a37; --i: #dfe6ee; --i2: #94a3b8; --i3: #5b6b80; --ok: #34d399; --pend: #fbbf24; --den: #f87171; --blast: #fb923c;
+    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 12.5px; grid-template-rows: 44px 1fr; }
+  .ter .bar { display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; border-bottom: 1px solid var(--l); }
+  .ter .bar .brand { font-weight: 600; letter-spacing: 0.02em; }
+  .ter .modes { display: inline-flex; border: 1px solid var(--l); border-radius: 4px; overflow: hidden; }
+  .ter .modes button { font: inherit; font-size: 11.5px; font-family: var(--mono); background: transparent; color: var(--i2); border: 0; padding: 0.35rem 0.7rem; cursor: pointer; }
+  .ter .modes button[aria-pressed="true"] { background: var(--l); color: var(--i); }
+  .ter .body { display: grid; grid-template-columns: 640px 1fr; }
+  .ter svg { width: 640px; height: 516px; display: block; }
+  .ter .hull { fill-opacity: 0.07; stroke-opacity: 0.35; stroke-dasharray: 3 4; }
+  .ter .edge { stroke: #2b3644; stroke-width: 1.5; }
+  .ter .edge.scope { stroke: var(--ok); stroke-width: 2; }
+  .ter .edge.prop { stroke: var(--pend); stroke-width: 2; stroke-dasharray: 5 4; }
+  .ter .edge.bridge { stroke: var(--den); stroke-width: 2; stroke-dasharray: 2 4; opacity: 0; }
+  .ter .edge.down { opacity: 0; stroke: var(--blast); stroke-width: 2; }
+  .ter .node { fill: #1a2330; stroke: #3a4757; stroke-width: 1.5; }
+  .ter .node.scope { fill: #0f3d2c; stroke: var(--ok); filter: url(#glow); }
+  .ter .node.prop { fill: #3a2e10; stroke: var(--pend); stroke-dasharray: 4 3; }
+  .ter .node.den { stroke: var(--den); }
+  .ter .node.blast { fill: #3d2410; stroke: var(--blast); filter: url(#glow); }
+  .ter .agent { fill: #0f3d2c; stroke: var(--ok); stroke-width: 2; }
+  .ter text { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; fill: var(--i2); }
+  .ter text.t { fill: var(--i); font-family: "IBM Plex Sans", sans-serif; font-size: 11.5px; font-weight: 500; }
+  .ter text.h { fill: var(--i3); font-size: 10px; letter-spacing: 0.08em; }
+  .ter text.lbl { fill: var(--den); font-size: 10px; opacity: 0; }
+  .ter text.lbl.b { fill: var(--blast); }
+  .ter.mode-chain .edge.bridge, .ter.mode-chain text.lbl.c { opacity: 1; }
+  .ter.mode-blast .edge.down, .ter.mode-blast text.lbl.b { opacity: 1; }
+  .ter.mode-blast .node.b { fill: #3d2410; stroke: var(--blast); }
+  .ter .side { border-left: 1px solid var(--l); background: var(--s); padding: 1rem; display: grid; gap: 0.9rem; align-content: start; }
+  .ter .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); }
+  .ter .big { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; } .ter .big span { color: var(--i3); font-size: 0.9rem; font-weight: 400; }
+  .ter .rows { display: grid; gap: 0.35rem; }
+  .ter .rows div { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--l); }
+  .ter .rows b { font-weight: 500; } .ter .ok { color: var(--ok); } .ter .pend { color: var(--pend); } .ter .den { color: var(--den); } .ter .blast { color: var(--blast); }
+  .ter .prim { display: flex; gap: 0.5rem; }
+  .ter .m-btn.ok { color: var(--ok); } .ter .m-btn.den { color: var(--den); }
+  .ter.closed .edge.scope, .ter.closed .edge.prop { opacity: 0.15; }
+  .ter.closed .node.scope, .ter.closed .node.prop { fill: #1a2330; stroke: #3a4757; filter: none; stroke-dasharray: none; }
+  .ter.closed .agent { stroke: #3a4757; fill: #1a2330; }
 
-  /* ---------- B · Feed ---------- */
-  .feed { --g: #faf8f5; --s: #ffffff; --s2: #f1ede7; --i: #1d1b18; --i2: #625c54; --i3: #9a928a; --l: #e6e0d8; --a: #0f766e; --a-soft: #d9f0ec; --ok: #1a7f4b; --pend: #a05a00; --den: #b3261e;
-    background: var(--g); color: var(--i); font-family: "Manrope", var(--sans); font-size: 13.5px; grid-template-rows: auto 1fr; }
-  .feed .top { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); font-weight: 600; }
-  .feed .top .who { font-weight: 500; color: var(--i2); font-size: 12.5px; }
-  .feed .cols { display: grid; grid-template-columns: 1fr 300px; gap: 0; min-height: 0; }
-  .feed .stream { padding: 1rem 1.2rem; display: grid; gap: 0.7rem; align-content: start; }
-  .feed .card { background: var(--s); border: 1px solid var(--l); border-radius: 12px; padding: 0.8rem 1rem; display: grid; gap: 0.45rem; max-width: 620px; }
-  .feed .card .from { display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: var(--i2); }
-  .feed .av { width: 22px; height: 22px; border-radius: 50%; background: var(--a-soft); color: var(--a); display: inline-grid; place-items: center; font-size: 10px; font-weight: 700; }
-  .feed .av.sys { background: #1d1b18; color: #fff; } .feed .av.p { background: #fde7d0; color: #a05a00; } .feed .av.j { background: #dce7fb; color: #1d4ed8; }
-  .feed .card .t { font-weight: 600; }
-  .feed .card .quote { background: var(--s2); border-radius: 8px; padding: 0.5rem 0.7rem; color: var(--i2); font-size: 12.5px; }
-  .feed .card .quote .q { font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
-  .feed .line { display: grid; grid-template-columns: 8px 1fr auto; gap: 0.5rem; align-items: center; font-size: 12.5px; }
-  .feed .dot { width: 8px; height: 8px; border-radius: 50%; } .feed .dot.ok { background: var(--ok); } .feed .dot.pend { background: var(--pend); } .feed .dot.den { background: var(--den); }
-  .feed .reason { color: var(--i2); font-size: 12px; }
-  .feed .btns { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.2rem; }
-  .feed .btn { font: inherit; font-size: 12.5px; padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid var(--l); background: var(--s); color: var(--i); }
-  .feed .btn.deny { color: var(--den); } .feed .btn.ok { background: var(--a); color: #fff; border-color: var(--a); font-weight: 600; }
-  .feed .ctx { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; font-size: 12.5px; }
-  .feed .ctx .k { color: var(--i3); font-size: 11px; font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
-  .feed .rail { border-left: 1px solid var(--l); background: var(--s); padding: 1rem; display: grid; gap: 0.8rem; align-content: start; }
-  .feed .rail h4 { margin: 0; font-size: 12px; font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--i3); font-weight: 500; }
-  .feed .now { display: grid; gap: 0.4rem; }
-  .feed .now div { display: flex; justify-content: space-between; font-size: 12.5px; padding: 0.4rem 0; border-bottom: 1px solid var(--l); }
-  .feed .compose { margin-top: auto; border: 1px solid var(--l); border-radius: 10px; padding: 0.6rem 0.8rem; color: var(--i3); font-size: 12.5px; background: var(--s); max-width: 620px; }
-  .feed .tools { display: grid; gap: 0.3rem; font-family: var(--mono); font-size: 12px; }
-  .feed .tools div { display: flex; justify-content: space-between; padding: 0.3rem 0.5rem; background: var(--s2); border-radius: 6px; }
-  .feed .tools .new { color: var(--ok); }
+  /* ---------- 2 · Diff ---------- */
+  .dif { --g: #fbfaf6; --s: #ffffff; --l: #e4e1d8; --i: #1d1f22; --i2: #5c6370; --i3: #8f95a0; --add: #1a7f4b; --addbg: #e6f4ec; --del: #b3261e; --delbg: #fbe9e7; --chg: #9a6200; --chgbg: #fff3d6; --mark: #b8621b;
+    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 12.5px; grid-template-rows: auto 1fr; }
+  .dif .bar { padding: 0.7rem 1rem; border-bottom: 1px solid var(--l); background: var(--s); display: grid; gap: 0.35rem; }
+  .dif .bar .title { font-weight: 600; font-size: 14px; } .dif .bar .title span { color: var(--i3); font-weight: 400; font-family: var(--mono); font-size: 12px; }
+  .dif .counts { display: flex; gap: 0.8rem; font-family: var(--mono); font-size: 11.5px; align-items: center; }
+  .dif .counts .a { color: var(--add); } .dif .counts .c { color: var(--chg); } .dif .counts .d { color: var(--del); }
+  .dif .counts .bar2 { display: inline-flex; width: 120px; height: 8px; overflow: hidden; border-radius: 2px; background: #e6e3da; }
+  .dif .counts .bar2 i { display: block; height: 100%; } .dif .counts .bar2 .ia { background: var(--add); } .dif .counts .bar2 .ic { background: var(--chg); } .dif .counts .bar2 .id { background: var(--del); }
+  .dif .body { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
+  .dif .diff { padding: 0.8rem 1rem; display: grid; gap: 0.8rem; align-content: start; overflow: auto; }
+  .dif .file { border: 1px solid var(--l); border-radius: 4px; background: var(--s); overflow: hidden; }
+  .dif .file .fh { font-family: var(--mono); font-size: 11.5px; padding: 0.4rem 0.7rem; background: #f3f1ea; border-bottom: 1px solid var(--l); color: var(--i2); display: flex; justify-content: space-between; }
+  .dif .ln { display: grid; grid-template-columns: 34px 16px 1fr; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; }
+  .dif .ln .n { color: var(--i3); text-align: right; padding-right: 0.5rem; background: #f7f5ef; }
+  .dif .ln .s { text-align: center; color: var(--i3); }
+  .dif .ln.add { background: var(--addbg); } .dif .ln.add .s { color: var(--add); font-weight: 600; }
+  .dif .ln.del { background: var(--delbg); } .dif .ln.del .s { color: var(--del); font-weight: 600; }
+  .dif .ln.chg { background: var(--chgbg); } .dif .ln.chg .s { color: var(--chg); font-weight: 600; }
+  .dif .ln .rev { margin-left: 0.6rem; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--chg); border: 1px solid var(--chg); padding: 0 0.3rem; border-radius: 3px; }
+  .dif .thread { margin: 0.3rem 0.6rem 0.5rem 50px; border: 1px solid var(--l); border-radius: 4px; background: var(--s); font-size: 12px; }
+  .dif .thread div { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--l); } .dif .thread div:last-child { border-bottom: 0; }
+  .dif .thread b { font-weight: 600; } .dif .thread .who { color: var(--i3); font-family: var(--mono); font-size: 10.5px; }
+  .dif .side { border-left: 1px solid var(--l); background: var(--s); padding: 0.9rem 1rem; display: grid; gap: 0.9rem; align-content: start; }
+  .dif .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); }
+  .dif .checks { display: grid; gap: 0.3rem; font-size: 12px; }
+  .dif .checks div { display: grid; grid-template-columns: 14px 1fr auto; gap: 0.5rem; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--l); }
+  .dif .checks i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dif .checks .ok i { background: var(--add); } .dif .checks .wait i { border: 2px solid var(--chg); box-sizing: border-box; } .dif .checks .req i { border: 2px solid var(--i3); box-sizing: border-box; }
+  .dif .checks small { color: var(--i3); font-family: var(--mono); font-size: 10.5px; }
+  .dif .merge { border: 1px solid var(--l); border-radius: 4px; padding: 0.7rem 0.8rem; display: grid; gap: 0.5rem; }
+  .dif .merge .gate { font-size: 12px; color: var(--i2); }
+  .dif .m-btn.go { background: var(--add); border-color: var(--add); color: #fff; font-weight: 600; }
+  .dif .m-btn.go:disabled { background: var(--i3); border-color: var(--i3); }
+  .dif .m-btn.no { color: var(--del); border-color: var(--l); }
+  .dif .commits { display: grid; gap: 0.25rem; font-family: var(--mono); font-size: 11px; }
+  .dif .commits div { display: grid; grid-template-columns: 44px 1fr auto; gap: 0.5rem; padding: 0.25rem 0; border-bottom: 1px solid var(--l); color: var(--i2); }
+  .dif .commits .h { color: var(--i3); } .dif .commits .v { color: var(--add); font-size: 10px; }
+  .dif .commits .new { color: var(--i); }
 
-  /* ---------- C · Aperture ---------- */
-  .ap { --g: #fbfbf9; --s: #ffffff; --s2: #f1f1ec; --i: #15181c; --i2: #565d66; --i3: #8b9199; --l: #dcdcd4; --a: #b4531b; --a-soft: #f8e7dc; --ok: #1e6e45; --pend: #8a5a00; --den: #9f2d2d;
-    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 13.5px; grid-template-rows: auto auto auto 1fr; }
-  .ap .bar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.4rem; border-bottom: 1px solid var(--l); font-size: 12.5px; }
-  .ap .bar .brand { font-weight: 600; letter-spacing: 0.02em; } .ap .bar .brand::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--a); margin-right: 0.5rem; vertical-align: -1px; }
-  .ap .bar .verify { font-family: var(--mono); font-size: 11.5px; color: var(--ok); }
-  .ap .iris { display: grid; grid-template-columns: 170px 1fr; gap: 1.4rem; align-items: center; padding: 1rem 1.4rem 0.6rem; }
-  .ap .iris svg { width: 170px; height: 170px; display: block; }
-  .ap .iris .sum { display: grid; gap: 0.3rem; }
-  .ap .iris .sum .big { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; }
-  .ap .iris .sum .big span { color: var(--i3); font-weight: 400; font-size: 1rem; }
-  .ap .iris .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 12px; color: var(--i2); }
-  .ap .iris .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 0.35rem; vertical-align: -1px; border-radius: 2px; }
-  .ap .ribbon { margin: 0 1.4rem; border: 1px solid var(--l); border-left: 3px solid var(--a); background: var(--s); padding: 0.5rem 0.8rem; font-family: var(--mono); font-size: 11.5px; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
-  .ap .ribbon .plus { color: var(--ok); } .ap .ribbon .minus { color: var(--den); } .ap .ribbon .meta { color: var(--i3); margin-left: auto; }
-  .ap .cols { display: grid; grid-template-columns: 300px 1fr; gap: 1.4rem; padding: 1rem 1.4rem 1.4rem; }
-  .ap .chrome { display: grid; gap: 0.9rem; align-content: start; }
-  .ap .chrome .lab, .ap .well .lab { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); }
-  .ap .id { border-top: 2px solid var(--i); padding-top: 0.5rem; display: grid; gap: 0.1rem; }
-  .ap .id b { font-weight: 600; } .ap .id span { color: var(--i2); font-size: 12.5px; }
-  .ap .ask { border: 1px solid var(--l); background: var(--s); padding: 0.6rem 0.8rem; display: grid; gap: 0.4rem; }
-  .ap .ask .in { color: var(--i3); font-size: 12.5px; }
-  .ap .ask .confirm { border-top: 1px dashed var(--l); padding-top: 0.4rem; font-size: 12px; color: var(--i2); display: grid; gap: 0.15rem; }
-  .ap .ask .confirm .mono { font-family: var(--mono); font-size: 11.5px; color: var(--i); }
-  .ap .prim { display: flex; gap: 0.5rem; }
-  .ap .btn { font: inherit; font-size: 12.5px; padding: 0.45rem 0.9rem; border: 1px solid var(--i); background: transparent; color: var(--i); }
-  .ap .btn.p { background: var(--i); color: var(--g); } .ap .btn.deny { border-color: var(--den); color: var(--den); } .ap .btn.a { background: var(--a); border-color: var(--a); color: #fff; }
-  .ap .well { border-top: 2px solid var(--a); padding-top: 0.5rem; display: grid; gap: 0.7rem; align-content: start; }
-  .ap .well .lab { display: flex; justify-content: space-between; }
-  .ap .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.7rem; }
-  .ap .panel { background: var(--s); border: 1px solid var(--l); padding: 0.7rem 0.85rem 0.6rem; display: grid; gap: 0.3rem; position: relative; overflow: hidden; transition: opacity 0.4s, transform 0.4s; }
-  .ap .panel .name { font-family: var(--mono); font-size: 12px; font-weight: 500; }
-  .ap .panel .meta { color: var(--i2); font-size: 12px; }
-  .ap .panel .fill { height: 4px; background: var(--s2); margin-top: 0.3rem; position: relative; }
-  .ap .panel .fill i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); }
-  .ap .panel.pend { border-style: dashed; } .ap .panel.pend .fill i { background: var(--pend); }
-  .ap .panel.den { background: transparent; } .ap .panel.den .name { color: var(--den); }
-  .ap .panel .alt { font-size: 12px; color: var(--i2); border-top: 1px solid var(--l); padding-top: 0.3rem; }
-  .ap .panel .alt a { color: var(--a); }
-  .ap .panel.gone { opacity: 0.35; transform: scale(0.98); }
-  .ap .panel.gone .fill i { background: var(--den); width: 100% !important; }
-  .ap .badge.tier { background: var(--s2); color: var(--i2); }
-  .ap .ctx { display: grid; gap: 0.5rem; font-size: 12.5px; }
-  .ap .ctx .row { display: grid; grid-template-columns: 120px 1fr; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--l); }
-  .ap .ctx .row .k { color: var(--i3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding-top: 0.15rem; }
-  .ap .claim { background: var(--s2); border-left: 3px solid var(--l); padding: 0.45rem 0.7rem; font-size: 12.5px; color: var(--i2); font-style: italic; }
-  .ap .claim .q { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
-  .ap .queue { display: grid; gap: 0.4rem; }
-  .ap .queue div { display: flex; justify-content: space-between; padding: 0.45rem 0.6rem; border: 1px solid var(--l); background: var(--s); font-size: 12.5px; }
-  .ap .queue div.on { border-color: var(--a); }
-  .ap .queue small { color: var(--i3); font-family: var(--mono); font-size: 11px; }
-  .ap .toggle { display: inline-flex; border: 1px solid var(--l); font-size: 12px; }
-  .ap .toggle button { font: inherit; font-size: 12px; background: transparent; border: 0; padding: 0.3rem 0.7rem; color: var(--i2); cursor: pointer; }
-  .ap .toggle button[aria-pressed="true"] { background: var(--i); color: var(--g); }
-  .ap .tools { display: grid; gap: 0.35rem; }
-  .ap .tool { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; background: var(--s); border: 1px solid var(--l); padding: 0.5rem 0.75rem; font-family: var(--mono); font-size: 12px; transition: opacity 0.4s; }
-  .ap .tool .d { color: var(--i2); font-family: var(--sans); font-size: 12px; grid-column: 1 / -1; }
-  .ap .tool .st { color: var(--ok); } .ap .tool.gone { opacity: 0.35; text-decoration: line-through; } .ap .tool.gone .st { color: var(--den); text-decoration: none; }
-  .ap .trail { display: grid; gap: 0; border-left: 2px solid var(--l); margin-left: 0.3rem; }
-  .ap .ev { display: grid; grid-template-columns: 52px 1fr; gap: 0.6rem; padding: 0.3rem 0 0.3rem 0.8rem; font-size: 12.5px; position: relative; }
-  .ap .ev::before { content: ""; position: absolute; left: -5px; top: 0.6rem; width: 8px; height: 8px; border-radius: 50%; background: var(--l); }
-  .ap .ev.ok::before { background: var(--ok); } .ap .ev.den::before { background: var(--den); } .ap .ev.pend::before { background: var(--pend); }
-  .ap .ev .t { font-family: var(--mono); font-size: 11px; color: var(--i3); padding-top: 0.15rem; }
-  .ap .ev .d { color: var(--i2); } .ap .ev b { font-weight: 500; color: var(--i); }
+  /* ---------- 3 · Lease ---------- */
+  .lea { --g: #0d1117; --s: #131a23; --l: #26303d; --i: #e6ecf3; --i2: #9aa8b8; --i3: #66748a; --ok: #3fb950; --pend: #d29922; --den: #f85149; --cut: #f0a04b;
+    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 12.5px; grid-template-rows: 44px 1fr; }
+  .lea .bar { display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; border-bottom: 1px solid var(--l); }
+  .lea .bar .brand { font-weight: 600; }
+  .lea .ctl { display: flex; gap: 0.8rem; align-items: center; font-family: var(--mono); font-size: 11.5px; color: var(--i2); }
+  .lea .zoom { display: inline-flex; border: 1px solid var(--l); border-radius: 4px; overflow: hidden; }
+  .lea .zoom button { font: inherit; font-family: var(--mono); font-size: 11px; background: transparent; color: var(--i2); border: 0; padding: 0.3rem 0.6rem; cursor: pointer; }
+  .lea .zoom button[aria-pressed="true"] { background: var(--l); color: var(--i); }
+  .lea .m-btn.cut { color: var(--cut); }
+  .lea .chart { display: grid; grid-template-columns: 220px 1fr; padding: 0.8rem 0 0; }
+  .lea .lanes { display: grid; grid-auto-rows: 58px; }
+  .lea .lab { padding: 0.6rem 1rem; border-bottom: 1px solid var(--l); display: grid; gap: 0.15rem; align-content: center; }
+  .lea .lab b { font-family: var(--mono); font-size: 12px; font-weight: 500; } .lea .lab span { color: var(--i3); font-size: 11px; }
+  .lea .track { position: relative; border-bottom: 1px solid var(--l); }
+  .lea .tl { position: relative; width: 700px; }
+  .lea .axis { position: relative; height: 22px; border-bottom: 1px solid var(--l); font-family: var(--mono); font-size: 10px; color: var(--i3); }
+  .lea .axis span { position: absolute; top: 4px; transform: translateX(-50%); }
+  .lea .grid { position: absolute; inset: 0; pointer-events: none; }
+  .lea .grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--l); }
+  .lea .bar1 { position: absolute; top: 16px; height: 26px; border-radius: 3px; background: var(--ok); color: #05130a; font-family: var(--mono); font-size: 10.5px; line-height: 26px; padding: 0 0.5rem; white-space: nowrap; overflow: hidden; transition: width 0.4s; }
+  .lea .bar1.pend { background: repeating-linear-gradient(135deg, #3a2e10 0 4px, #6b5313 4px 8px); color: var(--pend); border: 1px solid var(--pend); }
+  .lea .bar1.den { background: transparent; border: 1px solid var(--den); color: var(--den); }
+  .lea .bar1.future { opacity: 0.45; }
+  .lea .cap { position: absolute; right: 0; top: 16px; height: 26px; line-height: 26px; padding: 0 0.4rem; font-family: var(--mono); font-size: 10px; color: var(--i3); background: linear-gradient(90deg, transparent, var(--g) 40%); }
+  .lea .handle { position: absolute; top: 14px; width: 6px; height: 30px; border-radius: 2px; background: var(--pend); cursor: ew-resize; }
+  .lea .handle::after { content: "drag → shorten"; position: absolute; left: 10px; top: 7px; font-family: var(--mono); font-size: 9.5px; color: var(--pend); white-space: nowrap; }
+  .lea .tick { position: absolute; top: 20px; width: 8px; height: 18px; background: var(--ok); border-radius: 2px; }
+  .lea .tick.den { background: var(--den); transform: rotate(45deg); }
+  .lea .tick span { position: absolute; top: 20px; left: -2px; font-family: var(--mono); font-size: 9.5px; color: var(--i3); white-space: nowrap; }
+  .lea .vmark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--i3); }
+  .lea .vmark span { position: absolute; top: 2px; left: 4px; font-family: var(--mono); font-size: 9.5px; color: var(--i3); white-space: nowrap; }
+  .lea .play { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--i); pointer-events: none; }
+  .lea .play span { position: absolute; top: -20px; left: -18px; font-family: var(--mono); font-size: 9.5px; color: var(--i); background: var(--g); padding: 0 3px; }
+  .lea .cutline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cut); display: none; }
+  .lea .cutline span { position: absolute; top: 2px; left: 6px; font-family: var(--mono); font-size: 10px; color: var(--cut); white-space: nowrap; background: var(--g); padding: 0 3px; }
+  .lea.cut .cutline { display: block; }
+  .lea input[type=range] { accent-color: var(--i); width: 160px; }
 
-  /* ---------- D · Terminal ---------- */
-  .term { --g: #0b0f14; --s: #111720; --s2: #182030; --i: #d7dee8; --i2: #93a1b3; --i3: #5f6d80; --l: #232d3b; --a: #7dd3fc; --ok: #6ee7a7; --pend: #f2c14e; --den: #f87171;
-    background: var(--g); color: var(--i); font-family: var(--mono); font-size: 12.5px; grid-template-rows: auto 1fr; }
-  .term .banner { display: flex; justify-content: space-between; align-items: center; background: #2b2109; color: #f2c14e; border-bottom: 1px solid #4a3a12; padding: 0.5rem 1.2rem; }
-  .term .banner .rel { border: 1px solid #f2c14e; padding: 0.2rem 0.6rem; }
-  .term .cols { display: grid; grid-template-columns: 1fr 340px; }
-  .term .shell { padding: 1rem 1.2rem; display: grid; gap: 0.25rem; align-content: start; white-space: pre-wrap; line-height: 1.55; }
-  .term .c { color: var(--i3); } .term .cmd::before { content: "$ "; color: var(--a); } .term .cmd { color: #fff; }
-  .term .out { color: var(--i2); padding-left: 1.1rem; } .term .out.den { color: var(--den); } .term .out.ok { color: var(--ok); }
-  .term .sys { color: var(--a); } .term .sys::before { content: "[aperture] "; color: var(--i3); }
-  .term .side { border-left: 1px solid var(--l); background: var(--s); padding: 1rem; display: grid; gap: 1rem; align-content: start; }
-  .term h4 { margin: 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); font-weight: 500; }
-  .term .tools { display: grid; gap: 0.3rem; }
-  .term .tools div { display: flex; justify-content: space-between; background: var(--s2); padding: 0.4rem 0.6rem; }
-  .term .tools .ok { color: var(--ok); } .term .tools .pend { color: var(--pend); } .term .tools .gone { color: var(--i3); text-decoration: line-through; }
-  .term .card { background: var(--s2); border: 1px solid var(--l); padding: 0.7rem 0.8rem; display: grid; gap: 0.4rem; font-family: var(--sans); font-size: 12.5px; }
-  .term .card .k { color: var(--i3); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; }
-  .term .card .btns { display: flex; justify-content: space-between; margin-top: 0.3rem; }
-  .term .card .btn { font-family: var(--mono); font-size: 12px; padding: 0.35rem 0.8rem; border: 1px solid var(--l); background: transparent; color: var(--i); }
-  .term .card .btn.ok { background: var(--ok); color: #0b0f14; border-color: var(--ok); } .term .card .btn.deny { color: var(--den); }
-  .term .audit { display: grid; gap: 0.2rem; font-size: 11.5px; color: var(--i2); }
-  .term .audit b { color: var(--i); font-weight: 500; }
+  /* ---------- 4 · Recorder ---------- */
+  .rec { --g: #0b0e13; --s: #11161d; --l: #212a35; --i: #e1e7ef; --i2: #94a0b0; --i3: #5d6a7a; --ok: #34d399; --pend: #fbbf24; --den: #f87171; --grant: #2563eb;
+    background: var(--g); color: var(--i); font-family: var(--mono); font-size: 12px; grid-template-rows: 44px 1fr; }
+  .rec .bar { display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; border-bottom: 1px solid var(--l); font-family: var(--sans); }
+  .rec .bar .brand { font-weight: 600; }
+  .rec .body { display: grid; grid-template-columns: 1fr 340px; }
+  .rec .wf { padding: 0.6rem 0; display: grid; align-content: start; }
+  .rec .row { display: grid; grid-template-columns: 250px 1fr; height: 30px; align-items: center; border-bottom: 1px solid #161c25; }
+  .rec .row .n { padding-left: calc(0.8rem + var(--d, 0) * 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--i2); }
+  .rec .row .n b { color: var(--i); font-weight: 500; }
+  .rec .row .n.den b { color: var(--den); }
+  .rec .row .tr { position: relative; height: 100%; }
+  .rec .sp { position: absolute; top: 8px; height: 14px; border-radius: 2px; background: #2b3542; min-width: 6px; }
+  .rec .sp.run { background: #2b3542; } .rec .sp.grant { background: #1e3a8a; border: 1px solid var(--grant); } .rec .sp.pend { background: repeating-linear-gradient(135deg, #3a2e10 0 3px, #6b5313 3px 6px); border: 1px solid var(--pend); }
+  .rec .sp.tool { background: var(--ok); } .rec .sp.den { background: var(--den); width: 12px; height: 12px; transform: rotate(45deg); top: 9px; border-radius: 1px; }
+  .rec .sp .t { position: absolute; left: calc(100% + 6px); top: -1px; font-size: 10px; color: var(--i3); white-space: nowrap; }
+  .rec .link { position: absolute; top: 0; height: 8px; width: 0; border-left: 1px dashed var(--grant); }
+  .rec .vline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--pend); opacity: 0.8; }
+  .rec .vline span { position: absolute; top: -12px; left: 4px; font-size: 9.5px; color: var(--pend); white-space: nowrap; }
+  .rec .row.hidden { display: none; }
+  .rec .side { border-left: 1px solid var(--l); background: var(--s); display: grid; grid-template-rows: auto 1fr auto; }
+  .rec .k { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); padding: 0.8rem 1rem 0.4rem; }
+  .rec .blocks { padding: 0 1rem; display: grid; gap: 0.35rem; align-content: start; overflow: auto; }
+  .rec .blk { border-left: 3px solid var(--ok); background: #161c25; padding: 0.4rem 0.6rem; display: grid; gap: 0.1rem; font-size: 11px; }
+  .rec .blk .h { color: var(--i3); font-size: 10px; } .rec .blk b { color: var(--i); font-weight: 500; }
+  .rec .blk.grant { border-left-color: var(--grant); } .rec .blk.pend { border-left-color: var(--pend); } .rec .blk.den { border-left-color: var(--den); } .rec .blk.den b { color: var(--den); }
+  .rec .blk.hidden { display: none; }
+  .rec .scrub { padding: 0.8rem 1rem; border-top: 1px solid var(--l); display: grid; gap: 0.4rem; }
+  .rec .scrub input { width: 100%; accent-color: var(--i); }
+  .rec .scrub .r { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--i2); }
+  .rec .m-btn.den { color: var(--den); } .rec .m-btn.pl { color: var(--i); }
 
-  /* ---------- matrix ---------- */
+  /* matrix */
   .tablewrap { overflow-x: auto; }
-  table.mx { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 0.9rem; }
-  .mx th, .mx td { text-align: left; vertical-align: top; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); }
+  table.mx { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.88rem; }
+  .mx th, .mx td { text-align: left; vertical-align: top; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }
   .mx th { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
   .mx td:first-child { font-weight: 600; white-space: nowrap; }
   .mx .hi { color: var(--good); font-weight: 500; } .mx .lo { color: var(--crit); } .mx .mid { color: var(--warn); }
-  .rec { border-top: 2px solid var(--accent); padding-top: 0.8rem; display: grid; gap: 0.5rem; max-width: 70ch; }
-  .sources { font-size: 0.82rem; color: var(--ink-2); columns: 2; column-gap: 2rem; } .sources li { break-inside: avoid; }
+  .rec2 { border-top: 2px solid var(--accent); padding-top: 0.7rem; max-width: 72ch; display: grid; gap: 0.3rem; }
+  details { color: var(--ink-2); font-size: 0.85rem; } summary { cursor: pointer; color: var(--ink); }
+  .sources { columns: 2; column-gap: 2rem; padding-left: 1.1rem; margin: 0.5rem 0 0; } .sources li { break-inside: avoid; }
   @media (max-width: 640px) { .sources { columns: 1; } }
-  @media (prefers-reduced-motion: reduce) { .ap .panel, .ap .tool { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .lea .bar1 { transition: none; } }
 </style>
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">{Tech: Europe} Agentic AI Hack · Aperture · UI directions · 19 Sep 2026</div>
+    <div class="eyebrow">Aperture · UI directions · rev 2 · 19 Sep 2026</div>
     <h1>Aperture UI Directions</h1>
-    <p class="lede">Four ways the product could look, each drawn as a working mockup on the same Atlas scenario — Alex Chen's coding agent asks for a bucket and a dataset; Priya and Jordan decide; the project closes. Pick one, or the recommended blend at the end.</p>
+    <p class="lede">Four interfaces that only make sense for this use case — a coding agent, a task, a time-box, a blast radius. Same scenario in each. Every one has the closing beat wired up: press it.</p>
   </header>
 
-  <section id="field">
-    <h2>What the field looks like</h2>
-    <p class="sub">From a screen-level survey of ConductorOne, Opal, Teleport, P0, Britive, Apono, Entitle, Okta IGA and Google Cloud PAM, plus shipped generative UIs (A2UI, OpenAI Apps SDK, CopilotKit, Vercel AI SDK, Thesys C1).</p>
-    <div class="field">
-      <div>
-        <h3>Everyone does this</h3>
-        <ul>
-          <li><b>Request</b> = resource + duration picker (presets, capped by a max) + justification. Opal adds "expire when the ticket closes".</li>
-          <li><b>Approver</b> = a chat card: requester, resource, duration, justification. Approve on the right, Reject on the left, a reason popup on either (Apono, Entitle, P0). P0 lets the approver <em>set</em> the duration.</li>
-          <li><b>My access</b> = a table with a status label and time remaining, plus Revoke / Check in / Relinquish (Britive's library-checkout metaphor; PAM's twelve state labels).</li>
-          <li><b>Two buckets</b>: Active vs Pending (P0, PAM tabs, Britive filters). Teleport adds a persistent "elevated" banner with Switch back.</li>
-          <li><b>Audit</b> = a flat activity table filtered by request or user.</li>
-          <li><b>Generated UI</b>: host owns the chrome, the agent fills a well; skeletons carry request context; catalogs are ~15 components; values stream into an already-rendered tree.</li>
-        </ul>
-      </div>
-      <div>
-        <h3>Nobody does this</h3>
-        <ul>
-          <li>Shows the <b>system's reason</b> for escalating, the tier, or "who else on your team holds this" — every card shows only the requester's justification.</li>
-          <li>Shows the <b>agent's own view</b>: its scoped tool list, and that list shrinking on revoke.</li>
-          <li>A <b>per-request story</b> with verification (chain OK / broken).</li>
-          <li>A dashboard that <b>visibly re-composes</b> when scope changes — grants are rows that appear; nothing else moves.</li>
-          <li><b>Denial as a next step</b> — "request the narrower version".</li>
-          <li>A <b>"composed for you" affordance</b> — no shipped generative UI labels what the agent made versus what's fixed.</li>
-        </ul>
-      </div>
-    </div>
-  </section>
+  <div class="gallery" id="gallery">
+    <button class="thumb" data-go="dir-1" data-src="f1"><div class="shot"></div><div class="cap"><b>1 · Territory</b><span>The scope is a place on a map.</span></div></button>
+    <button class="thumb" data-go="dir-2" data-src="f2"><div class="shot"></div><div class="cap"><b>2 · Diff review</b><span>Access is a pull request.</span></div></button>
+    <button class="thumb" data-go="dir-3" data-src="f3"><div class="shot"></div><div class="cap"><b>3 · Lease timeline</b><span>Every grant is a bar that ends.</span></div></button>
+    <button class="thumb" data-go="dir-4" data-src="f4"><div class="shot"></div><div class="cap"><b>4 · Flight recorder</b><span>Every call hangs off the grant that allowed it.</span></div></button>
+  </div>
 
-  <section id="pick">
-    <h2>Four directions</h2>
-    <div class="dirnav" role="tablist" aria-label="Directions">
-      <button role="tab" data-dir="a" aria-pressed="true"><span class="k">A</span><span class="n">Console</span><span class="t">What a cloud IAM console would ship. Familiar, dense, safe.</span></button>
-      <button role="tab" data-dir="b" aria-pressed="false"><span class="k">B</span><span class="n">Feed</span><span class="t">Everything is a card in a stream. Where approvers already live.</span></button>
-      <button role="tab" data-dir="c" aria-pressed="false"><span class="k">C</span><span class="n">Aperture</span><span class="t">Static chrome left, composed well right. The scope is the picture.</span></button>
-      <button role="tab" data-dir="d" aria-pressed="false"><span class="k">D</span><span class="n">Terminal</span><span class="t">The agent's-eye view. Tool list, proof terminal, elevated banner.</span></button>
-    </div>
-  </section>
-
-  <!-- ================= A · CONSOLE ================= -->
-  <section class="dir" id="dir-a">
-    <div class="dir-head">
-      <div>
-        <div class="eyebrow">Direction A</div>
-        <h2>Console</h2>
-        <p class="thesis">Borrow the shape every judge has used — sidebar, tabs, a table with status labels and time remaining — and confine the generated part to one labelled strip above the table. The dashboard doesn't re-compose; rows appear.</p>
-      </div>
-      <div class="facts">
-        <div><span class="k">Borrows</span><span>Google Cloud PAM tabs and state labels; Britive's My Access table; Opal's request form</span></div>
-        <div><span class="k">Trades away</span><span>The re-composing dashboard; the "composed for you" story; most of the wow</span></div>
-        <div><span class="k">Cost tonight</span><span>S–M — tables over existing endpoints</span></div>
-        <div><span class="k">Best beat</span><span>Grants to approve → row detail → approve; audit table</span></div>
-      </div>
-    </div>
-    <div class="screens" role="tablist" aria-label="Console screens">
-      <button data-screen="a-1" aria-pressed="true">Requester · My access</button>
-      <button data-screen="a-2" aria-pressed="false">Approver · Grants to approve</button>
-      <button data-screen="a-3" aria-pressed="false">Agent &amp; audit</button>
-    </div>
-
-    <div class="framewrap" id="a-1">
-      <div class="frame console">
-        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a class="on">My access</a><a>Grants to approve</a><a>Audit</a><a>Policy</a><a>Service accounts</a></nav>
-        <div class="main">
-          <div class="top"><span class="proj">project · atlas-migration</span><span>Alex Chen · data-platform · <span class="mono">u-newhire-1</span></span></div>
-          <div class="tabs"><span class="on">Active (1)</span><span>Pending (1)</span><span>Denied (1)</span><span>Expired</span></div>
-          <div class="body">
-            <div class="composed">
-              <div class="lab"><span>COMPOSED FOR YOU · 2 PANELS</span><span>gemini · catalog v1 · 14:32</span></div>
-              <div class="row">
-                <div class="mini"><b>analytics-raw</b><span>GCS bucket · write · 13d 6h left</span></div>
-                <div class="mini"><b>project-x-finance</b><span>BigQuery dataset · read · pending 1 of 2</span></div>
-              </div>
-            </div>
-            <table>
-              <thead><tr><th>Resource</th><th>Type</th><th>Tier</th><th>Status</th><th>Time remaining</th><th>Granted via</th><th></th></tr></thead>
-              <tbody>
-                <tr><td class="mono">bucket-analytics-raw</td><td>GCS bucket</td><td>internal</td><td class="st ok">Active</td><td class="mono">13d 06h 12m</td><td>auto-grant · same team, 14d ≤ 30d</td><td><span class="btn">Relinquish</span></td></tr>
-                <tr><td class="mono">bq-project-x-finance</td><td>BigQuery dataset</td><td>restricted</td><td class="st pend">Approval awaited</td><td class="mono">—</td><td>escalated · cross-team, 1 of 2 approved</td><td><span class="btn">Withdraw</span></td></tr>
-                <tr><td class="mono">sql-prod-primary</td><td>Cloud SQL</td><td>critical</td><td class="st den">Denied</td><td class="mono">—</td><td>critical tier always escalates · vetoed</td><td><span class="btn">Details</span></td></tr>
-              </tbody>
-            </table>
-            <div><span class="btn p">Request access</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="a-2" hidden>
-      <div class="frame console">
-        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a>My access</a><a class="on">Grants to approve</a><a>Audit</a><a>Policy</a><a>Service accounts</a></nav>
-        <div class="main">
-          <div class="top"><span class="proj">project · atlas-migration</span><span>Priya Nair · Engineering Manager · <span class="mono">u-manager-1</span></span></div>
-          <div class="tabs"><span class="on">Needs you (1)</span><span>Waiting on others (0)</span><span>Decided</span></div>
-          <div class="body">
-            <div class="drawer">
-              <table>
-                <thead><tr><th>Requester</th><th>Resource</th><th>Duration</th><th>Tier</th><th>Approvals</th><th>Age</th></tr></thead>
-                <tbody>
-                  <tr style="background:var(--a-soft)"><td>Alex Chen<br><span class="mono">data-platform</span></td><td class="mono">bq-project-x-finance</td><td>14 days</td><td>restricted</td><td class="mono">1 of 2 · Jordan ✓</td><td>4 min</td></tr>
-                </tbody>
-              </table>
-              <div class="panel">
-                <b>bq-project-x-finance</b>
-                <div class="kv">
-                  <span class="k">Why escalated</span><span>Cross-team request (data-platform → finance) — requires 2 approvals</span>
-                  <span class="k">Tier</span><span>restricted · max auto-grant 7d</span>
-                  <span class="k">Requester</span><span>Alex Chen · new hire · manager: you</span>
-                  <span class="k">Holds now</span><span class="mono">bucket-analytics-raw (write, 13d)</span>
-                  <span class="k">Peers</span><span>0 of 6 on data-platform hold this</span>
-                  <span class="k">Expires</span><span>3 Oct 2026 · 14d</span>
-                </div>
-                <div class="quote"><span class="q">Unverified requester text</span>"…build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
-                <div class="actions"><span class="btn">Deny</span><span class="btn p">Approve</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="a-3" hidden>
-      <div class="frame console">
-        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a>My access</a><a>Grants to approve</a><a class="on">Audit</a><a>Policy</a><a>Service accounts</a></nav>
-        <div class="main">
-          <div class="top"><span class="proj">project · atlas-migration</span><span>Filter: request <span class="mono">3f9a…</span> · chain <span class="st ok">verified · 11 events</span></span></div>
-          <div class="tabs"><span class="on">Activity</span><span>Service account · alex-chen-agent</span></div>
-          <div class="body">
-            <table>
-              <thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Detail</th><th>Hash</th></tr></thead>
-              <tbody>
-                <tr><td class="mono">14:31:02</td><td>request_received</td><td class="mono">u-newhire-1</td><td>2 resources for 14d</td><td class="mono">a91c…</td></tr>
-                <tr><td class="mono">14:31:02</td><td>policy_evaluated</td><td>policy-engine</td><td>internal tier, 14d within 30d limit, same-team requester</td><td class="mono">7e02…</td></tr>
-                <tr><td class="mono">14:31:02</td><td class="st ok">grant_issued</td><td>policy-engine</td><td class="mono">bucket-analytics-raw · 14d</td><td class="mono">c4d8…</td></tr>
-                <tr><td class="mono">14:31:03</td><td class="st pend">escalated</td><td>policy-engine</td><td>Cross-team (data-platform → finance) — requires 2 approvals</td><td class="mono">12f7…</td></tr>
-                <tr><td class="mono">14:34:40</td><td>approval_vote_cast</td><td class="mono">u-finance-owner-1</td><td>approved · "Atlas is on the finance roadmap"</td><td class="mono">b0aa…</td></tr>
-                <tr><td class="mono">14:36:12</td><td>action_executed</td><td>agent</td><td class="mono">gcs_list_objects · 42 objects</td><td class="mono">5d19…</td></tr>
-              </tbody>
-            </table>
-            <div class="composed">
-              <div class="lab"><span>SERVICE ACCOUNT · alex-chen-agent · TOOLS FROM GRANTS</span><span>mcp · modal</span></div>
-              <div class="row">
-                <div class="mini"><b class="mono">gcs_list_objects</b><span>from bucket-analytics-raw · 13d</span></div>
-                <div class="mini"><b class="mono">gcs_read_object</b><span>from bucket-analytics-raw · 13d</span></div>
-                <div class="mini"><b class="mono">bq_query</b><span>pending · 1 of 2</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="cap">Reads as a product judges have seen before, which is both the strength and the ceiling. The one addition over GCP PAM is the "Why escalated" row and the peer count in the detail panel — the thing nobody shows — and the labelled "composed" strip.</p>
-  </section>
-
-  <!-- ================= B · FEED ================= -->
-  <section class="dir" id="dir-b" hidden>
-    <div class="dir-head">
-      <div>
-        <div class="eyebrow">Direction B</div>
-        <h2>Feed</h2>
-        <p class="thesis">Every event is a card in one stream — the agent's request, the engine's decision, the approver's card with Reject left and Approve right, the tool-list change. A "Now" rail on the right keeps current state visible so it never degrades into a transcript.</p>
-      </div>
-      <div class="facts">
-        <div><span class="k">Borrows</span><span>Apono / Entitle / P0 Slack cards; Vercel and A2UI chat-adjacent cards; Opal's comment thread</span></div>
-        <div><span class="k">Trades away</span><span>Reads as a chatbot to a skeptical judge; layout can't visibly re-compose</span></div>
-        <div><span class="k">Cost tonight</span><span>S — one card component, one stream</span></div>
-        <div><span class="k">Best beat</span><span>The approval, inline, with the engine's reason right above the buttons</span></div>
-      </div>
-    </div>
-    <div class="screens" role="tablist" aria-label="Feed screens">
-      <button data-screen="b-1" aria-pressed="true">Requester · Stream</button>
-      <button data-screen="b-2" aria-pressed="false">Approver · Needs you</button>
-      <button data-screen="b-3" aria-pressed="false">Agent &amp; audit</button>
-    </div>
-
-    <div class="framewrap" id="b-1">
-      <div class="frame feed">
-        <div class="top"><span>Aperture · atlas-migration</span><span class="who">Alex Chen · data-platform</span></div>
-        <div class="cols">
-          <div class="stream">
-            <div class="card">
-              <div class="from"><span class="av">AC</span>Alex's coding agent · via <code>request_access</code> · 14:31</div>
-              <div class="quote"><span class="q">Unverified requester text</span>I need access to the analytics-raw GCS bucket and the project-x-finance BigQuery dataset to build the ingestion pipeline for Project Atlas, done by Nov 15.</div>
-              <div class="reason">Parsed: <code>bucket-analytics-raw</code>, <code>bq-project-x-finance</code> · 14 days · project atlas-migration</div>
-            </div>
-            <div class="card">
-              <div class="from"><span class="av sys">A</span>Policy engine · 14:31</div>
-              <div class="line"><span class="dot ok"></span><span><b>analytics-raw</b> granted for 14 days</span><span class="reason">internal · same team · 14d ≤ 30d</span></div>
-              <div class="line"><span class="dot pend"></span><span><b>project-x-finance</b> escalated to Finance + your manager</span><span class="reason">restricted · cross-team · 2 approvals</span></div>
-              <div class="line"><span class="dot den"></span><span><b>prod-primary</b> not requested — would be denied</span><span class="reason">critical always escalates</span></div>
-            </div>
-            <div class="card">
-              <div class="from"><span class="av j">JL</span>Jordan Lee approved · Finance · 14:34</div>
-              <div class="reason">"Atlas is on the finance roadmap." · 1 of 2 · waiting on Priya Nair</div>
-            </div>
-            <div class="card">
-              <div class="from"><span class="av sys">A</span>Tool list changed · alex-chen-agent · 14:31</div>
-              <div class="tools"><div><span>gcs_list_objects</span><span class="new">+ added</span></div><div><span>gcs_read_object</span><span class="new">+ added</span></div><div><span>bq_query</span><span>pending</span></div></div>
-            </div>
-            <div class="compose">Ask for access, or ask why…</div>
-          </div>
-          <aside class="rail">
-            <h4>Now</h4>
-            <div class="now"><div><span>Active</span><b>1</b></div><div><span>Pending</span><b>1 · 1 of 2</b></div><div><span>Next expiry</span><b>3 Oct · 13d</b></div><div><span>Chain</span><b style="color:var(--ok)">verified</b></div></div>
-            <h4>Composed for you</h4>
-            <div class="now"><div><span>analytics-raw</span><b>13d</b></div><div><span>project-x-finance</span><b style="color:var(--pend)">pending</b></div></div>
-          </aside>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="b-2" hidden>
-      <div class="frame feed">
-        <div class="top"><span>Aperture · Needs you (1)</span><span class="who">Priya Nair · Engineering Manager</span></div>
-        <div class="cols">
-          <div class="stream">
-            <div class="card">
-              <div class="from"><span class="av">AC</span>Alex Chen · data-platform · asks for <b>project-x-finance</b> · 14 days</div>
-              <div class="ctx">
-                <div><span class="k">Why escalated</span><br>Cross-team (data-platform → finance) · needs Finance + you</div>
-                <div><span class="k">Tier</span><br>restricted · max auto-grant 7d</div>
-                <div><span class="k">Already holds</span><br>analytics-raw (write, 13d)</div>
-                <div><span class="k">Peers</span><br>0 of 6 on data-platform hold this</div>
-                <div><span class="k">Finance</span><br>Jordan Lee approved 14:34</div>
-                <div><span class="k">Expires</span><br>3 Oct 2026</div>
-              </div>
-              <div class="quote"><span class="q">Unverified requester text</span>"…build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
-              <div class="btns"><button class="btn deny">Reject…</button><span class="reason">Reason optional at this tier</span><button class="btn ok">Approve</button></div>
-            </div>
-            <div class="card" style="opacity:0.7">
-              <div class="from"><span class="av sys">A</span>Earlier · 14:31</div>
-              <div class="reason">analytics-raw auto-granted to Alex (internal, same team). No action needed.</div>
-            </div>
-          </div>
-          <aside class="rail">
-            <h4>Your queue</h4>
-            <div class="now"><div><span>Needs you</span><b>1</b></div><div><span>Waiting on others</span><b>0</b></div><div><span>Decided today</span><b>3</b></div></div>
-            <h4>Policy in force</h4>
-            <div class="now"><div><span>internal</span><b>auto ≤ 30d</b></div><div><span>restricted</span><b>auto ≤ 7d · 2 approvers</b></div><div><span>critical</span><b>always escalate</b></div></div>
-          </aside>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="b-3" hidden>
-      <div class="frame feed">
-        <div class="top"><span>Aperture · alex-chen-agent</span><span class="who">Agent view · MCP on Modal</span></div>
-        <div class="cols">
-          <div class="stream">
-            <div class="card">
-              <div class="from"><span class="av sys">A</span>Tools available now · from 2 grants</div>
-              <div class="tools">
-                <div><span>gcs_list_objects</span><span>analytics-raw · 13d</span></div>
-                <div><span>gcs_read_object</span><span>analytics-raw · 13d</span></div>
-                <div><span>bq_query</span><span>project-x-finance · 13d</span></div>
-                <div><span>request_access</span><span>always</span></div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="from"><span class="av sys">A</span>Project atlas-migration closed · 16:02</div>
-              <div class="tools"><div><span>gcs_list_objects</span><span style="color:var(--den)">− removed</span></div><div><span>gcs_read_object</span><span style="color:var(--den)">− removed</span></div><div><span>bq_query</span><span style="color:var(--den)">− removed</span></div></div>
-              <div class="reason">2 grants revoked · chain verified · 14 events</div>
-            </div>
-          </div>
-          <aside class="rail">
-            <h4>Story · request 3f9a</h4>
-            <div class="now"><div><span>14:31 received</span></div><div><span>14:31 granted · analytics-raw</span></div><div><span>14:31 escalated · finance</span></div><div><span>14:34 Jordan ✓</span></div><div><span>14:37 Priya ✓ → granted</span></div><div><span>14:40 bq_query · 1 row</span></div><div><span>16:02 project closed · 2 revoked</span></div></div>
-          </aside>
-        </div>
-      </div>
-    </div>
-    <p class="cap">The approver card is the industry's own pattern with the two missing rows added (why escalated, peers). Cheapest to build and the most familiar to Priya. The risk is the room hearing "chatbot" — the Now rail is what keeps it a dashboard.</p>
-  </section>
-
-  <!-- ================= C · APERTURE ================= -->
-  <section class="dir" id="dir-c" hidden>
-    <div class="dir-head">
-      <div>
-        <div class="eyebrow">Direction C</div>
-        <h2>Aperture</h2>
-        <p class="thesis">The scope is the picture. An iris at the top opens a wedge per grant and closes it on revoke; a diff ribbon says what changed and when it was composed. Left column is static chrome — identity, the request box, approve and deny. Right column is the generated well, labelled as such. Flip it to the agent's view and the same panels become tool rows.</p>
-      </div>
-      <div class="facts">
-        <div><span class="k">Borrows</span><span>Host-chrome / agent-well split (Apps SDK, CopilotKit); Thesys per-user composition; Teleport's elevated state; P0's relinquish</span></div>
-        <div><span class="k">Trades away</span><span>Familiarity — the iris has to earn itself in five seconds; more CSS than A or B</span></div>
-        <div><span class="k">Cost tonight</span><span>M — the well is the existing registry; the iris is one SVG; the ribbon is a diff of panel ids</span></div>
-        <div><span class="k">Best beat</span><span>Close project: wedges close, panels fade, tools strike through, ribbon shows the minus — one frame</span></div>
-      </div>
-    </div>
-    <div class="screens" role="tablist" aria-label="Aperture screens">
-      <button data-screen="c-1" aria-pressed="true">Requester · Dashboard</button>
-      <button data-screen="c-2" aria-pressed="false">Approver · Decide</button>
-      <button data-screen="c-3" aria-pressed="false">Agent view &amp; story</button>
-    </div>
-
-    <div class="framewrap" id="c-1">
-      <div class="frame ap">
-        <div class="bar"><span class="brand">Aperture</span><span>Alex Chen · data-platform · <span style="font-family:var(--mono)">u-newhire-1</span></span><span class="verify">chain verified · 11 events</span></div>
-        <div class="iris">
-          <svg viewBox="0 0 120 120" aria-label="Scope iris: two open wedges, one pending, one denied">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="#e5e5df" stroke-width="10"/>
-            <path id="w1" d="M60 8 A52 52 0 0 1 112 60" fill="none" stroke="#1e6e45" stroke-width="10" stroke-linecap="butt"/>
-            <path id="w2" d="M112 60 A52 52 0 0 1 60 112" fill="none" stroke="#1e6e45" stroke-width="10"/>
-            <path id="w3" d="M60 112 A52 52 0 0 1 8 60" fill="none" stroke="#8a5a00" stroke-width="10" stroke-dasharray="4 4"/>
-            <path d="M8 60 A52 52 0 0 1 60 8" fill="none" stroke="#dcdcd4" stroke-width="10"/>
-            <circle cx="60" cy="60" r="34" fill="#fbfbf9"/>
-            <text x="60" y="57" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="22" font-weight="600" fill="#15181c" id="irisN">2</text>
-            <text x="60" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="7" fill="#8b9199">OPEN · 13D</text>
+  <!-- ===== 1 · TERRITORY ===== -->
+  <section class="dir" id="dir-1">
+    <div class="head"><h2>1 · Territory</h2><span class="thesis">Alex's scope is the lit region. A request is a dashed edge. A chaining risk is a bridge.</span></div>
+    <div class="chips"><span class="chip">steals · Datadog blast-radius mode, Wiz toxic path, Obsidian hover-fade</span><span class="chip">cost · M (SVG + 3 modes)</span><span class="chip">beat · lights go out</span></div>
+    <div class="framewrap">
+      <div class="frame ter" id="f1">
+        <div class="bar"><span class="brand">◎ Aperture · Territory</span>
+          <span class="modes" role="group"><button data-mode="" aria-pressed="true">scope</button><button data-mode="mode-blast" aria-pressed="false">blast radius</button><button data-mode="mode-chain" aria-pressed="false">chain check</button></span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--i2)">alex-chen-agent · atlas-migration</span></div>
+        <div class="body">
+          <svg viewBox="0 0 640 516" aria-label="Resource map">
+            <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <ellipse class="hull" cx="225" cy="235" rx="135" ry="150" fill="#34d399" stroke="#34d399"/>
+            <ellipse class="hull" cx="520" cy="165" rx="115" ry="95" fill="#60a5fa" stroke="#60a5fa"/>
+            <ellipse class="hull" cx="525" cy="385" rx="115" ry="85" fill="#a78bfa" stroke="#a78bfa"/>
+            <text class="h" x="110" y="98">DATA-PLATFORM</text><text class="h" x="425" y="84">FINANCE</text><text class="h" x="435" y="312">INFRA</text>
+            <line class="edge" x1="255" y1="130" x2="255" y2="300"/>
+            <line class="edge" x1="470" y1="140" x2="560" y2="240"/>
+            <line class="edge" x1="470" y1="340" x2="580" y2="395"/>
+            <line class="edge down" x1="470" y1="140" x2="560" y2="240"/>
+            <line class="edge scope" id="e1" x1="95" y1="240" x2="255" y2="130"/>
+            <line class="edge prop" id="e2" x1="95" y1="240" x2="470" y2="140"/>
+            <path class="edge bridge" d="M255 130 Q 360 40 470 140"/>
+            <text class="lbl c" x="290" y="62">write + read = export path → escalated as a pair</text>
+            <text class="lbl b" x="575" y="262">reachable if approved</text>
+            <circle class="agent" cx="95" cy="240" r="16"/><text class="t" x="95" y="244" text-anchor="middle" style="fill:#34d399">◈</text><text x="95" y="275" text-anchor="middle">alex-chen-agent</text>
+            <circle class="node scope" id="n1" cx="255" cy="130" r="16"/><text class="t" x="255" y="108" text-anchor="middle">analytics-raw</text><text x="255" y="160" text-anchor="middle">bucket · internal · write</text>
+            <circle class="node" cx="255" cy="300" r="13"/><text class="t" x="255" y="330" text-anchor="middle">events-curated</text>
+            <circle class="node" cx="150" cy="340" r="12"/><text class="t" x="150" y="368" text-anchor="middle">staging-db</text>
+            <circle class="node prop" id="n2" cx="470" cy="140" r="19"/><text class="t" x="470" y="112" text-anchor="middle">project_x_finance</text><text x="470" y="172" text-anchor="middle">dataset · restricted · read</text>
+            <circle class="node b" cx="560" cy="240" r="13"/><text class="t" x="560" y="268" text-anchor="middle">ledger-archive</text>
+            <circle class="node den" cx="470" cy="340" r="22"/><text class="t" x="470" y="378" text-anchor="middle">prod-primary</text><text x="470" y="392" text-anchor="middle">cloud sql · critical · denied</text>
+            <circle class="node" cx="580" cy="395" r="11"/><text class="t" x="580" y="422" text-anchor="middle">backups</text>
+            <text class="h" x="16" y="500">● in scope   ◌ proposed   ○ out of scope   ◍ denied</text>
           </svg>
-          <div class="sum">
-            <div class="big" id="sumBig">2 open <span>· 1 pending · next expiry 3 Oct</span></div>
-            <div class="legend"><span><i style="background:#1e6e45"></i>analytics-raw · write</span><span><i style="background:#1e6e45"></i>analytics-raw · read</span><span><i style="background:#8a5a00"></i>project-x-finance · 1 of 2</span><span><i style="background:#dcdcd4"></i>prod-primary · denied</span></div>
-            <div><button class="btn" id="closeBtn">Simulate: close project atlas-migration</button></div>
-          </div>
-        </div>
-        <div class="ribbon" id="ribbon"><span class="plus">+ gcs_list_objects</span><span class="plus">+ gcs_read_object</span><span style="color:var(--pend)">~ bq_query pending</span><span class="meta">composed 14:32 · from 1 grant, 1 case · why →</span></div>
-        <div class="cols">
-          <div class="chrome">
-            <div class="lab">Static</div>
-            <div class="id"><b>Alex Chen</b><span>Software Engineer · new hire · data-platform</span><span>manager · Priya Nair</span></div>
-            <div class="ask">
-              <div class="in">Ask for access, or ask why…</div>
-              <div class="confirm"><span class="lab">Understood as</span><span class="mono">bucket-analytics-raw · bq-project-x-finance</span><span>14 days · atlas-migration</span><span class="prim"><button class="btn p">Submit</button><button class="btn">Edit</button></span></div>
-            </div>
-            <div class="prim"><button class="btn">Relinquish all</button></div>
-          </div>
-          <div class="well">
-            <div class="lab"><span>Composed for u-newhire-1 · 3 panels</span><span>gemini 2.5 · catalog v1 · 14:32</span></div>
-            <div class="grid" id="wellGrid">
-              <div class="panel" data-g="1"><div class="name">analytics-raw</div><div class="meta">GCS bucket · write · <span class="badge tier">internal</span></div><div class="meta">13d 6h left · auto-granted, same team</div><div class="fill"><i style="width:95%"></i></div></div>
-              <div class="panel pend" data-g="2"><div class="name">project-x-finance</div><div class="meta">BigQuery dataset · read · <span class="badge tier">restricted</span></div><div class="meta">pending · Jordan ✓ · waiting on Priya</div><div class="fill"><i style="width:50%"></i></div></div>
-              <div class="panel den"><div class="name">prod-primary · denied</div><div class="meta">critical tier always escalates; vetoed by Finance</div><div class="alt">Ask instead for <a>read-only replica · 3 days</a></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="c-2" hidden>
-      <div class="frame ap">
-        <div class="bar"><span class="brand">Aperture</span><span>Priya Nair · Engineering Manager · <span style="font-family:var(--mono)">u-manager-1</span></span><span class="verify">chain verified · 11 events</span></div>
-        <div class="iris" style="padding-bottom:0.2rem"><div></div><div class="sum"><div class="big">1 needs you <span>· 0 waiting on others · 3 decided today</span></div></div></div>
-        <div class="ribbon"><span style="color:var(--pend)">~ bq-project-x-finance · Jordan approved 14:34 · you are 2 of 2</span><span class="meta">composed for approver · 14:35</span></div>
-        <div class="cols">
-          <div class="chrome">
-            <div class="lab">Static</div>
-            <div class="queue"><div class="on"><span>project-x-finance</span><small>4 min</small></div><div style="opacity:0.6"><span>analytics-raw</span><small>auto</small></div></div>
-            <div class="lab">Decision</div>
-            <div class="prim"><button class="btn deny">Deny…</button><button class="btn a">Approve</button></div>
-            <div class="lab" style="color:var(--i2)">restricted tier · reason optional. critical tier would require a justification before Approve enables.</div>
-          </div>
-          <div class="well">
-            <div class="lab"><span>Composed for approver · context</span><span>from the typed decision, not the request text</span></div>
-            <div class="ctx">
-              <div class="row"><span class="k">Why escalated</span><span>Cross-team request (data-platform → finance) — requires 2 approvals</span></div>
-              <div class="row"><span class="k">Summary</span><span>A new hire on your team wants read access to Finance's Project X dataset for two weeks to build the Atlas ingestion pipeline. Low blast radius: read-only, restricted tier, expires 3 Oct.</span></div>
-              <div class="row"><span class="k">Tier</span><span><span class="badge tier">restricted</span> · max auto-grant 7d · asked for 14d</span></div>
-              <div class="row"><span class="k">Requester</span><span>Alex Chen · new hire · data-platform · reports to you</span></div>
-              <div class="row"><span class="k">Holds now</span><span style="font-family:var(--mono);font-size:12px">bucket-analytics-raw · write · 13d</span></div>
-              <div class="row"><span class="k">Peers</span><span>0 of 6 on data-platform hold this · 4 of 5 on finance do</span></div>
-              <div class="row"><span class="k">Finance</span><span>Jordan Lee approved 14:34 — "Atlas is on the finance roadmap."</span></div>
-              <div class="row"><span class="k">Expires</span><span>3 Oct 2026 · revokes with project close</span></div>
-            </div>
-            <div class="claim"><span class="q">Unverified requester text</span>"I need access to the analytics-raw GCS bucket and the project-x-finance BigQuery dataset to build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="framewrap" id="c-3" hidden>
-      <div class="frame ap">
-        <div class="bar"><span class="brand">Aperture</span><span class="toggle"><button aria-pressed="false">Person view</button><button aria-pressed="true">Agent view</button></span><span class="verify">chain verified · 14 events</span></div>
-        <div class="iris" style="padding-bottom:0.2rem"><div></div><div class="sum"><div class="big">alex-chen-agent <span>· MCP on Modal · 3 tools from 2 grants</span></div></div></div>
-        <div class="ribbon"><span class="minus">− gcs_list_objects</span><span class="minus">− gcs_read_object</span><span class="minus">− bq_query</span><span class="meta">project atlas-migration closed 16:02 · tools/list_changed sent</span></div>
-        <div class="cols">
-          <div class="chrome">
-            <div class="lab">Story · request 3f9a</div>
-            <div class="trail">
-              <div class="ev"><span class="t">14:31</span><span class="d"><b>received</b> · 2 resources · 14d</span></div>
-              <div class="ev ok"><span class="t">14:31</span><span class="d"><b>granted</b> analytics-raw · same team</span></div>
-              <div class="ev pend"><span class="t">14:31</span><span class="d"><b>escalated</b> project-x-finance · cross-team</span></div>
-              <div class="ev ok"><span class="t">14:34</span><span class="d"><b>Jordan</b> approved</span></div>
-              <div class="ev ok"><span class="t">14:37</span><span class="d"><b>Priya</b> approved → granted</span></div>
-              <div class="ev"><span class="t">14:40</span><span class="d"><b>bq_query</b> · 1 row · by agent</span></div>
-              <div class="ev den"><span class="t">16:02</span><span class="d"><b>project closed</b> · 2 revoked</span></div>
-              <div class="ev ok"><span class="t">16:02</span><span class="d"><b>chain</b> verified · 14 events</span></div>
-            </div>
-          </div>
-          <div class="well">
-            <div class="lab"><span>Composed for alex-chen-agent · tools</span><span>same data as the person view</span></div>
-            <div class="tools">
-              <div class="tool gone"><span>gcs_list_objects</span><span class="st">revoked 16:02</span><span class="d">List objects in analytics-raw for the Atlas ingestion pipeline. Expired with project close.</span></div>
-              <div class="tool gone"><span>gcs_read_object</span><span class="st">revoked 16:02</span><span class="d">Read raw analytics events for the Atlas ingestion pipeline.</span></div>
-              <div class="tool gone"><span>bq_query</span><span class="st">revoked 16:02</span><span class="d">Query project_x_finance read-only. Was approved by Jordan Lee and Priya Nair.</span></div>
-              <div class="tool"><span>request_access</span><span class="st">always</span><span class="d">Ask for task-bounded access. Returns status, reason and alternatives on denial.</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="cap">The static/composed split is the security story made visible; the iris is the "your version is specific to you" story made visible. Press the simulate button on the requester screen to see the closing beat: wedges close, panels dim, ribbon flips to minus.</p>
-  </section>
-
-  <!-- ================= D · TERMINAL ================= -->
-  <section class="dir" id="dir-d" hidden>
-    <div class="dir-head">
-      <div>
-        <div class="eyebrow">Direction D</div>
-        <h2>Terminal</h2>
-        <p class="thesis">The requester is a coding agent, so the primary surface is its world: a proof terminal showing denied → allowed → denied against the real bucket, the MCP tool list beside it, an elevated-state banner with Relinquish. Approval is a card in the side pane.</p>
-      </div>
-      <div class="facts">
-        <div><span class="k">Borrows</span><span>Britive's terminal-first stance; Teleport's elevated banner and Switch back; P0's relinquish; the REAL_GCP proof terminal from CLAUDE.md</span></div>
-        <div><span class="k">Trades away</span><span>Priya. A manager persona has no home here; the generative layer is almost invisible</span></div>
-        <div><span class="k">Cost tonight</span><span>S — it's mostly the proof terminal the GCP track is already building</span></div>
-        <div><span class="k">Best beat</span><span>The last <code>gcloud storage ls</code> returning AccessDenied after close-project</span></div>
-      </div>
-    </div>
-    <div class="screens" role="tablist" aria-label="Terminal screens">
-      <button data-screen="d-1" aria-pressed="true">Agent · Proof terminal</button>
-      <button data-screen="d-2" aria-pressed="false">Approver · Side card</button>
-    </div>
-
-    <div class="framewrap" id="d-1">
-      <div class="frame term">
-        <div class="banner"><span>ELEVATED · alex-chen-agent · 2 grants active · expires in 13d 06h · project atlas-migration</span><span class="rel">Relinquish</span></div>
-        <div class="cols">
-          <div class="shell">
-<span class="c"># 14:30 — before any grant</span>
-<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
-<span class="out den">ERROR: (gcloud.storage.ls) HTTPError 403: alex-chen-agent does not have storage.objects.list access</span>
-<span class="sys">request 3f9a · bucket-analytics-raw granted 14d · same team, internal · IAM binding applied (propagation ≤ 2 min)</span>
-<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
-<span class="out ok">gs://atlas-analytics-raw/events/2026-09-18.parquet
-gs://atlas-analytics-raw/events/2026-09-19.parquet</span>
-<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
-<span class="out den">Access Denied: Dataset project_x_finance · pending approval (Jordan ✓, Priya …) · 1 of 2</span>
-<span class="sys">bq-project-x-finance approved by u-manager-1 · granted 14d · binding applied</span>
-<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
-<span class="out ok">+-------+
-| 48213 |
-+-------+</span>
-<span class="sys">project atlas-migration closed · 2 grants revoked · tools/list_changed · chain verified 14 events</span>
-<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
-<span class="out den">ERROR: (gcloud.storage.ls) HTTPError 403: alex-chen-agent does not have storage.objects.list access</span>
-          </div>
           <aside class="side">
-            <h4>tools/list · MCP on Modal</h4>
-            <div class="tools"><div><span>gcs_list_objects</span><span class="gone">revoked</span></div><div><span>gcs_read_object</span><span class="gone">revoked</span></div><div><span>bq_query</span><span class="gone">revoked</span></div><div><span>request_access</span><span class="ok">available</span></div></div>
-            <h4>audit · request 3f9a</h4>
-            <div class="audit"><div>14:31 <b>received</b> 2 res · 14d</div><div>14:31 <b>granted</b> analytics-raw</div><div>14:31 <b>escalated</b> project-x-finance</div><div>14:34 <b>vote</b> jordan ✓</div><div>14:37 <b>vote</b> priya ✓ → granted</div><div>14:40 <b>executed</b> bq_query</div><div>16:02 <b>closed</b> 2 revoked</div><div>16:02 <b>verify</b> ok · 14</div></div>
+            <div><div class="k">Scope</div><div class="big" id="terBig">1 <span>in · 1 proposed · 1 denied</span></div></div>
+            <div><div class="k">Approver sees</div>
+              <div class="rows"><div><span>+ project_x_finance</span><b class="pend">restricted · finance</b></div><div><span>reachable after</span><b class="blast">ledger-archive · read</b></div><div><span>new bridges</span><b class="den">1 · write→read</b></div><div><span>peers with this</span><b>0 of 6</b></div><div><span>expires</span><b>3 Oct · with project</b></div></div></div>
+            <div class="prim"><button class="m-btn den">Deny</button><button class="m-btn ok">Approve · 2 of 2</button></div>
+            <div><div class="k">Beat</div><button class="m-btn" id="terClose">Close project</button></div>
           </aside>
         </div>
       </div>
     </div>
-    <div class="framewrap" id="d-2" hidden>
-      <div class="frame term">
-        <div class="banner"><span>NEEDS YOU · 1 · priya nair</span><span class="rel">Open queue</span></div>
-        <div class="cols">
-          <div class="shell">
-<span class="c"># the agent is waiting on you</span>
-<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
-<span class="out den">Access Denied: Dataset project_x_finance · pending approval (Jordan ✓, Priya …) · 1 of 2</span>
-<span class="sys">agent idle · will retry on tools/list_changed</span>
+    <p class="try"><b>Try:</b> switch to <em>chain check</em>, then <em>Close project</em>.</p>
+  </section>
+
+  <!-- ===== 2 · DIFF ===== -->
+  <section class="dir" id="dir-2">
+    <div class="head"><h2>2 · Diff review</h2><span class="thesis">The request is a diff of Alex's effective permissions. Approve is merge. The audit chain is the commit log.</span></div>
+    <div class="chips"><span class="chip">steals · Terraform count bar, Graphite merge-gates, GitHub threads, Family button transform</span><span class="chip">cost · S–M</span><span class="chip">beat · a revert commit lands</span></div>
+    <div class="framewrap">
+      <div class="frame dif" id="f2">
+        <div class="bar">
+          <div class="title">Access request #3f9a <span>alex-chen-agent wants to merge <b>task/atlas-ingestion</b> into <b>alex-chen-agent/effective</b></span></div>
+          <div class="counts" id="difCounts"><span class="a">+2 grants</span><span class="c">~0</span><span class="d">−0</span><span class="bar2"><i class="ia" style="width:100%"></i></span><span>14 days · expires 2026-10-03</span></div>
+        </div>
+        <div class="body">
+          <div class="diff" id="difDiff">
+            <div class="file">
+              <div class="fh"><span>effective-permissions/alex-chen-agent.yaml</span><span>+2 −0</span></div>
+              <div class="ln"><span class="n">1</span><span class="s"> </span><span>roles/bigquery.jobUser        project        permanent   # run queries, no data</span></div>
+              <div class="ln add"><span class="n">2</span><span class="s">+</span><span>storage.objects.list          analytics-raw  until 2026-10-03  # auto: internal, same team</span></div>
+              <div class="ln add"><span class="n">3</span><span class="s">+</span><span>storage.objects.get           analytics-raw  until 2026-10-03</span></div>
+              <div class="ln add" id="difL4"><span class="n">4</span><span class="s">+</span><span>bigquery.dataViewer           project_x_finance  until 2026-10-03 <span class="rev">needs review</span></span></div>
+              <div class="thread">
+                <div><span class="who">policy-engine · 14:31</span><br>Cross-team (data-platform → finance), restricted tier — requires 2 approvals. 0 of 6 on data-platform hold this.</div>
+                <div><span class="who">Jordan Lee · finance · 14:34</span><br><b>Approved.</b> Atlas is on the finance roadmap.</div>
+                <div id="difPriya" style="color:var(--i3)">Priya Nair · manager · <em>waiting</em></div>
+              </div>
+            </div>
+            <div class="file" id="difRevert" hidden>
+              <div class="fh"><span>effective-permissions/alex-chen-agent.yaml</span><span style="color:var(--del)">−3 · revert: project atlas-migration closed</span></div>
+              <div class="ln del"><span class="n">2</span><span class="s">−</span><span>storage.objects.list          analytics-raw</span></div>
+              <div class="ln del"><span class="n">3</span><span class="s">−</span><span>storage.objects.get           analytics-raw</span></div>
+              <div class="ln del"><span class="n">4</span><span class="s">−</span><span>bigquery.dataViewer           project_x_finance</span></div>
+            </div>
           </div>
           <aside class="side">
-            <div class="card">
-              <span class="k">Access request · restricted</span>
-              <b>Alex Chen → project-x-finance · read · 14d</b>
-              <span><span class="k">Why escalated</span><br>cross-team (data-platform → finance) · 2 approvals</span>
-              <span><span class="k">Peers</span><br>0 of 6 on data-platform hold this</span>
-              <span><span class="k">Finance</span><br>Jordan Lee approved 14:34</span>
-              <span><span class="k">Unverified requester text</span><br><i>"…ingestion pipeline for Project Atlas, done by Nov 15."</i></span>
-              <div class="btns"><button class="btn deny">Deny</button><button class="btn ok">Approve</button></div>
+            <div><div class="k">Checks · 3 of 5</div>
+              <div class="checks" id="difChecks">
+                <div class="ok"><i></i><span>policy-engine · analytics-raw</span><small>auto-grant</small></div>
+                <div class="wait"><i></i><span>policy-engine · project_x_finance</span><small>needs 2</small></div>
+                <div class="ok"><i></i><span>Finance · Jordan Lee</span><small>14:34</small></div>
+                <div class="req" id="difChkPriya"><i></i><span>Manager · Priya Nair</span><small>required</small></div>
+                <div class="ok"><i></i><span>chain · verified</span><small>11 events</small></div>
+              </div></div>
+            <div class="merge">
+              <div class="gate" id="difGate">1 approval required before merge · restricted tier, no justification needed</div>
+              <div style="display:flex;gap:0.5rem"><button class="m-btn no">Request changes</button><button class="m-btn go" id="difApprove">Approve &amp; merge</button></div>
+              <button class="m-btn" id="difClose" hidden style="color:var(--del)">Close project → revert</button>
+            </div>
+            <div><div class="k">Commits · signed by chain</div>
+              <div class="commits" id="difCommits">
+                <div><span class="h">a91c2f</span><span>request received · 2 res · 14d</span><span class="v">verified</span></div>
+                <div><span class="h">7e02d1</span><span>grant analytics-raw · auto</span><span class="v">verified</span></div>
+                <div><span class="h">12f7aa</span><span>escalate project_x_finance</span><span class="v">verified</span></div>
+                <div><span class="h">b0aa93</span><span>vote · jordan · approved</span><span class="v">verified</span></div>
+              </div></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <p class="try"><b>Try:</b> <em>Approve &amp; merge</em> — the button transforms in place, the check flips, a commit lands. Then <em>Close project</em>.</p>
+  </section>
+
+  <!-- ===== 3 · LEASE ===== -->
+  <section class="dir" id="dir-3">
+    <div class="head"><h2>3 · Lease timeline</h2><span class="thesis">A Gantt of access. Bars end. Pending is hatched. Close project is a vertical cut through every lane.</span></div>
+    <div class="chips"><span class="chip">steals · DevTools labelled cut, Grafana state timeline, Gantt edge-resize, Motion zoom</span><span class="chip">cost · M</span><span class="chip">beat · the cut</span></div>
+    <div class="framewrap">
+      <div class="frame lea" id="f3">
+        <div class="bar"><span class="brand">▤ Aperture · Leases · alex-chen-agent</span>
+          <span class="ctl"><span class="zoom"><button data-zoom="session" aria-pressed="true">this session</button><button data-zoom="project" aria-pressed="false">this project</button></span><label>now <input type="range" id="leaNow" min="0" max="6" step="0.05" value="0.7"></label><button class="m-btn cut" id="leaCut">Close project</button></span></div>
+        <div class="chart">
+          <div class="lanes">
+            <div class="lab" style="height:22px;padding:0"></div>
+            <div class="lab"><b>analytics-raw · write</b><span>bucket · internal · auto-granted 14:31</span></div>
+            <div class="lab"><b>analytics-raw · read</b><span>bucket · internal</span></div>
+            <div class="lab"><b>project_x_finance · read</b><span>dataset · restricted · 2 approvers</span></div>
+            <div class="lab"><b>prod-primary</b><span>cloud sql · critical</span></div>
+            <div class="lab"><b>tool calls</b><span>by the agent · linked to the lease above</span></div>
+          </div>
+          <div class="tl" id="leaTl">
+            <div class="axis" id="leaAxis"></div>
+            <div class="lanes" style="position:relative">
+              <div class="grid" id="leaGrid"></div>
+              <div class="track"><div class="bar1" data-s="0.52" data-e="336.5" data-lane="1">14d · until 3 Oct</div><div class="cap">→ 3 Oct</div></div>
+              <div class="track"><div class="bar1" data-s="0.52" data-e="336.5">14d · until 3 Oct</div><div class="cap">→ 3 Oct</div></div>
+              <div class="track"><div class="bar1 pend" id="leaPend" data-s="0.52" data-e="0.62">pending · Jordan ✓ · Priya …</div><div class="bar1" id="leaAct" data-s="0.62" data-e="336.5">approved 14:37 · 14d</div><div class="handle" id="leaHandle"></div><div class="cap">→ 3 Oct</div></div>
+              <div class="track"><div class="bar1 den" data-s="0.52" data-e="0.6">denied · critical</div></div>
+              <div class="track" id="leaTicks"><div class="tick" data-t="0.6"><span>gcs_list_objects</span></div><div class="tick" data-t="0.64"><span>gcs_read_object</span></div><div class="tick" data-t="0.67"><span>bq_query</span></div><div class="tick den" data-t="2.1" id="leaBounce" hidden><span>bounced</span></div></div>
+              <div class="vmark" id="leaMax7"><span>tier max · 7d</span></div>
+              <div class="play" id="leaPlay"><span>now</span></div>
+              <div class="cutline" id="leaCutline"><span>project closed · 16:02</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="try"><b>Try:</b> <em>Close project</em>, then switch to <em>this project</em> — fourteen days requested, ninety minutes used.</p>
+  </section>
+
+  <!-- ===== 4 · RECORDER ===== -->
+  <section class="dir" id="dir-4">
+    <div class="head"><h2>4 · Flight recorder</h2><span class="thesis">Tool calls nest under the grant that authorised them. A call with no grant bounces. Scrub to replay.</span></div>
+    <div class="chips"><span class="chip">steals · Sentry/Braintrust nesting, Honeycomb collapse, Warp blocks, shape-not-colour for errors</span><span class="chip">cost · S–M (it's the audit log, drawn)</span><span class="chip">beat · the bounce</span></div>
+    <div class="framewrap">
+      <div class="frame rec" id="f4">
+        <div class="bar"><span class="brand">◉ Aperture · Recorder · run 3f9a</span><span style="font-family:var(--mono);font-size:11px;color:var(--i2)">14:31 → 16:05 · chain verified · 14 events</span></div>
+        <div class="body">
+          <div class="wf" id="recWf">
+            <div class="row" data-t="0"><div class="n"><b>agent run</b> · alex-chen-agent · Atlas ingestion</div><div class="tr"><div class="sp run" style="left:0;width:100%"></div></div></div>
+            <div class="row" data-t="0.52"><div class="n" style="--d:1"><b>grant</b> analytics-raw · 14d · auto</div><div class="tr"><div class="sp grant" id="recG1" style="left:3%;width:97%"><span class="t">until 3 Oct</span></div></div></div>
+            <div class="row" data-t="0.6"><div class="n" style="--d:2">gcs_list_objects · 42 objects · 120ms</div><div class="tr"><div class="link" style="left:9%"></div><div class="sp tool" style="left:9%;width:1.2%"></div></div></div>
+            <div class="row" data-t="0.64"><div class="n" style="--d:2">gcs_read_object · events/2026-09-19.parquet · 340ms</div><div class="tr"><div class="link" style="left:11%"></div><div class="sp tool" style="left:11%;width:1.6%"></div></div></div>
+            <div class="row" data-t="0.52"><div class="n" style="--d:1"><b>grant</b> project_x_finance · pending → active 14:37</div><div class="tr"><div class="sp pend" style="left:3%;width:5%"></div><div class="sp grant" id="recG2" style="left:8%;width:92%"><span class="t">until 3 Oct</span></div></div></div>
+            <div class="row" data-t="0.67"><div class="n" style="--d:2">bq_query · SELECT COUNT(*) → 48213 · 210ms</div><div class="tr"><div class="link" style="left:13%"></div><div class="sp tool" style="left:13%;width:1.4%"></div></div></div>
+            <div class="row" data-t="0.52"><div class="n den" style="--d:1"><b>request</b> prod-primary · denied · critical</div><div class="tr"><div class="sp den" style="left:3%"></div></div></div>
+            <div class="row hidden" data-t="2.03" id="recCloseRow"><div class="n" style="--d:1"><b>project closed</b> · 2 grants revoked</div><div class="tr"><div class="vline" style="left:60%"><span>16:02</span></div></div></div>
+            <div class="row hidden" data-t="2.1" id="recBounceRow"><div class="n den" style="--d:2"><b>gcs_list_objects</b> · BOUNCED · no active grant</div><div class="tr"><div class="sp den" style="left:62%"></div><span class="t" style="position:absolute;left:66%;top:8px;font-size:10px;color:var(--den)">policy re-checked at call time</span></div></div>
+          </div>
+          <aside class="side">
+            <div class="k">Blocks</div>
+            <div class="blocks" id="recBlocks">
+              <div class="blk" data-t="0.52"><span class="h">14:31 · request</span><b>2 resources · 14d · atlas-migration</b></div>
+              <div class="blk grant" data-t="0.52"><span class="h">14:31 · policy-engine</span><b>grant analytics-raw</b><span>internal · same team · 14d ≤ 30d</span></div>
+              <div class="blk pend" data-t="0.52"><span class="h">14:31 · policy-engine</span><b>escalate project_x_finance</b><span>cross-team · 2 approvals</span></div>
+              <div class="blk" data-t="0.6"><span class="h">14:36 · agent</span><b>gcs_list_objects</b><span>authorised by grant 7e02 · 42 objects</span></div>
+              <div class="blk grant" data-t="0.62"><span class="h">14:37 · priya</span><b>approved → grant project_x_finance</b></div>
+              <div class="blk" data-t="0.67"><span class="h">14:40 · agent</span><b>bq_query</b><span>authorised by grant c4d8 · 48213</span></div>
+              <div class="blk pend hidden" data-t="2.03" id="recCloseBlk"><span class="h">16:02 · policy-engine</span><b>project closed</b><span>2 revoked · tools/list_changed</span></div>
+              <div class="blk den hidden" data-t="2.1" id="recBounceBlk"><span class="h">16:05 · agent</span><b>gcs_list_objects · bounced</b><span>no active grant · logged, not executed</span></div>
+            </div>
+            <div class="scrub">
+              <input type="range" id="recScrub" min="0" max="2.2" step="0.01" value="2.2">
+              <div class="r"><span id="recTime">16:05</span><span style="display:flex;gap:0.4rem"><button class="m-btn pl" id="recReplay">Replay</button><button class="m-btn den" id="recBounce">Close &amp; try a call</button></span></div>
             </div>
           </aside>
         </div>
       </div>
     </div>
-    <p class="cap">Unbeatable for the closing beat and for the REAL_GCP proof, weak for everything a manager touches. Its right pane is exactly the "Agent view" inside direction C — which is why the recommendation below folds D into C rather than choosing between them.</p>
+    <p class="try"><b>Try:</b> <em>Close &amp; try a call</em> — the bounce is the proof that policy runs at call time. Then <em>Replay</em>.</p>
   </section>
 
-  <section id="compare">
-    <h2>Side by side</h2>
-    <div class="tablewrap">
-      <table class="mx">
-        <thead><tr><th>Criterion</th><th>A · Console</th><th>B · Feed</th><th>C · Aperture</th><th>D · Terminal</th></tr></thead>
-        <tbody>
-          <tr><td>Fixes approval fatigue</td><td class="mid">Detail panel, one click away</td><td class="hi">Reason + peers above the buttons</td><td class="hi">Reason, summary, peers, claim block, tiered friction</td><td class="mid">Card is small; fine for one request</td></tr>
-          <tr><td>Generation is visible</td><td class="lo">One labelled strip</td><td class="mid">Cards, but chat-shaped</td><td class="hi">Labelled well, ribbon, iris re-composes</td><td class="lo">Nearly invisible</td></tr>
-          <tr><td>Closing beat</td><td class="lo">Rows change status</td><td class="mid">A "removed" card</td><td class="hi">Wedges close, panels fade, tools strike, one frame</td><td class="hi">AccessDenied returns in the terminal</td></tr>
-          <tr><td>Familiar to judges</td><td class="hi">Very</td><td class="hi">Very</td><td class="mid">Earns it in five seconds or doesn't</td><td class="mid">Developers yes, managers no</td></tr>
-          <tr><td>Cost tonight</td><td class="hi">S–M</td><td class="hi">S</td><td class="mid">M</td><td class="hi">S (shared with GCP track)</td></tr>
-          <tr><td>Demo risk</td><td class="hi">Low</td><td class="hi">Low</td><td class="mid">Medium — animation must be smooth</td><td class="mid">Medium — real IAM propagation timing</td></tr>
-          <tr><td>Best persona</td><td>Auditor</td><td>Approver</td><td>Requester + approver</td><td>The agent</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="rec">
-      <h3>Recommendation: C, with D inside it and B's card anatomy</h3>
-      <p>Build direction C as the app. Its right column is already the registry renderer in the repo; add the label, the ribbon (a diff of panel ids over SSE), and the iris (one SVG with a wedge per grant). Put D's proof terminal and tool list behind C's "Agent view" toggle so the closing beat shows panel, wedge, tool row and <code>gcloud</code> all changing in the same second. Use B's card anatomy — reason and peers directly above Reject-left / Approve-right — for the approver screen, since it's the shape approvers already trust. Keep A's table as the audit and grants fallback: it's what <code>/audit</code> and <code>/grants</code> already return.</p>
-      <p><b>Build order for track 1:</b> SSE consumer → approver screen (B's card) → C's two-column shell with the label → ribbon → iris → agent-view toggle → the close-project animation. The iris and the animation are the only parts that aren't already data on the wire.</p>
-    </div>
-  </section>
-
-  <section id="sources">
-    <h2>Sources</h2>
-    <ul class="sources">
-      <li><a href="https://docs.apono.io/docs/access-requests-and-approvals/slack/approving-access-with-slack">Apono — approving in Slack</a></li>
-      <li><a href="https://docs.p0.dev/getting-started/getting-started-with-just-in-time-access">P0 — JIT access</a></li>
-      <li><a href="https://docs.opal.dev/docs/end-user-faq">Opal — end-user FAQ</a></li>
-      <li><a href="https://www.opal.dev/blog/featuring-painless-access-requests-it-all-comes-down-to-context">Opal — it all comes down to context</a></li>
-      <li><a href="https://docs.britive.com/docs/profile-mgmt-myaccess">Britive — My Access</a></li>
-      <li><a href="https://goteleport.com/docs/identity-governance/access-requests/role-requests/">Teleport — role requests</a></li>
-      <li><a href="https://docs.cloud.google.com/iam/docs/pam-view-grants">Google Cloud PAM — view grants</a></li>
-      <li><a href="https://help.okta.com/en-us/content/topics/identity-governance/access-requests/ar-submit-request.htm">Okta IGA — submit a request</a></li>
-      <li><a href="https://www.c1.ai/products/access-requests/">ConductorOne — access requests</a></li>
-      <li><a href="https://a2ui.org/reference/components/">A2UI — component reference</a></li>
-      <li><a href="https://developers.openai.com/apps-sdk/plan/components">OpenAI Apps SDK — components</a></li>
-      <li><a href="https://www.copilotkit.ai/generative-ui-spectrum">CopilotKit — generative UI spectrum</a></li>
-      <li><a href="https://vercel.com/blog/ai-sdk-3-generative-ui">Vercel — AI SDK generative UI</a></li>
-      <li><a href="https://abduzeedo.com/thesys-generative-ui-c1-api">Thesys C1</a></li>
-      <li><a href="https://github.com/narrowin/awesome-generative-ui">awesome-generative-ui</a></li>
-    </ul>
+  <section>
+    <div class="tablewrap"><table class="mx">
+      <thead><tr><th></th><th>1 · Territory</th><th>2 · Diff review</th><th>3 · Lease timeline</th><th>4 · Recorder</th></tr></thead>
+      <tbody>
+        <tr><td>Best for</td><td>the chaining scenario</td><td>the approver</td><td>the requester's dashboard</td><td>audit + "policy runs twice"</td></tr>
+        <tr><td>Novel to judges</td><td class="hi">yes</td><td class="hi">yes — and instantly readable</td><td class="hi">yes</td><td class="mid">familiar shape, new content</td></tr>
+        <tr><td>Closing beat</td><td class="hi">lights out</td><td class="hi">revert commit</td><td class="hi">the cut</td><td class="hi">the bounce</td></tr>
+        <tr><td>Cost tonight</td><td class="mid">M</td><td class="hi">S–M</td><td class="mid">M</td><td class="hi">S–M</td></tr>
+        <tr><td>Needs from backend</td><td>resource graph + chain check</td><td>nothing new</td><td>SSE + demo clock</td><td>ACTION_EXECUTED events</td></tr>
+      </tbody></table></div>
+    <div class="rec2"><h3>Build 2 + 3 + 4 as one app: Lease timeline on top, Recorder below it, Diff review as the approver's screen. Territory is the "chain check" mode for scenario two.</h3><p>All four read from data the hub already emits. The only new backend work is the chain check (track 3) and <code>ACTION_EXECUTED</code> from the MCP handlers (track 2).</p></div>
+    <details><summary>References</summary><ul class="sources">
+      <li><a href="https://www.datadoghq.com/blog/security-graph-attack-paths/">Datadog — Security Graph, blast radius</a></li><li><a href="https://www.wiz.io/lp/wiz-security-graph">Wiz — Security Graph</a></li><li><a href="https://www.hashicorp.com/en/blog/new-apply-user-interface-for-terraform-cloud">HCP Terraform — structured run output</a></li><li><a href="https://graphite.com/docs/evaluating-tools">Graphite — stacked merges</a></li><li><a href="https://developer.chrome.com/docs/devtools/performance/annotations">DevTools — performance annotations</a></li><li><a href="https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/state-timeline/">Grafana — state timeline</a></li><li><a href="https://docs.sentry.io/concepts/key-terms/tracing/trace-view/">Sentry — trace view</a></li><li><a href="https://www.braintrust.dev/docs/integrations/agent-frameworks/cursor-sdk">Braintrust — agent traces</a></li><li><a href="https://docs.honeycomb.io/reference/honeycomb-ui/query/trace-waterfall">Honeycomb — waterfall</a></li><li><a href="https://benji.org/family-values">Family — values</a></li>
+    </ul></details>
   </section>
 </div>
 
 <script>
-  (function () {
-    var dirs = ["a", "b", "c", "d"];
-    document.querySelectorAll(".dirnav button").forEach(function (b) {
-      b.addEventListener("click", function () {
-        var d = b.getAttribute("data-dir");
-        document.querySelectorAll(".dirnav button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
-        dirs.forEach(function (k) { document.getElementById("dir-" + k).hidden = (k !== d); });
-        document.getElementById("dir-" + d).scrollIntoView({ block: "start", behavior: "smooth" });
-      });
+(function () {
+  // gallery: clone each hero into its thumb and scale to fit
+  var thumbs = document.querySelectorAll(".thumb");
+  thumbs.forEach(function (t) {
+    var src = document.getElementById(t.getAttribute("data-src"));
+    var clone = src.cloneNode(true); clone.removeAttribute("id");
+    clone.querySelectorAll("[id]").forEach(function (el) { el.removeAttribute("id"); });
+    t.querySelector(".shot").appendChild(clone);
+    t.addEventListener("click", function () { document.getElementById(t.getAttribute("data-go")).scrollIntoView({ block: "start", behavior: "smooth" }); });
+  });
+  function fit() { document.querySelectorAll(".thumb .shot").forEach(function (s) { var f = s.querySelector(".frame"); if (f) f.style.transform = "scale(" + (s.clientWidth / 960) + ")"; }); }
+  fit(); window.addEventListener("resize", fit);
+
+  // 1 · territory
+  var ter = document.getElementById("f1");
+  ter.querySelectorAll(".modes button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      ter.querySelectorAll(".modes button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      ter.classList.remove("mode-blast", "mode-chain"); var m = b.getAttribute("data-mode"); if (m) ter.classList.add(m);
     });
-    document.querySelectorAll(".screens").forEach(function (group) {
-      group.querySelectorAll("button").forEach(function (b) {
-        b.addEventListener("click", function () {
-          group.querySelectorAll("button").forEach(function (x) {
-            var id = x.getAttribute("data-screen");
-            var on = (x === b);
-            x.setAttribute("aria-pressed", String(on));
-            document.getElementById(id).hidden = !on;
-          });
-        });
-      });
+  });
+  document.getElementById("terClose").addEventListener("click", function () {
+    ter.classList.add("closed"); ter.classList.remove("mode-blast", "mode-chain");
+    document.getElementById("terBig").innerHTML = '0 <span>in · project closed 16:02 · 2 revoked</span>';
+    this.disabled = true; this.textContent = "Closed — lights out";
+  });
+
+  // 2 · diff
+  var ap = document.getElementById("difApprove");
+  ap.addEventListener("click", function () {
+    ap.textContent = "Approved · 2 of 2"; ap.disabled = true;
+    var chk = document.getElementById("difChkPriya"); chk.className = "ok"; chk.querySelector("small").textContent = "14:37";
+    var w = document.querySelector("#difChecks .wait"); w.className = "ok"; w.querySelector("small").textContent = "2 of 2";
+    document.getElementById("difPriya").innerHTML = '<span class="who">Priya Nair · manager · 14:37</span><br><b>Approved.</b>';
+    document.getElementById("difL4").querySelector(".rev").remove();
+    document.getElementById("difGate").textContent = "Merged 14:37 · grant issued · expires 2026-10-03";
+    var c = document.getElementById("difCommits");
+    c.insertAdjacentHTML("beforeend", '<div class="new"><span class="h">c4d8e0</span><span>vote · priya · approved → grant project_x_finance</span><span class="v">verified</span></div>');
+    setTimeout(function () { ap.textContent = "Merged"; document.getElementById("difClose").hidden = false; }, 700);
+  });
+  document.getElementById("difClose").addEventListener("click", function () {
+    document.getElementById("difRevert").hidden = false;
+    document.getElementById("difCounts").innerHTML = '<span class="a">+0</span><span class="c">~0</span><span class="d">−3 grants</span><span class="bar2"><i class="id" style="width:100%"></i></span><span>project atlas-migration closed 16:02</span>';
+    document.getElementById("difCommits").insertAdjacentHTML("beforeend", '<div class="new"><span class="h">5d19f3</span><span>revert: project closed · 3 grants revoked</span><span class="v">verified · 14</span></div>');
+    this.disabled = true; this.textContent = "Reverted";
+  });
+
+  // 3 · lease
+  var lea = document.getElementById("f3"), zoom = "session", cutAt = null, W = 700;
+  var range = { session: 6, project: 384 };
+  function px(h) { return Math.max(0, Math.min(W, h / range[zoom] * W)); }
+  function axis() {
+    var ax = document.getElementById("leaAxis"), g = document.getElementById("leaGrid"); ax.innerHTML = ""; g.innerHTML = "";
+    if (zoom === "session") { for (var h = 0; h <= 6; h++) { ax.insertAdjacentHTML("beforeend", '<span style="left:' + px(h) + 'px">' + (14 + h) + ':00</span>'); g.insertAdjacentHTML("beforeend", '<i style="left:' + px(h) + 'px"></i>'); } }
+    else { for (var d = 0; d <= 16; d += 2) { ax.insertAdjacentHTML("beforeend", '<span style="left:' + px(d * 24) + 'px">' + (d === 0 ? "19 Sep" : d === 14 ? "3 Oct" : "+" + d + "d") + '</span>'); g.insertAdjacentHTML("beforeend", '<i style="left:' + px(d * 24) + 'px"></i>'); } }
+    var m7 = document.getElementById("leaMax7"); m7.style.left = px(0.52 + 7 * 24) + "px"; m7.style.display = zoom === "project" ? "block" : "none";
+  }
+  function layout() {
+    var now = parseFloat(document.getElementById("leaNow").value);
+    lea.querySelectorAll(".bar1").forEach(function (b) {
+      var s = parseFloat(b.getAttribute("data-s")), e = parseFloat(b.getAttribute("data-e"));
+      if (cutAt !== null && e > cutAt) e = Math.max(s + 0.02, cutAt);
+      b.style.left = px(s) + "px"; b.style.width = Math.max(3, px(e) - px(s)) + "px";
+      b.classList.toggle("future", s > now);
+      var cap = b.parentElement.querySelector(".cap"); if (cap) cap.style.display = (cutAt === null && px(e) >= W) ? "block" : "none";
     });
-    var closeBtn = document.getElementById("closeBtn");
-    if (closeBtn) closeBtn.addEventListener("click", function () {
-      document.querySelectorAll("#wellGrid .panel[data-g]").forEach(function (p) { p.classList.add("gone"); p.classList.remove("pend"); });
-      ["w1", "w2", "w3"].forEach(function (id) { var w = document.getElementById(id); w.setAttribute("stroke", "#dcdcd4"); w.removeAttribute("stroke-dasharray"); });
-      document.getElementById("irisN").textContent = "0";
-      document.getElementById("sumBig").innerHTML = '0 open <span>· project atlas-migration closed 16:02 · 2 revoked</span>';
-      document.getElementById("ribbon").innerHTML = '<span class="minus">− gcs_list_objects</span><span class="minus">− gcs_read_object</span><span class="minus">− bq_query</span><span class="meta">recomposed 16:02 · 0 grants · chain verified 14 events</span>';
-      closeBtn.disabled = true; closeBtn.textContent = "Project closed — panels revoked, wedges closed";
+    lea.querySelectorAll(".tick").forEach(function (t) { t.style.left = px(parseFloat(t.getAttribute("data-t"))) + "px"; });
+    var h = document.getElementById("leaHandle"); h.style.left = (px(cutAt !== null ? cutAt : 336.5) - 3) + "px"; h.style.display = (cutAt === null && zoom === "project") ? "block" : "none";
+    document.getElementById("leaPlay").style.left = px(now) + "px";
+    document.getElementById("leaCutline").style.left = px(2.03) + "px";
+  }
+  lea.querySelectorAll(".zoom button").forEach(function (b) { b.addEventListener("click", function () { lea.querySelectorAll(".zoom button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); zoom = b.getAttribute("data-zoom"); var n = document.getElementById("leaNow"); n.max = range[zoom]; axis(); layout(); }); });
+  document.getElementById("leaNow").addEventListener("input", layout);
+  document.getElementById("leaCut").addEventListener("click", function () { cutAt = 2.03; lea.classList.add("cut"); document.getElementById("leaBounce").hidden = false; document.getElementById("leaNow").value = 2.2; layout(); this.disabled = true; this.textContent = "Closed 16:02"; });
+  axis(); layout();
+
+  // 4 · recorder
+  var scrub = document.getElementById("recScrub");
+  function fmt(h) { var m = Math.round(h * 60); var hh = 14 + Math.floor(m / 60), mm = m % 60; return hh + ":" + (mm < 10 ? "0" : "") + mm; }
+  function show() {
+    var t = parseFloat(scrub.value); document.getElementById("recTime").textContent = fmt(t);
+    document.querySelectorAll("#recWf .row, #recBlocks .blk").forEach(function (el) {
+      var et = parseFloat(el.getAttribute("data-t")); var hiddenByBeat = el.hasAttribute("data-beat") && !el.getAttribute("data-beat");
+      el.classList.toggle("hidden", et > t || hiddenByBeat);
     });
-  })();
+  }
+  ["recCloseRow", "recBounceRow", "recCloseBlk", "recBounceBlk"].forEach(function (id) { document.getElementById(id).setAttribute("data-beat", ""); });
+  document.getElementById("recBounce").addEventListener("click", function () {
+    ["recCloseRow", "recBounceRow", "recCloseBlk", "recBounceBlk"].forEach(function (id) { document.getElementById(id).setAttribute("data-beat", "on"); });
+    document.getElementById("recG1").style.width = "57%"; document.getElementById("recG2").style.width = "52%";
+    document.querySelectorAll("#recG1 .t, #recG2 .t").forEach(function (s) { s.textContent = "revoked 16:02"; });
+    scrub.value = 2.2; show(); this.disabled = true; this.textContent = "Bounced";
+  });
+  document.getElementById("recReplay").addEventListener("click", function () {
+    var t = 0; scrub.value = 0; show();
+    var iv = setInterval(function () { t += 0.05; scrub.value = t; show(); if (t >= 2.2) clearInterval(iv); }, 60);
+  });
+  scrub.addEventListener("input", show); show();
+})();
 </script>

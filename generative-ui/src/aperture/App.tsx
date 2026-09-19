@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./aperture.css";
 import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
-import { Composer } from "./Composer";
 import { Enact } from "./Enact";
 import { Live } from "./Live";
 import { ManagerSide } from "./Manager";
@@ -113,12 +112,11 @@ export default function ApertureApp() {
               <div><span className="n">{revoked.length}</span><span className="k">revoked</span></div>
               <div><span className={`n ${bounced ? "red" : ""}`}>{bounced}</span><span className="k">bounced</span></div>
             </div>
-            <div className="grid2">
+            <div className="grid2 single">
               <div>
                 <div className="sec-h"><h2>Access</h2></div>
                 <Matrix grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={timelineFor} zoom="session" now={now} />
               </div>
-              <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={timelineFor} />
             </div>
             <main className="main">
               <div>
@@ -132,7 +130,9 @@ export default function ApertureApp() {
             </main>
             <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={timelineFor} preview={snap.preview} />
           </div>
-          <Composer key={timelineFor} selected={timelineFor === ALL ? "u-newhire-1" : timelineFor} users={users} online={snap.online} />
+          <aside className="console-side">
+            <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={timelineFor} />
+          </aside>
         </div>
       )}
 

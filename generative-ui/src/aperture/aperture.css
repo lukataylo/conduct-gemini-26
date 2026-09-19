@@ -147,11 +147,23 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .ob-card em { font-style: normal; color: var(--fg-2); font-size: 13px; }
 @media (max-width: 720px) { .ob-step { grid-template-columns: 1fr; } .ob-n { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 12px; } .ob-res, .ob-tool { grid-template-columns: 1fr; gap: 4px; } }
 
-/* top tabs */
-.hd .tabs { display: inline-flex; gap: 4px; margin-left: 8px; }
-.tab { font: inherit; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid transparent; color: var(--fg-2); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
-.tab:hover { color: var(--fg); border-color: var(--line-2); }
+/* header — Nothing conventions: dot-matrix uppercase labels, hard black/white states,
+   a dotted hairline, monochrome with the person's colour as the only accent */
+.hd { padding: 16px 24px; border-bottom: 0; background-image: radial-gradient(circle, var(--line-2) 1px, transparent 1.2px); background-size: 6px 6px; background-repeat: repeat-x; background-position: 0 100%; padding-bottom: 20px; }
+.hd .brand { font-size: 20px; letter-spacing: 0.22em; }
+.hd .tabs { display: inline-flex; gap: 0; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px; }
+.tab { font-family: var(--dot); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; background: transparent; border: 0; color: var(--fg-3); padding: 7px 16px; border-radius: 999px; cursor: pointer; }
+.tab:hover { color: var(--fg); }
 .tab[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.hd .seg { border-color: var(--line-2); padding: 3px; }
+.hd .seg button { font-family: var(--dot); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-3); padding: 6px 12px; border-radius: 999px; }
+.hd .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.hd .dotst { font-family: var(--dot); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); gap: 8px; }
+.hd .dotst.ok i { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.hd .ctl-btn { font-family: var(--dot); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 7px 14px 7px 10px; border-width: 1px; background: transparent; }
+.hd .ctl-btn i { display: block; width: 10px; height: 10px; }
+.hd .ctl-btn b { font-family: var(--sans); font-size: 10px; }
+.hd .right { gap: 14px; }
 .sum .people { margin-right: 12px; }
 
 /* screen nav */
@@ -276,6 +288,25 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .w.zero { border-color: #171717; }
 .w.zero b, .w.zero small { color: #3a3a3a; }
 .w-big.zero { background: #0a0a0a; border-color: #171717; }
+
+/* timeline: approvals in the right column, access + leases stacked in the main column */
+.grid2.single { grid-template-columns: 1fr; }
+.console-side { border-left: 1px solid var(--line); display: grid; align-content: start; }
+.console-side .apv { border-left: 0; position: sticky; top: 0; }
+@media (max-width: 1100px) { .console-side { border-left: 0; border-top: 1px solid var(--line); } }
+
+/* Gemini face + waveform */
+.face { display: block; }
+.live-bubble .face { width: 80px !important; height: 32px !important; }
+.live-face { display: flex; align-items: center; gap: 14px; }
+.live-state { display: grid; gap: 2px; }
+.live-state b { font-family: var(--dot); font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: #8ab4f8; font-weight: 700; }
+.live-state small { color: var(--fg-3); font-size: 11px; }
+.wave { display: block; width: 100%; }
+.live-msg.tool b { background: transparent; color: var(--fg-3); } .live-msg.tool span { color: var(--fg-3); font-family: var(--mono); font-size: 12px; }
+.live-msg.dim span { color: var(--fg-3); }
+.nb.mic.on { background: #f4f4f4; color: var(--bg); border-color: #f4f4f4; animation: livepulse 1.2s ease-in-out infinite; }
+.live-panel .confirm-card { margin-top: 4px; }
 
 /* Gemini bubble */
 .live-bubble { position: fixed; right: 24px; bottom: 24px; z-index: 30; font: inherit; display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border-radius: 999px; border: 1px solid #2a3b5c; background: #0d1626; color: var(--fg); cursor: pointer; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }

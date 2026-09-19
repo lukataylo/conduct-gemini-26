@@ -3,29 +3,27 @@ import "./aperture.css";
 import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
 import { Composer } from "./Composer";
-import { Controls, seedDemo } from "./Controls";
 import { Enact } from "./Enact";
 import { Manager } from "./Manager";
 import { Matrix } from "./Matrix";
+import { Menu, seedDemo, type Mode } from "./Menu";
 import { Recorder } from "./Recorder";
 import { Timeline } from "./Timeline";
-import { UserScreen } from "./User";
+import { Users } from "./Users";
 
-type Mode = "user" | "manager" | "console";
-
-function initialUser(): string {
-  return new URLSearchParams(window.location.search).get("user") ?? "u-newhire-1";
-}
 function initialMode(): Mode {
   const m = new URLSearchParams(window.location.search).get("screen");
-  return m === "manager" || m === "console" ? m : "user";
+  return m === "manager" || m === "console" ? m : "users";
+}
+function initialUser(): string {
+  return new URLSearchParams(window.location.search).get("user") ?? ALL;
 }
 
 export default function ApertureApp() {
   const snap = useSnapshot();
   const users = useMemo(() => toUsers(snap.people), [snap.people]);
-  const [selected, setSelected] = useState<string>(initialUser);
   const [mode, setMode] = useState<Mode>(initialMode);
+  const [selected, setSelected] = useState<string>(initialUser); // only the Timeline deep-dive filters by person
   const [zoom, setZoom] = useState<"session" | "project">("session");
   const [now, setNow] = useState(Date.now());
   const seeded = useRef(false);
@@ -35,56 +33,58 @@ export default function ApertureApp() {
     return () => clearInterval(id);
   }, []);
 
-  // An empty store shows nothing; fill it once, through the real API, so every screen has data.
+  // An empty store shows nothing; fill it once, through the real API.
   useEffect(() => {
     if (seeded.current || !snap.online || users.length === 0) return;
-    if (snap.grants.length > 0 || snap.events.length > 0) { seeded.current = true; return; }
     seeded.current = true;
-    seedDemo(users).catch(console.error);
+    if (snap.grants.length === 0 && snap.events.length === 0) seedDemo(users).catch(console.error);
   }, [snap.online, snap.grants.length, snap.events.length, users]);
 
   const me = users.find((u) => u.id === selected);
-  const person = selected === ALL ? "u-newhire-1" : selected;
   const accent = me?.color ?? "#f4f4f4";
   const mine = (uid: string) => selected === ALL || uid === selected;
   const active = snap.grants.filter((g) => !g.revoked && Date.parse(g.expires_at) > now && mine(g.requester_id));
   const pending = snap.cases.filter((c) => c.status === "pending" && mine(c.requester_id));
   const revoked = snap.grants.filter((g) => g.revoked && mine(g.requester_id));
   const bounced = snap.events.filter((e) => e.type === "action_executed" && e.payload.status === "bounced").length;
+  const openConsole = (uid: string) => { setSelected(uid); setMode("console"); };
 
   return (
     <div className="ap" style={{ ["--accent" as string]: accent }}>
       <header className="hd">
         <span className="brand">APERTURE</span>
-        <span className="seg" role="group" aria-label="Mode">
-          <button aria-pressed={mode === "user"} onClick={() => { setMode("user"); if (selected === ALL) setSelected("u-newhire-1"); }}>User</button>
-          <button aria-pressed={mode === "manager"} onClick={() => { setMode("manager"); if (selected === ALL) setSelected("u-manager-1"); }}>Manager</button>
-        </span>
         <span className="right">
           {mode === "console" && (
-            <span className="seg" role="group" aria-label="Zoom">
-              <button aria-pressed={zoom === "session"} onClick={() => setZoom("session")}>session</button>
-              <button aria-pressed={zoom === "project"} onClick={() => setZoom("project")}>project</button>
-            </span>
+            <>
+              <span className="people" role="tablist" aria-label="Person">
+                <button className="person" aria-pressed={selected === ALL} onClick={() => setSelected(ALL)} style={{ ["--u" as string]: "#f4f4f4" }}><i className="multi" /><span>Everyone</span></button>
+                {users.map((u) => (
+                  <button key={u.id} className="person" aria-pressed={selected === u.id} onClick={() => setSelected(u.id)} style={{ ["--u" as string]: u.color }}><i /><span>{u.name.split(" ")[0]}</span></button>
+                ))}
+              </span>
+              <span className="seg" role="group" aria-label="Zoom">
+                <button aria-pressed={zoom === "session"} onClick={() => setZoom("session")}>session</button>
+                <button aria-pressed={zoom === "project"} onClick={() => setZoom("project")}>project</button>
+              </span>
+            </>
           )}
           <span className={`dotst ${!snap.online ? "" : snap.verify?.ok ? "ok" : "bad"}`}><i />{!snap.online ? "offline" : snap.verify?.ok ? `chain ${snap.verify.length}` : "chain broken"}</span>
-          <Controls users={users} selected={person} onSelect={setSelected} grants={snap.grants} cases={snap.cases} online={snap.online} />
+          <Menu mode={mode} onMode={setMode} users={users} grants={snap.grants} cases={snap.cases} online={snap.online} />
         </span>
       </header>
 
-      {mode === "user" && (
-        <UserScreen grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={person} online={snap.online} now={now} />
+      {mode === "users" && (
+        <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} online={snap.online} onOpen={openConsole} />
       )}
 
       {mode === "manager" && (
-        <Manager grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={person} now={now} onDeepDive={(uid) => { setSelected(uid); setMode("console"); }} />
+        <Manager grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} now={now} onDeepDive={openConsole} />
       )}
 
       {mode === "console" && (
         <div className="console-body">
           <div className="console-main">
             <div className="sum">
-              <button className="back" onClick={() => setMode("manager")}>← Manager</button>
               <div><span className="n" style={{ color: accent }}>{active.length}</span><span className="k">active</span></div>
               <div><span className="n amber">{pending.length}</span><span className="k">pending</span></div>
               <div><span className="n">{revoked.length}</span><span className="k">revoked</span></div>
@@ -109,7 +109,7 @@ export default function ApertureApp() {
             </main>
             <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
           </div>
-          <Composer key={selected} selected={selected} users={users} online={snap.online} />
+          <Composer key={selected} selected={selected === ALL ? "u-newhire-1" : selected} users={users} online={snap.online} />
         </div>
       )}
     </div>

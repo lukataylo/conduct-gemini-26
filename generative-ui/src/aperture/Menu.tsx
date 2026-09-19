@@ -2,10 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import type { EscalationCase, Grant, User } from "./api";
 import { post, PROJECT } from "./api";
 
+export type Mode = "users" | "manager" | "console";
+const SCREENS: { id: Mode; name: string; sub: string }[] = [
+  { id: "users", name: "Users", sub: "everyone's access" },
+  { id: "manager", name: "Manager", sub: "decide" },
+  { id: "console", name: "Timeline", sub: "deep-dive" },
+];
+
 interface Props {
+  mode: Mode;
+  onMode: (m: Mode) => void;
   users: User[];
-  selected: string;
-  onSelect: (id: string) => void;
   grants: Grant[];
   cases: EscalationCase[];
   online: boolean;
@@ -39,8 +46,8 @@ export async function approveAll(cases: EscalationCase[]) {
   }
 }
 
-export function useTool(me: User, grants: Grant[]) {
-  const g = grants.find((x) => x.requester_id === me.id && !x.revoked && x.resource_id === "bucket-analytics-raw") ?? grants.find((x) => x.requester_id === me.id && !x.revoked);
+export function useTool(u: User, grants: Grant[]) {
+  const g = grants.find((x) => x.requester_id === u.id && !x.revoked && x.resource_id === "bucket-analytics-raw") ?? grants.find((x) => x.requester_id === u.id && !x.revoked);
   const tool = g?.resource_id.startsWith("bq") ? "bq_query_project_x_finance" : "gcs_list_analytics_raw";
   return post("/audit", {
     id: "ui",
@@ -49,26 +56,26 @@ export function useTool(me: User, grants: Grant[]) {
     detail: g ? `${tool} · 2 objects` : `${tool} · bounced`,
     request_id: g?.request_id ?? null,
     grant_id: g?.id ?? null,
-    payload: { tool, status: g ? "ok" : "bounced", requester_id: me.id },
+    payload: { tool, status: g ? "ok" : "bounced", requester_id: u.id },
   });
 }
 
-/** Populate an empty store through the real API: three people ask, Finance votes once, the agent uses a tool. */
+/** Fill an empty store through the real API: everyone asks, Finance votes once, Alex's agent uses a tool. */
 export async function seedDemo(users: User[]) {
   for (const u of users) await requestAs(u);
-  const cases = await (await fetch("/api/escalations?status=pending")).json() as EscalationCase[];
+  const cases = (await (await fetch("/api/escalations?status=pending")).json()) as EscalationCase[];
   const alex = cases.find((c) => c.requester_id === "u-newhire-1" && c.required_approver_ids.includes("u-finance-owner-1"));
   if (alex) await post(`/escalations/${alex.id}/vote`, { escalation_id: alex.id, approver_id: "u-finance-owner-1", approved: true, comment: "On the finance roadmap" });
-  const grants = await (await fetch("/api/grants")).json() as Grant[];
+  const grants = (await (await fetch("/api/grants")).json()) as Grant[];
   const me = users.find((u) => u.id === "u-newhire-1");
   if (me) await useTool(me, grants);
 }
 
-export function Controls({ users, selected, onSelect, grants, cases, online }: Props) {
+export function Menu({ mode, onMode, users, grants, cases, online }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const me = users.find((u) => u.id === selected) ?? users[0];
+  const current = SCREENS.find((s) => s.id === mode) ?? SCREENS[0];
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +89,7 @@ export function Controls({ users, selected, onSelect, grants, cases, online }: P
     try { await fn(); } catch (e) { console.error(e); } finally { setBusy(null); }
   };
 
+  const alex = users.find((u) => u.id === "u-newhire-1") ?? users[0];
   const active = grants.filter((g) => !g.revoked);
   const pending = cases.filter((c) => c.status === "pending");
   const A = ({ name, fn, off }: { name: string; fn: () => Promise<unknown>; off?: boolean }) => (
@@ -90,23 +98,22 @@ export function Controls({ users, selected, onSelect, grants, cases, online }: P
 
   return (
     <div className="ctl" ref={ref}>
-      <button className="ctl-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ ["--u" as string]: me?.color }}>
-        <i /><span>{me?.name ?? "…"}</span><b>▾</b>
+      <button className="ctl-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span>{current.name}</span><b>▾</b>
       </button>
       {open && (
         <div className="ctl-menu">
-          <div className="ctl-k">act as</div>
-          {users.map((u) => (
-            <button key={u.id} className="ctl-person" aria-pressed={u.id === selected} onClick={() => { onSelect(u.id); setOpen(false); }} style={{ ["--u" as string]: u.color }}>
-              <i /><span>{u.name}</span><small>{u.team}</small>
+          <div className="ctl-k">screens</div>
+          {SCREENS.map((s) => (
+            <button key={s.id} className="ctl-screen" aria-pressed={s.id === mode} onClick={() => { onMode(s.id); setOpen(false); }}>
+              <span>{s.name}</span><small>{s.sub}</small>
             </button>
           ))}
           <div className="ctl-k">demo</div>
-          <A name="Ask" fn={() => (me ? requestAs(me) : Promise.resolve())} />
-          <A name="Approve all" fn={() => approveAll(cases)} off={pending.length === 0} />
-          <A name="Use a tool" fn={() => (me ? useTool(me, grants) : Promise.resolve())} />
-          <A name="Close project" fn={() => post(`/projects/${PROJECT}/close`)} off={active.length === 0} />
           <A name="Seed everyone" fn={() => seedDemo(users)} />
+          <A name="Approve all" fn={() => approveAll(cases)} off={pending.length === 0} />
+          <A name="Alex uses a tool" fn={() => (alex ? useTool(alex, grants) : Promise.resolve())} />
+          <A name="Close project" fn={() => post(`/projects/${PROJECT}/close`)} off={active.length === 0} />
         </div>
       )}
     </div>

@@ -4,19 +4,22 @@ Status on `main` as of 19 Sep 2026, ~14:00. Everything below is runnable now aga
 the in-repo backend. This doc exists so the other tracks know what to build against, and
 why it's shaped this way.
 
-## Two modes (revised 19 Sep, 14:35)
+## Three screens, one dropdown (revised 19 Sep, 14:50)
 
-**User** and **Manager**, switched in the header. The person you act as — and the
-presenter controls — live in one dropdown at the top right (`Controls.tsx`: act as
-Alex / Priya / Jordan; demo: Ask, Approve all, Use a tool, Close project, Seed
-everyone). An empty backend is seeded once on load, through the real API, so every
-screen has data. `?screen=user|manager|console` and `?user=` still work for demos.
+The dropdown at the top right (`Menu.tsx`) switches **screens** — Users, Manager,
+Timeline — and holds the presenter actions (Seed everyone, Approve all, Alex uses a
+tool, Close project). Nobody "acts as" a person; each screen shows everyone. An empty
+backend is seeded once on load, through the real API. `?screen=users|manager|console`
+and, for the Timeline, `?user=` still work.
 
-| Mode | For | What it shows | File |
-|---|---|---|---|
-| **User** | the person (or their agent) | an ask box; when they hold nothing yet, a greeting and the one-line `claude mcp add …`; otherwise the *generated* summary — "you can use N things until …", one guide card per grant (what it is, a real command, the docs link, time left), pending cards with who's deciding, refused cards with an alternative, and the agent's live tool list. `/ui-spec` when a composer produced rich panels, else a deterministic fallback with the same vocabulary. Example as a Claude artifact: `docs/alex-access-summary.html` | `User.tsx`, `Summary.tsx` |
-| **Manager** | the approver | every person as a row — colour, counts, a mini lease timeline, current resources — click to open their timeline; approval cards (Deny/Approve, real votes); the policy table; a Gemini dock on `POST /agent/turn` (mic slot reserved for Gemini Live) | `Manager.tsx` |
-| **Timeline** | deep-dive from a Manager row | stats, dot-matrix access grid, approvals, lease Gantt, recorder, the computer-use Enact pane, the chat composer; "← Manager" to return | `App.tsx` (console branch) |
+| Screen | What it shows | File |
+|---|---|---|
+| **Users** | one card per person: colour, count, "until …", each lease as a coloured row with time left, what's waiting and on whom, refusals, the agent's live tools; **Ask** files that person's request, **Timeline →** opens their deep-dive | `Users.tsx` |
+| **Manager** | every open approval as a card — requester, why, who else holds it, the other approvers — with **Approve · <next approver>** / **Deny** casting a real vote as that person; people rows with mini lease timelines (click → Timeline); the policy table; a Gemini dock on `POST /agent/turn` | `Manager.tsx`, `Approvals.tsx` |
+| **Timeline** | deep-dive, filtered by Everyone or one person (chips appear in the header): stats, dot-matrix grid, approvals, lease Gantt, recorder, the Enact pane, the chat composer | `App.tsx` (console branch) |
+
+The generated end-user summary that preceded the cards survives as a standalone page
+and Claude artifact: `docs/alex-access-summary.html`.
 
 ## What exists
 

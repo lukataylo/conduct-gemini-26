@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { AuditEvent, EscalationCase, Grant, Resource, User } from "./api";
-import { label, post } from "./api";
+import { ALL, label, post } from "./api";
 import { Approvals } from "./Approvals";
 
 interface Props {
@@ -9,7 +9,6 @@ interface Props {
   events: AuditEvent[];
   resources: Resource[];
   users: User[];
-  selected: string;
   now: number;
   onDeepDive: (userId: string) => void;
 }
@@ -45,8 +44,8 @@ function MiniTimeline({ grants, cases, user, t0, span, now }: { grants: Grant[];
   );
 }
 
-export function Manager({ grants, cases, events, resources, users, selected, now, onDeepDive }: Props) {
-  const me = users.find((u) => u.id === selected);
+export function Manager({ grants, cases, events, resources, users, now, onDeepDive }: Props) {
+  const me = users.find((u) => u.id === "u-manager-1") ?? users[0];
   const [msg, setMsg] = useState("");
   const [chat, setChat] = useState<{ who: "you" | "gemini"; text: string }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -95,7 +94,7 @@ export function Manager({ grants, cases, events, resources, users, selected, now
       </section>
 
       <aside className="mgr-side">
-        <Approvals cases={cases} grants={grants} events={events} resources={resources} users={users} selected={selected} />
+        <Approvals cases={cases} grants={grants} events={events} resources={resources} users={users} selected={ALL} />
 
         <section className="mgr-settings">
           <div className="apv-h">Policy</div>

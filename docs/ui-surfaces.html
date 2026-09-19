@@ -13,9 +13,9 @@
     --accent: #1d5cc2;
     --accent-ink: #ffffff;
     --accent-soft: #e4edfb;
-    --good: #1c7f52;
+    --good: #14663d;
     --good-soft: #e0f3e9;
-    --warn: #b56a0a;
+    --warn: #8a4f00;
     --warn-soft: #fbeedb;
     --crit: #b83a3a;
     --crit-soft: #f9e3e3;
@@ -107,6 +107,8 @@
     align-self: start;
     padding-top: 3.2rem;
     font-size: 0.82rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
   }
   .rail ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
   .rail a { color: var(--ink-2); display: block; padding: 0.15rem 0; border-left: 2px solid transparent; padding-left: 0.6rem; }
@@ -132,7 +134,7 @@
   .finding .so { color: var(--accent); font-size: 0.9rem; }
   .finding .so::before { content: "→ "; }
 
-  .rule { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0; border: 1px solid var(--line-2); background: var(--surface); }
+  .rule { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; border: 1px solid var(--line-2); background: var(--surface); }
   .rule > div { padding: 1rem 1.1rem; display: grid; gap: 0.3rem; align-content: start; }
   .rule > div + div { border-left: 1px solid var(--line); }
   .rule .who { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
@@ -228,8 +230,10 @@
       <li><a href="#s8">8 · Policy console</a></li>
       <li><a href="#s9">9 · Expiry &amp; revocation</a></li>
       <li><a href="#s10">10 · Where approvals land</a></li>
+      <li><a href="#s11">11 · Denial</a></li>
       <li class="group"><a href="#tonight">Build order</a></li>
       <li><a href="#tracks">Track ambitions</a></li>
+      <li><a href="#hardening">Hardening</a></li>
       <li><a href="#judges">Judge questions</a></li>
       <li><a href="#sources">Sources</a></li>
     </ol>
@@ -240,6 +244,7 @@
       <div class="eyebrow">{Tech: Europe} Agentic AI Hack · London · design brief · 19 Sep 2026</div>
       <h1>Aperture UI Surfaces</h1>
       <p class="lede">Every screen the access-scope agent needs, with three or four ways to build each one, what each costs on a one-day clock, and which to pick for a demo at 20:00. <em>Aperture</em> is a working codename — an opening sized to what you're allowed to see.</p>
+      <p class="lede" style="font-size:0.95rem">Revised after three independent reviews (design, red-team, judge). The one beat to protect: <b>close the project and the tool vanishes from the coding agent's session</b>. Everything else is core or cut.</p>
       <div class="meta">
         <span><b>Co-hosts</b> Google DeepMind · Conduct</span>
         <span><b>Partners</b> Modal · Pydantic</span>
@@ -335,7 +340,8 @@
     <div class="legend" style="padding-top:2rem">
       <span><b>Cost</b> S ≈ 1h · M ≈ 2–3h · L ≈ 4h+</span>
       <span><b>Demo risk</b> what can go wrong on stage, not in code</span>
-      <span><b>Track</b> which contributor owns it</span>
+      <span><b>Tags</b> Recommended · Add-on (build with the recommended one) · Stretch (after the 16:00 checkpoint) · Fallback (in repo or an hour away) · Defer (good, not tonight) · Avoid</span>
+      <span><b>Tracks</b> 1 UI · 2 agent runtime · 3 policy · 4 use case · 5 backend</span>
     </div>
 
     <!-- 1 -->
@@ -357,7 +363,7 @@
           <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Raw chat, straight to the engine</h3></div><span class="tag stretch">If time is short</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Raw chat, straight to the engine</h3></div><span class="tag fallback">Fallback</span></div>
           <p class="desc">Same parse, no confirmation. The decision appears directly.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Fastest to build</li><li>Feels most agentic</li></ul></div>
@@ -374,16 +380,8 @@
           </div>
           <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
         </div>
-        <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>No human: the coding agent asks</h3></div><span class="tag stretch">Stretch · second request</span></div>
-          <p class="desc">Claude Code, running live, calls a <code>request_access</code> tool on the scoped MCP server (surface 3). The intern plugged in their agent and it asked for what the task needed.</p>
-          <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>The truest form of the pitch</li><li>The endpoint already exists; the tool is a wrapper</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>Nothing to watch unless the live event feed is on screen</li><li>Depends on a second live model on stage</li></ul></div>
-          </div>
-          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>medium</b></span></div>
-        </div>
       </div>
+      <p class="desc">The fourth way in — the coding agent asks for access itself through a <code>request_access</code> tool — is <a href="#s3">surface 3, option C</a>.</p>
     </section>
 
     <!-- 2 -->
@@ -397,10 +395,10 @@
       <div class="options">
         <div class="opt rec">
           <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>A2UI generation with incremental patching</h3></div><span class="tag rec">Recommended</span></div>
-          <p class="desc">On each scope change Gemini emits an A2UI message — a component tree against our catalog plus a separate data model. The client diffs panel ids, animates adds and removes, and streams data-model updates over SSE without regenerating layout.</p>
+          <p class="desc">On each scope change Gemini emits an A2UI message — a component tree against our catalog plus a separate data model. The client diffs on <code>panel.id</code> (now in the schema), animates adds and removes, and streams data-model updates over SSE without regenerating layout. After generation the server drops any panel whose grant or case id isn't in the viewer's own active set.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Google's own protocol, in front of DeepMind</li><li>No flicker: layout is generated once per scope change, data streams continuously</li><li>Schema validation rejects anything off-catalog before render</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>Catalog and renderer work on top of the scaffold</li><li>Prompt needs tuning so the layout is stable across calls</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Only earns its name with a catalog wide enough that composition differs from the fallback — pair it with B or don't build it</li><li>Prompt needs tuning so the layout is stable across calls</li></ul></div>
           </div>
           <div class="opt-foot"><span>cost <b>M–L</b></span><span>demo risk <b>medium</b></span></div>
         </div>
@@ -439,21 +437,21 @@
       <div class="surface-head">
         <span class="num">Surface 3</span>
         <h2>The agent's surface — a scoped tool manifest</h2>
-        <p class="job">For a coding agent, the UI is its tool list. The requester's agent should see exactly and only the tools its current grants allow, and lose them the moment a grant is revoked. This is the surface no competitor has, and the one that makes the closing beat land.</p>
-        <div class="chips"><span class="chip">track 2</span><span class="chip">track 5</span><span class="chip">MCP</span></div>
+        <p class="job">For a coding agent, the UI is its tool list. The requester's agent should see exactly and only the tools its current grants allow, and lose them the moment a grant is revoked. This is the surface no competitor has, the one that makes the closing beat land, and — after review — the <b>spine of track 2 from noon</b>, hosted on Modal, with computer use demoted to the stretch layer.</p>
+        <div class="chips"><span class="chip">track 2</span><span class="chip">track 5 · /grants</span><span class="chip">MCP on Modal</span></div>
       </div>
       <div class="options">
         <div class="opt rec">
           <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Per-requester MCP server derived from grants</h3></div><span class="tag rec">Recommended</span></div>
-          <p class="desc"><code>tools/list</code> is computed from active <code>Grant</code>s: a bucket grant yields <code>gcs_list_objects</code> and <code>gcs_read_object</code>; a dataset grant yields <code>bq_query</code>. Revocation emits <code>tools/list_changed</code> and the tool is gone mid-session. Claude Code on the presenter's laptop is the client.</p>
+          <p class="desc"><code>tools/list</code> is computed from <code>GET /grants?requester_id=</code> (active and unexpired): a bucket grant yields <code>gcs_list_objects</code> and <code>gcs_read_object</code>; a dataset grant yields <code>bq_query</code>. Every tool handler re-checks the grant before acting and logs <code>ACTION_EXECUTED</code> — this is where "policy runs twice" is true. Revocation emits <code>tools/list_changed</code> and the tool is gone mid-session. Each requester's server presents a bearer token issued at seed time, so a client can't pick the manager's tools by changing an id. Claude Code on the presenter's laptop is the client.</p>
           <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>Least-privilege UI in the literal sense</li><li>Revocation becomes visible to the agent instantly — the strongest possible "access removed when the project is over"</li><li>A category only P0 is chasing</li></ul></div>
+            <div class="pro"><h5>For</h5><ul><li>Least-privilege UI in the literal sense</li><li>Revocation becomes visible to the agent instantly — the strongest possible "access removed when the project is over"</li><li>A category only P0 is chasing; Modal earns its place hosting it even if computer use is cut</li></ul></div>
             <div class="con"><h5>Against</h5><ul><li>An MCP server plus a live client on stage</li><li>Tools need mock implementations against the fake GCP layer</li></ul></div>
           </div>
           <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
         </div>
         <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Task-scoped tool descriptions</h3></div><span class="tag rec">Add to A</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Task-scoped tool descriptions</h3></div><span class="tag rec">Add-on</span></div>
           <p class="desc">Gemini writes each exposed tool's description from the grant: "read raw analytics events for the Atlas ingestion pipeline — expires 3 Oct". The manifest reads as task-bounded, not generic.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Cheap; one prompt per grant</li><li>Makes the scope legible to the agent and to the audience</li></ul></div>
@@ -493,15 +491,15 @@
       <div class="options">
         <div class="opt rec">
           <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Context-rich card</h3></div><span class="tag rec">Recommended</span></div>
-          <p class="desc">Why the engine escalated (the reason string), the agent's plain-English summary, sensitivity tier, requester with team and manager, what they already hold, a peer comparison ("0 of 6 on data-platform have this"), the proposed expiry, and the task it's for. Approve and deny in a fixed position.</p>
+          <p class="desc">Why the engine escalated (the reason string), the agent's plain-English summary written from the typed decision, sensitivity tier, requester with team and manager, what they already hold, a peer comparison ("0 of 6 on data-platform have this"), and the proposed expiry. The requester's own words appear only inside a quoted block labelled <em>unverified requester text</em> — they are a claim the approver reads, never an input to the summary. Approve and deny are static chrome outside the generated tree, in a fixed position.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>The single most-cited fix for approval fatigue</li><li>The agent explaining itself is the demo's credibility moment</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>Peer comparison needs seed history</li><li>Generated summary must fall back to the policy reason if Gemini stalls</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Four cross-track inputs (peer signal, summary, holdings, tier) — it's M only if the reason string is the day-one summary</li><li>Generated summary must fall back to the policy reason if Gemini stalls</li></ul></div>
           </div>
           <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Tiered friction</h3></div><span class="tag rec">Recommended with A</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Tiered friction</h3></div><span class="tag rec">Add-on</span></div>
           <p class="desc">Internal and restricted tiers: one click. Critical tier: the approve control stays disabled until the approver types a justification, which lands in the audit trail beside the vote.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Friction as a feature, only where it earns its keep</li><li>Nearly free — tiers already exist in the engine</li></ul></div>

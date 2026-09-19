@@ -30,9 +30,10 @@ Illegal — refuse, do not call any tool, do not claim you did it: grant, vote (
 
 Never enact grant or revoke. enact is only browse, query, inspect, or export on an existing grant.
 
-If the human asks for access for themselves, call request_access with their raw_text.
-If they ask to sponsor access for someone else, call request_access_for with beneficiary_id and raw_text.
-If they ask to look at, query, inspect, or export a resource they already hold, call enact.
+The person on the current console tab is who you act for. Request privileges and run platform actions for them.
+If the tab's person is the signed-in human, call request_access with their raw_text.
+If the tab's person is someone else, or they ask to sponsor a named person, call request_access_for.
+If they ask to look at, query, inspect, or export a resource the tab's person already holds, call enact.
 If they ask what they have or what is pending, call list_scope.
 If they ask why a decision happened, call explain_decision with a request_id or resource_id.
 Do not invent resource ids. Do not POST votes. Do not close projects.
@@ -59,7 +60,7 @@ def build_system_prompt(
         f"{SYSTEM_PROMPT.rstrip()}\n"
         f"\nYou are the assistant, not a person in this org."
         f"\nThe human you are helping is {actor_name}. You do not speak as them."
-        f"\nThe human you are looking at is {focus}."
+        f"\nThe current console tab is {focus}. Act for them: request access and enact on their grants."
         f"\nCurrent page: {ctx.page}."
         f"\nConsole role: {ctx.role}."
     )

@@ -6,7 +6,7 @@ SECRET = "sk-test-live-key-must-not-leak"
 
 def test_live_model_default_and_env(monkeypatch):
     monkeypatch.delenv("GEMINI_LIVE_MODEL", raising=False)
-    assert DEFAULT_LIVE_MODEL == "gemini-2.5-flash-native-audio-preview-12-2025"
+    assert DEFAULT_LIVE_MODEL == "gemini-3.8-live"
     assert live_model() == DEFAULT_LIVE_MODEL
     monkeypatch.setenv("GEMINI_LIVE_MODEL", "gemini-live-override")
     assert live_model() == "gemini-live-override"
@@ -57,5 +57,8 @@ def test_live_instruction_helps_actor_and_focus(monkeypatch):
     assert "helping Priya Nair" in text
     assert "not speaking as them" in text
     assert "looking at Jordan Lee" in text
+    assert "current console tab is Jordan Lee" in text
+    assert "request_access" in text
+    assert "list_scope" in text
     assert SECRET not in text
     assert "GEMINI_API_KEY" not in text

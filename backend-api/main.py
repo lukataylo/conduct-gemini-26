@@ -553,12 +553,10 @@ def _console_enact(
     actor: Requester,
 ) -> dict:
     verb = (action or "").strip().lower()
-    subject = focus or _named_person_from_text(raw_text)
-    resolved = _resolve_enact_resource(raw_text, subject or actor, resource_id)
+    subject = focus or _named_person_from_text(raw_text) or actor
+    resolved = _resolve_enact_resource(raw_text, subject, resource_id)
     if verb not in _CHAT_ENACT_ACTIONS or resolved in _REFUSE_ENACT_IDS:
         return {"status": "refused", "action": verb, "resource_id": resolved}
-    if subject is None:
-        return {"status": "need_focus", "action": verb, "resource_id": resolved}
     directory_export = verb == "export" and resolved == _DIRECTORY_EXPORT_ID
     if directory_export:
         grant = Grant(
@@ -598,6 +596,35 @@ def _console_enact(
     }
 
 
+def _console_confirm_pending(viewer: Requester, conversation_id: str) -> dict:
+    """Evaluate the pending request for this conversation. Never votes."""
+    slot = CONVERSATIONS.get(conversation_id) or {}
+    pending = slot.get("pending_request")
+    if pending is None:
+        return {"status": "nothing_to_confirm"}
+    sponsored_by = (pending.metadata or {}).get("sponsored_by")
+    if pending.requester.id != viewer.id and sponsored_by != viewer.id:
+        return {"status": "not_for_viewer"}
+    evaluated = _evaluate_request(pending)
+    slot["pending_request"] = None
+    slot["pending_raw"] = None
+    preview = {
+        "resource_ids": list(pending.resource_ids),
+        "requested_duration_days": pending.requested_duration_days,
+        "project": pending.project,
+        "raw_text": pending.raw_text,
+    }
+    if sponsored_by:
+        preview["beneficiary_id"] = pending.requester.id
+        preview["sponsored_by"] = sponsored_by
+    return {
+        "status": "evaluated",
+        "request_id": evaluated["request_id"],
+        "results": evaluated["results"],
+        "preview": preview,
+    }
+
+
 @app.post("/agent/turn")
 def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     viewer = KNOWN_REQUESTERS.get(body.viewer_id)
@@ -605,34 +632,16 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         raise HTTPException(400, f"unknown requester '{body.viewer_id}'")
     conversation_id = body.conversation_id or str(uuid.uuid4())
     if body.confirm:
-        slot = CONVERSATIONS.get(conversation_id) or {}
-        pending = slot.get("pending_request")
-        if pending is None:
+        confirmed = _console_confirm_pending(viewer, conversation_id)
+        if confirmed.get("status") == "nothing_to_confirm":
             raise HTTPException(400, "nothing to confirm")
-        sponsored_by = (pending.metadata or {}).get("sponsored_by")
-        if pending.requester.id != viewer.id and sponsored_by != viewer.id:
+        if confirmed.get("status") == "not_for_viewer":
             raise HTTPException(400, "this confirm is not for this viewer; nothing to confirm")
-        evaluated = _evaluate_request(pending)
-        slot["pending_request"] = None
-        slot["pending_raw"] = None
-        preview = {
-            "resource_ids": list(pending.resource_ids),
-            "requested_duration_days": pending.requested_duration_days,
-            "project": pending.project,
-            "raw_text": pending.raw_text,
-        }
-        if sponsored_by:
-            preview["beneficiary_id"] = pending.requester.id
-            preview["sponsored_by"] = sponsored_by
+        sponsored_by = (confirmed.get("preview") or {}).get("sponsored_by")
         return AgentTurnOut(
             reply="Policy decided.",
             tools_used=["request_access_for" if sponsored_by else "request_access"],
-            request_result={
-                "status": "evaluated",
-                "request_id": evaluated["request_id"],
-                "results": evaluated["results"],
-                "preview": preview,
-            },
+            request_result=confirmed,
             conversation_id=conversation_id,
         )
 

@@ -755,3 +755,42 @@ def test_enact_directory_export_has_null_grant_id():
     assert seen[0][2] == DIRECTORY_TEXT
     assert main.GRANTS == before
     assert not any(grant.resource_id == "sap-customer-directory" for grant in main.GRANTS.values())
+
+
+def test_enact_without_focus_uses_viewer_grant():
+    seen: list[dict] = []
+
+    def impl(grant, action="grant", ask=None):
+        seen.append(
+            {
+                "grant_id": grant.id,
+                "resource_id": grant.resource_id,
+                "requester_id": grant.requester_id,
+                "action": action,
+            }
+        )
+
+    main.EXECUTE_ENQUEUE_IMPL = impl
+    grant = main._issue_grant("r-alex-bucket", ALEX_ID, "bucket-analytics-raw", ttl_days=3)
+    seen.clear()
+    main.AGENT_TURN_IMPL = _enact_runner("browse", "bucket-analytics-raw")
+    resp = _client().post(
+        "/agent/turn",
+        json={
+            "viewer_id": ALEX_ID,
+            "message": "browse the analytics bucket events file",
+            "conversation_id": "c-enact-self",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enact_result"]["status"] == "enqueued"
+    assert body["enact_result"]["grant_id"] == grant.id
+    assert seen == [
+        {
+            "grant_id": grant.id,
+            "resource_id": "bucket-analytics-raw",
+            "requester_id": ALEX_ID,
+            "action": "browse",
+        }
+    ]

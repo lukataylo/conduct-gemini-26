@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { AgentTurnOut, User } from "./api";
+import type { AgentTurnOut, AgentTurnResult, User } from "./api";
 import { liveWsUrl, postAgentTurn, postLiveSession } from "./api";
 import { createPlayer, startMic } from "./liveAudio";
 
@@ -111,6 +111,28 @@ function asMode(raw: string | undefined): Mode | null {
   return null;
 }
 
+function asStringList(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.map((item) => String(item)) : [];
+}
+
+function asRequestResult(raw: unknown): AgentTurnResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.status !== "string") return null;
+  const previewRaw = obj.preview && typeof obj.preview === "object" ? obj.preview as Record<string, unknown> : null;
+  return {
+    status: obj.status,
+    preview: previewRaw ? {
+      resource_ids: asStringList(previewRaw.resource_ids),
+      requested_duration_days: Number(previewRaw.requested_duration_days ?? 0),
+      project: String(previewRaw.project ?? ""),
+      raw_text: previewRaw.raw_text == null ? null : String(previewRaw.raw_text),
+    } : undefined,
+    request_id: obj.request_id == null ? undefined : String(obj.request_id),
+    results: Array.isArray(obj.results) ? obj.results as AgentTurnResult["results"] : undefined,
+  };
+}
+
 export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("idle");
@@ -131,6 +153,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const viewerRef = useRef(viewer);
   const focusRef = useRef(focus);
   const pageRef = useRef(page);
+  const handleWsMessageRef = useRef<(ev: MessageEvent) => void>(() => {});
   cidRef.current = cid;
   viewerRef.current = viewer;
   focusRef.current = focus;
@@ -187,7 +210,24 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       playBinary(ev.data);
       return;
     }
-    let payload: { type?: string; conversation_id?: string; role?: string; kind?: string; text?: string; mode?: string; message?: string };
+    let payload: {
+      type?: string;
+      conversation_id?: string;
+      role?: string;
+      kind?: string;
+      text?: string;
+      mode?: string;
+      message?: string;
+      name?: string;
+      reply?: string;
+      tools_used?: unknown;
+      request_result?: unknown;
+      status?: string;
+      preview?: unknown;
+      request_id?: unknown;
+      results?: unknown;
+      navigate?: string | null;
+    };
     try { payload = JSON.parse(ev.data); } catch { return; }
     if (payload.type === "ready") {
       if (payload.conversation_id) setCid(payload.conversation_id);
@@ -206,10 +246,33 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       }
       return;
     }
+    if (payload.type === "tool") {
+      appendRow({ kind: "tool", text: String(payload.name ?? payload.text ?? "") });
+      return;
+    }
+    if (payload.type === "request_result") {
+      const result = asRequestResult(payload.request_result) ?? asRequestResult(payload);
+      if (result?.status === "needs_confirmation") {
+        setPending({
+          reply: String(payload.reply ?? ""),
+          tools_used: asStringList(payload.tools_used),
+          request_result: result,
+          conversation_id: String(payload.conversation_id ?? cidRef.current ?? ""),
+          navigate: payload.navigate ?? null,
+        });
+        if (payload.navigate === "timeline") onNavigateTimeline(focusRef.current?.id ?? "all");
+      }
+      return;
+    }
+    if (payload.type === "navigate" && payload.navigate === "timeline") {
+      onNavigateTimeline(focusRef.current?.id ?? viewerRef.current?.id ?? "all");
+      return;
+    }
     if (payload.type === "error") {
       appendRow({ kind: "gemini", text: String(payload.message ?? "Live error") });
     }
   };
+  handleWsMessageRef.current = handleWsMessage;
 
   const openLiveWs = (conversationId: string) => {
     const existing = wsRef.current;
@@ -230,9 +293,17 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
         conversation_id: cidRef.current ?? conversationId,
       }));
     };
-    ws.onmessage = handleWsMessage;
+    ws.onmessage = (ev) => handleWsMessageRef.current(ev);
     ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
+      if (wsRef.current !== ws) return;
+      wsRef.current = null;
+      micRef.current?.stop();
+      micRef.current = null;
+      speakingRef.current = false;
+      sealRef.current = false;
+      setMicOn(false);
+      level.current = 0;
+      setMode("idle");
     };
   };
 
@@ -261,28 +332,6 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     setVoiceOffline(false);
     tearDownLive();
   }, [viewer?.id]);
-  useEffect(() => {
-    if (!open || !viewer) return;
-    let cancelled = false;
-    void postLiveSession({
-      viewer_id: viewer.id,
-      focus_id: focus?.id ?? "all",
-      page,
-      conversation_id: cidRef.current,
-    }).then((session) => {
-      if (cancelled) return;
-      setCid((current) => current ?? session.conversation_id);
-      if (!session.ok) {
-        if (!wsRef.current) setVoiceOffline(true);
-        return;
-      }
-      setVoiceOffline(false);
-      openLiveWs(session.conversation_id);
-    }).catch(() => {
-      if (!cancelled && !wsRef.current) setVoiceOffline(true);
-    });
-    return () => { cancelled = true; };
-  }, [open, viewer?.id, focus?.id, page]);
 
   const liveOpen = () => wsRef.current?.readyState === WebSocket.OPEN;
 
@@ -291,6 +340,10 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       const t0 = Date.now();
       const tick = () => {
         if (liveOpen()) return resolve();
+        const ws = wsRef.current;
+        if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+          return reject(new Error("live closed"));
+        }
         if (Date.now() - t0 > ms) return reject(new Error("live timeout"));
         window.setTimeout(tick, 40);
       };
@@ -338,20 +391,13 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     appendRow({ kind: "you", text: trimmed });
     setMsg("");
     kickPlayer();
-    const ws = wsRef.current;
-    const viaLive = ws?.readyState === WebSocket.OPEN;
-    if (viaLive) {
-      ws.send(JSON.stringify({ type: "text", text: trimmed }));
-      setMode("thinking");
-      return;
-    }
     setMode("thinking");
     try {
       applyTurn(await postAgentTurn(payload(trimmed, { conversation_id: cid })));
     } catch (e) {
       appendRow({ kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` });
     } finally {
-      setMode((m) => (m === "thinking" ? "idle" : m));
+      setMode((m) => (m === "thinking" ? (micRef.current ? "listening" : "idle") : m));
     }
   };
 
@@ -363,17 +409,13 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     } catch (e) {
       appendRow({ kind: "gemini", text: String(e) });
     } finally {
-      setMode((m) => (m === "thinking" ? "idle" : m));
+      setMode((m) => (m === "thinking" ? (micRef.current ? "listening" : "idle") : m));
     }
   };
 
   const toggleMic = async () => {
-    if (micRef.current) {
-      micRef.current.stop();
-      micRef.current = null;
-      setMicOn(false);
-      level.current = 0;
-      setMode((m) => (m === "listening" ? "idle" : m));
+    if (micRef.current || micOn) {
+      tearDownLive();
       return;
     }
     setOpen(true);
@@ -393,8 +435,9 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       setMode("listening");
     } catch (err) {
       const blocked = String(err).toLowerCase().includes("notallowed") || String(err).toLowerCase().includes("permission");
+      if (!blocked) setVoiceOffline(true);
+      tearDownLive();
       appendRow({ kind: "gemini", text: blocked ? "Mic blocked — type instead." : "Live did not start — type instead." });
-      setMode("idle");
     }
   };
 
@@ -407,10 +450,10 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       </button>
       {open && (
         <div className="live-panel" style={{ ["--u" as string]: viewer?.color ?? "#f4f4f4" }}>
-          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{voiceOffline ? "voice offline — use chat" : mode}</b><small>helping {viewer?.name ?? "…"} · looking at {focus?.name ?? "everyone"}</small></div></div>
+          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{voiceOffline ? "voice offline — use chat" : mode}</b><small>this tab {focus?.name ?? viewer?.name ?? "…"}{focus && focus.id !== viewer?.id ? ` · signed in as ${viewer?.name}` : ""}</small></div></div>
           <Wave mode={mode} level={level} />
           <div className="live-log" ref={logRef}>
-            {rows.length === 0 && <div className="live-empty">Talk or type. I'm the assistant — I never grant.</div>}
+            {rows.length === 0 && <div className="live-empty">Talk or type. I'll request access and run consoles for {focus?.name ?? viewer?.name ?? "this tab"} — I never grant.</div>}
             {rows.map((m, i) => m.kind === "tool"
               ? <div className="live-msg tool" key={i}><b>⚙</b><span>used {m.text}</span></div>
               : <div key={i} className={`live-msg ${m.kind}`}><b>{m.kind === "you" ? viewer?.short ?? "you" : "G"}</b><span>{m.text}</span></div>)}

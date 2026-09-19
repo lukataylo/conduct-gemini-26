@@ -32,6 +32,8 @@ class MockSession:
     def __init__(self, outgoing: list[dict] | None = None) -> None:
         self.texts: list[str] = []
         self.audios: list[bytes] = []
+        self.tool_responses: list[dict] = []
+        self.client_contents: list[dict] = []
         self._q: asyncio.Queue = asyncio.Queue()
         for item in outgoing or []:
             self._q.put_nowait(item)
@@ -41,6 +43,12 @@ class MockSession:
 
     async def send_audio(self, data: bytes) -> None:
         self.audios.append(data)
+
+    async def send_tool_response(self, name: str, id: str, result: dict) -> None:
+        self.tool_responses.append({"name": name, "id": id, "result": result})
+
+    async def send_client_content(self, turns=None, turn_complete: bool = False, **kwargs) -> None:
+        self.client_contents.append({"turns": turns, "turn_complete": turn_complete})
 
     async def receive(self):
         while True:
@@ -356,3 +364,90 @@ def test_mock_transcript_comes_back_as_type_transcript():
         _recv_json(ws, "ready")
         msg = _recv_json(ws, "transcript")
     assert msg == {"type": "transcript", "role": "gemini", "text": "hi from gemini"}
+
+
+def test_seeds_prior_text_history_without_turn_complete():
+    import main
+
+    main.CONVERSATIONS["c-hist"] = {
+        "pending_request": None,
+        "pending_raw": None,
+        "messages": [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi there"},
+        ],
+        "actor_id": ALEX_ID,
+    }
+    session = _install(MockSession())
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json(
+            {"type": "hello", "viewer_id": ALEX_ID, "conversation_id": "c-hist"}
+        )
+        _recv_json(ws, "ready")
+    assert session.client_contents
+    sent = session.client_contents[0]
+    assert sent["turn_complete"] is False
+    assert [turn["role"] for turn in sent["turns"]] == ["user", "model"]
+
+
+def test_tool_call_executes_and_sends_function_response():
+    session = _install(
+        MockSession(
+            outgoing=[
+                {
+                    "kind": "tool_call",
+                    "id": "call-scope-1",
+                    "name": "list_scope",
+                    "args": {},
+                }
+            ]
+        )
+    )
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json({"type": "hello", "viewer_id": ALEX_ID})
+        _recv_json(ws, "ready")
+        _recv_json(ws, "mode")
+        msg = _recv_json(ws, "tool")
+    assert msg == {"type": "tool", "name": "list_scope"}
+    assert session.tool_responses
+    sent = session.tool_responses[0]
+    assert sent["name"] == "list_scope"
+    assert sent["id"] == "call-scope-1"
+    assert sent["result"].get("status") != "refused"
+    assert "grants" in sent["result"]
+    assert SECRET not in json.dumps(sent["result"])
+    assert "api_key" not in sent["result"]
+
+
+def test_gemini_session_receive_yields_tool_call():
+    class FC:
+        id = "c1"
+        name = "list_scope"
+        args = {"raw_text": "scope"}
+
+    class TC:
+        function_calls = [FC()]
+
+    class Msg:
+        data = None
+        text = None
+        server_content = None
+        tool_call = TC()
+
+    class Raw:
+        async def receive(self):
+            yield Msg()
+
+    async def run() -> list[dict]:
+        session = live_ws._GeminiSession(Raw())
+        return [item async for item in session.receive()]
+
+    items = asyncio.run(run())
+    assert items == [
+        {
+            "kind": "tool_call",
+            "id": "c1",
+            "name": "list_scope",
+            "args": {"raw_text": "scope"},
+        }
+    ]

@@ -111,7 +111,7 @@ def _live_model() -> str:
 
             return session_live_model()
         except ImportError:
-            return "gemini-2.5-flash-native-audio"
+            return "gemini-3.8-live"
 
 
 def _system_instruction(context: dict) -> str:
@@ -178,6 +178,24 @@ class _GeminiSession:
     async def send_text(self, text: str) -> None:
         await self._raw.send_realtime_input(text=text)
 
+    async def send_client_content(self, turns: Any, turn_complete: bool = False) -> None:
+        send = getattr(self._raw, "send_client_content", None)
+        if send is None:
+            return
+        result = send(turns=turns, turn_complete=turn_complete)
+        if inspect.isawaitable(result):
+            await result
+
+    async def send_tool_response(self, name: str, id: str, result: dict) -> None:
+        send = getattr(self._raw, "send_tool_response", None)
+        if send is None:
+            return
+        from google.genai import types
+
+        payload = result if isinstance(result, dict) else {"result": result}
+        response = types.FunctionResponse(id=id, name=name, response=payload)
+        await send(function_responses=[response])
+
     async def receive(self) -> AsyncIterator[dict]:
         async for msg in self._raw.receive():
             data = getattr(msg, "data", None)
@@ -186,6 +204,23 @@ class _GeminiSession:
                 yield {"kind": "audio", "data": data}
             if text:
                 yield {"kind": "text", "text": text}
+            tc = getattr(msg, "tool_call", None)
+            if tc is not None:
+                for fc in getattr(tc, "function_calls", None) or ():
+                    args = getattr(fc, "args", None) or {}
+                    if hasattr(args, "model_dump"):
+                        args = args.model_dump()
+                    elif not isinstance(args, dict):
+                        try:
+                            args = dict(args)
+                        except (TypeError, ValueError):
+                            args = {}
+                    yield {
+                        "kind": "tool_call",
+                        "id": getattr(fc, "id", None),
+                        "name": getattr(fc, "name", None),
+                        "args": args,
+                    }
             sc = getattr(msg, "server_content", None)
             if sc is None:
                 continue
@@ -213,6 +248,8 @@ async def _gemini_connect(context: dict) -> AsyncIterator[Any]:
     from google import genai
     from google.genai import types
 
+    from live_tools import live_tools_config
+
     model = _live_model()
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     config = types.LiveConnectConfig(
@@ -232,6 +269,7 @@ async def _gemini_connect(context: dict) -> AsyncIterator[Any]:
                 silence_duration_ms=400,
             )
         ),
+        tools=live_tools_config(),
     )
     async with client.aio.live.connect(model=model, config=config) as raw:
         yield _GeminiSession(raw)
@@ -332,10 +370,99 @@ async def _flush_transcript(
     )
 
 
+def _history_turns(messages: list) -> list[dict]:
+    turns: list[dict] = []
+    for item in messages[-20:]:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("content") or item.get("text") or item.get("message") or ""
+        if not text:
+            continue
+        role = "model" if item.get("role") in {"assistant", "model"} else "user"
+        turns.append({"role": role, "parts": [{"text": str(text)}]})
+    return turns
+
+
+async def _seed_history(session: Any, conversation_id: str) -> None:
+    send = getattr(session, "send_client_content", None)
+    if send is None:
+        return
+    try:
+        import main
+
+        slot = main.CONVERSATIONS.get(conversation_id) or {}
+        turns = _history_turns(list(slot.get("messages") or []))
+    except Exception:
+        return
+    if not turns:
+        return
+    try:
+        result = send(turns=turns, turn_complete=False)
+        if inspect.isawaitable(result):
+            await result
+    except Exception:
+        return
+
+
+async def _handle_tool_call(
+    websocket: WebSocket,
+    session: Any,
+    lock: asyncio.Lock,
+    item: dict,
+    live_ctx: dict,
+) -> None:
+    from live_tools import execute_live_tool
+
+    name = str(item.get("name") or "")
+    call_id = str(item.get("id") or "")
+    args = item.get("args") or {}
+    viewer = live_ctx.get("viewer")
+    if viewer is None:
+        result: dict = {"status": "refused"}
+    else:
+        try:
+            result = await asyncio.to_thread(
+                execute_live_tool,
+                name,
+                args,
+                viewer=viewer,
+                focus=live_ctx.get("focus"),
+                conversation_id=str(live_ctx.get("conversation_id") or ""),
+            )
+        except Exception as exc:
+            result = {"status": "error", "message": str(exc) or "tool error"}
+    send = getattr(session, "send_tool_response", None)
+    if send is not None:
+        try:
+            maybe = send(name, call_id, result)
+            if inspect.isawaitable(maybe):
+                await maybe
+        except Exception:
+            pass
+    await _send_json(websocket, lock, {"type": "tool", "name": name})
+    if result.get("status") == "needs_confirmation":
+        await _send_json(
+            websocket,
+            lock,
+            {
+                "type": "request_result",
+                "request_result": result,
+                "conversation_id": live_ctx.get("conversation_id"),
+            },
+        )
+    if result.get("status") == "enqueued":
+        await _send_json(websocket, lock, {"type": "navigate", "navigate": "timeline"})
+
+
 async def _pump_session(
-    websocket: WebSocket, session: Any, lock: asyncio.Lock, state: dict
+    websocket: WebSocket,
+    session: Any,
+    lock: asyncio.Lock,
+    state: dict,
+    live_ctx: dict | None = None,
 ) -> None:
     buffers = {"you": "", "gemini": ""}
+    live_ctx = live_ctx or {}
     async for item in _iter_session(session):
         kind = item.get("kind")
         if kind == "audio" and item.get("data") is not None:
@@ -351,6 +478,8 @@ async def _pump_session(
             buffers[role] = join_transcript(buffers.get(role, ""), str(item["text"]))
             if item.get("finished") or kind == "text":
                 await _flush_transcript(websocket, lock, buffers, role)
+        elif kind == "tool_call":
+            await _handle_tool_call(websocket, session, lock, item, live_ctx)
         elif kind in {"turn_complete", "interrupted"}:
             await _flush_transcript(websocket, lock, buffers, "you")
             await _flush_transcript(websocket, lock, buffers, "gemini")
@@ -364,10 +493,17 @@ async def _pump_session(
             )
 
 
-async def _relay(websocket: WebSocket, session: Any, lock: asyncio.Lock) -> None:
+async def _relay(
+    websocket: WebSocket,
+    session: Any,
+    lock: asyncio.Lock,
+    live_ctx: dict | None = None,
+) -> None:
     state = {"speaking": False}
     client_task = asyncio.create_task(_pump_client(websocket, session, lock, state))
-    session_task = asyncio.create_task(_pump_session(websocket, session, lock, state))
+    session_task = asyncio.create_task(
+        _pump_session(websocket, session, lock, state, live_ctx or {})
+    )
     done, pending = await asyncio.wait(
         {client_task, session_task}, return_when=asyncio.FIRST_COMPLETED
     )
@@ -419,14 +555,31 @@ async def live_ws(websocket: WebSocket) -> None:
         conversation_id = (str(hello.get("conversation_id") or "")).strip() or str(
             uuid.uuid4()
         )
+        focus_key = _normalize_focus(hello.get("focus_id"))
+        focus = None
+        if focus_key:
+            import main
+
+            focus = main._resolve_person(focus_key)
+        tab = focus or viewer
         context = {
             "actor_id": viewer.id,
-            "focus_id": _normalize_focus(hello.get("focus_id")),
+            "actor_name": getattr(viewer, "name", None),
+            "focus_id": focus.id if focus is not None else focus_key,
+            "focus_name": getattr(focus, "name", None) if focus is not None else None,
+            "tab_user_id": tab.id,
+            "tab_user_name": getattr(tab, "name", None),
             "page": hello.get("page") or "overview",
             "role": _viewer_console_role(viewer),
             "conversation_id": conversation_id,
         }
+        live_ctx = {
+            "viewer": viewer,
+            "focus": focus,
+            "conversation_id": conversation_id,
+        }
         async with _open_session(context) as session:
+            await _seed_history(session, conversation_id)
             await _send_json(
                 websocket,
                 lock,
@@ -437,7 +590,7 @@ async def live_ws(websocket: WebSocket) -> None:
                 },
             )
             await _send_mode(websocket, lock, "listening")
-            await _relay(websocket, session, lock)
+            await _relay(websocket, session, lock, live_ctx)
     except WebSocketDisconnect:
         return
     except Exception as exc:

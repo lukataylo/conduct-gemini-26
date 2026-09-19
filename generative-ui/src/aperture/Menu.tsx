@@ -36,8 +36,12 @@ export function requestAs(u: User) {
     resource_ids: ask.resource_ids,
     requested_duration_days: ask.days,
     raw_text: ask.text,
+    context: { active_jira_ticket: TICKET },
   });
 }
+
+// The policy engine refuses requests with no business context (JIT-Evidence-01).
+export const TICKET = "ATLAS-142";
 
 export async function approveAll(cases: EscalationCase[]) {
   for (const c of cases.filter((x) => x.status === "pending")) {

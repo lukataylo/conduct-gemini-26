@@ -33,6 +33,7 @@ BACKEND = os.environ.get("APERTURE_BACKEND", "http://127.0.0.1:8000").rstrip("/"
 REQUESTER = os.environ.get("APERTURE_REQUESTER", "u-newhire-1")
 TOKEN = os.environ.get("APERTURE_TOKEN", "")
 PROJECT = os.environ.get("APERTURE_PROJECT", "atlas-migration")
+TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")  # the engine refuses requests with no ticket/incident
 POLL_SECONDS = float(os.environ.get("APERTURE_POLL", "2"))
 
 server = Server("aperture")
@@ -128,7 +129,7 @@ def _text(s: str) -> list[types.TextContent]:
 
 
 async def _request_access(task: str, duration_days: int | None) -> str:
-    status, body = await _post("/requests", {"raw_text": task, "requester_id": REQUESTER})
+    status, body = await _post("/requests", {"raw_text": task, "requester_id": REQUESTER, "context": {"active_jira_ticket": TICKET}})
     if status != 200:
         # No Gemini key on this machine: fall back to a keyword match against the catalog.
         resources = await _get("/resources")
@@ -137,7 +138,7 @@ async def _request_access(task: str, duration_days: int | None) -> str:
         me = next((p for p in people if p["id"] == REQUESTER), {"id": REQUESTER, "name": REQUESTER, "role": "agent", "team": "unknown"})
         status, body = await _post(
             "/requests",
-            {"id": "mcp", "requester": me, "task_description": task, "project": PROJECT, "resource_ids": ids, "requested_duration_days": duration_days or 14, "raw_text": task},
+            {"id": "mcp", "requester": me, "task_description": task, "project": PROJECT, "resource_ids": ids, "requested_duration_days": duration_days or 14, "raw_text": task, "context": {"active_jira_ticket": TICKET}},
         )
         if status != 200:
             return f"Request failed ({status}): {body}"

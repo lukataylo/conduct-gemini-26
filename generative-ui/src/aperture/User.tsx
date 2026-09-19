@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AuditEvent, EscalationCase, Grant, Resource, User as Person } from "./api";
 import { label, post, PROJECT } from "./api";
+import { TICKET } from "./Menu";
 
 interface Props {
   grants: Grant[];
@@ -34,10 +35,10 @@ export function UserScreen({ grants, cases, events, resources, users, selected, 
     try {
       let body: { results: Result[] };
       try {
-        body = await post("/requests", { raw_text: text, requester_id: me.id });
+        body = await post("/requests", { raw_text: text, requester_id: me.id, context: { active_jira_ticket: TICKET } });
       } catch {
         const ids = resources.filter((r) => text.toLowerCase().replace(/[_-]/g, " ").includes(r.name.replace(/[_-]/g, " ").split(" ")[0].toLowerCase())).map((r) => r.id);
-        body = await post("/requests", { id: "ui", requester: { id: me.id, name: me.name, role: me.role, team: me.team }, task_description: text, project: PROJECT, resource_ids: ids, requested_duration_days: 14, raw_text: text });
+        body = await post("/requests", { id: "ui", requester: { id: me.id, name: me.name, role: me.role, team: me.team }, task_description: text, project: PROJECT, resource_ids: ids, requested_duration_days: 14, raw_text: text, context: { active_jira_ticket: TICKET } });
       }
       setMs(Math.round(performance.now() - t0));
       setResults(body.results);

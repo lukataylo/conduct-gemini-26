@@ -35,6 +35,7 @@ import cu_frames  # noqa: E402
 import gcp_iam  # noqa: E402
 from policy_engine_paths import escalation, policy_engine, usecase_demo  # noqa: E402
 from shared.schemas import (  # noqa: E402
+    AccessContext,
     AccessRequest,
     ApprovalVote,
     AuditEvent,
@@ -99,6 +100,7 @@ def _audit(event_type: AuditEventType, actor: str, detail: str, **kw) -> AuditEv
 class NLSubmit(BaseModel):
     raw_text: str
     requester_id: str
+    context: AccessContext | None = None  # ticket / incident; the engine refuses requests without one
 
 
 def _agent_runtime_on_path() -> None:
@@ -193,7 +195,7 @@ async def submit_request(http_request: Request) -> dict:
         if requester is None:
             raise HTTPException(400, f"unknown requester '{nl.requester_id}'")
         request = _parse_nl(nl.raw_text, requester)
-        request = request.model_copy(update={"requester": requester, "raw_text": nl.raw_text})
+        request = request.model_copy(update={"requester": requester, "raw_text": nl.raw_text, **({"context": nl.context} if nl.context else {})})
     else:
         request = AccessRequest.model_validate(body)
         requester = KNOWN_REQUESTERS.get(request.requester.id)

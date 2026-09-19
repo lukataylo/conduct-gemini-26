@@ -94,3 +94,7 @@ key; share it privately, never in git or public chat.
   Nothing on screen is UI-only state.
 - `mcp` Python SDK is pinned `<2` in `agent-runtime/requirements.txt`; 2.x renamed the
   server API.
+- **Every request needs business context** or the engine hard-denies it
+  (JIT-Evidence-01): `context.active_jira_ticket` / `active_pagerduty_incident`, or
+  `metadata.ticket_id`. The console, the MCP server and the NL path (`NLSubmit.context`)
+  send `ATLAS-142` by default. Anything else that builds an `AccessRequest` must too.

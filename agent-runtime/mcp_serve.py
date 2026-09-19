@@ -4,11 +4,12 @@ requester's active grants.
 
     claude mcp add aperture -e APERTURE_REQUESTER=u-newhire-1 -- python agent-runtime/mcp_serve.py
 
-Always present: `request_access`, `my_access`. Everything else appears only while a
-grant is active (see mcp_server.tools_for_grants) and is re-checked at call time; a
-call without an active grant is logged as a bounced ACTION_EXECUTED and refused. When
-the grant set changes the server sends tools/list_changed, so a revoke removes the tool
-from the agent's session within seconds.
+Always present: `request_access`, `my_access`. Every other tool is gated by a grant
+(see mcp_server.tools_for_grants), re-checked at call time; a call without an active
+grant is logged as a bounced ACTION_EXECUTED and refused. By default (STATIC_TOOLS) the
+whole catalog is listed from the start, because Claude Code ignores tools/list_changed;
+with APERTURE_STATIC_TOOLS=0 tools appear/vanish with grants and the server sends
+tools/list_changed for clients that honour it.
 """
 from __future__ import annotations
 
@@ -35,6 +36,12 @@ TOKEN = os.environ.get("APERTURE_TOKEN", "")
 PROJECT = os.environ.get("APERTURE_PROJECT", "atlas-migration")
 TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")  # the engine refuses requests with no ticket/incident
 POLL_SECONDS = float(os.environ.get("APERTURE_POLL", "2"))
+# Claude Code 2.1.x ignores tools/list_changed (anthropics/claude-code#77314), so a tool that
+# appears after an approval is invisible until the session restarts. With STATIC_TOOLS the
+# full catalog is listed from the start and every call is gated by the grant at call time —
+# the same check as before, the audit bounce is the visible beat. Set to 0 for clients that
+# honour list_changed (MCP Inspector, Pydantic AI) to get the appear/vanish behaviour.
+STATIC_TOOLS = os.environ.get("APERTURE_STATIC_TOOLS", "1") not in ("0", "false", "")
 
 server = Server("aperture")
 _session = None  # captured on first request so the poller can push tools/list_changed
@@ -65,6 +72,19 @@ async def _post(path: str, body: dict):
 async def _active_grants() -> list[Grant]:
     raw = await _get(f"/grants?requester_id={REQUESTER}")
     return [Grant.model_validate(g) for g in raw]
+
+
+async def _pending_for(resource_id: str) -> list[str]:
+    """Approver ids still to vote on a pending case for this requester + resource, or []."""
+    try:
+        cases = await _get("/escalations")
+    except Exception:
+        return []
+    for c in cases:
+        if c.get("requester_id") == REQUESTER and c.get("resource_id") == resource_id and c.get("status") == "pending":
+            voted = {v["approver_id"] for v in c.get("votes", [])}
+            return [a for a in c.get("required_approver_ids", []) if a not in voted] or c.get("required_approver_ids", [])
+    return []
 
 
 async def _audit(tool: str, grant: Grant | None, ok: bool, detail: str) -> None:
@@ -113,16 +133,31 @@ async def list_tools() -> list[types.Tool]:
     global _session, _last_names
     _session = server.request_context.session
     grants = await _active_grants()
-    derived = tools_for_grants(grants)
     tools = list(BASE_TOOLS)
-    for t in derived:
-        schema: dict = {"type": "object", "properties": {}}
-        if t["name"].startswith("bq_"):
-            schema["properties"]["sql"] = {"type": "string", "description": "Read-only SQL."}
-            schema["required"] = ["sql"]
-        tools.append(types.Tool(name=t["name"], description=t["description"], inputSchema=schema))
+    if STATIC_TOOLS:
+        held = {t["resource_id"]: t for t in tools_for_grants(grants)}
+        for rid, spec in TOOL_SPECS.items():
+            live = held.get(rid)
+            desc = (
+                live["description"]
+                if live
+                else spec["description"].split(". Only while")[0]
+                + f". Needs an active Aperture grant for {rid}: without one the call is refused and recorded. Ask via request_access."
+            )
+            tools.append(types.Tool(name=spec["name"], description=desc, inputSchema=_schema_for(spec["name"])))
+    else:
+        for t in tools_for_grants(grants):
+            tools.append(types.Tool(name=t["name"], description=t["description"], inputSchema=_schema_for(t["name"])))
     _last_names = {t.name for t in tools}
     return tools
+
+
+def _schema_for(name: str) -> dict:
+    schema: dict = {"type": "object", "properties": {}}
+    if name.startswith("bq_"):
+        schema["properties"]["sql"] = {"type": "string", "description": "Read-only SQL."}
+        schema["required"] = ["sql"]
+    return schema
 
 
 def _text(s: str) -> list[types.TextContent]:
@@ -149,9 +184,9 @@ async def _request_access(task: str, duration_days: int | None) -> str:
     lines = [f"Request {body['request_id'][:8]} · {note}"]
     for r in body["results"]:
         if r["status"] == "granted":
-            lines.append(f"  granted   {r['resource_id']} — a tool for it is now in tools/list")
+            lines.append(f"  granted   {r['resource_id']} — its tool now works")
         elif r["status"] == "escalated":
-            lines.append(f"  escalated {r['resource_id']} — waiting on a human approver; the tool appears when approved")
+            lines.append(f"  escalated {r['resource_id']} — waiting on a human approver; its tool works once approved")
         else:
             lines.append(f"  {r['status']:9} {r['resource_id']} — {r.get('reason', '')}")
     return "\n".join(lines)
@@ -174,7 +209,10 @@ async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent
     spec = live.get(name)
     if spec is None:
         await _audit(name, None, False, f"{name} · bounced · no active grant")
-        return _text(f"Refused: no active grant for {name}. Call request_access to ask for it. (This attempt was recorded.)")
+        rid = next((r for r, s in TOOL_SPECS.items() if s["name"] == name), name)
+        pending = await _pending_for(rid)
+        hint = f"An approval for {rid} is pending with {', '.join(pending)} — try again once it is approved." if pending else "Call request_access to ask for it."
+        return _text(f"Refused: no active grant for {name}. {hint} (This attempt was recorded.)")
     grant = next(g for g in grants if g.id == spec["grant_id"])
     if name.startswith("gcs_"):
         out = "gs://atlas-analytics-raw/events/2026-09-18.parquet\ngs://atlas-analytics-raw/events/2026-09-19.parquet"
@@ -194,8 +232,8 @@ async def _poll_tool_changes() -> None:
     global _last_names
     while True:
         await asyncio.sleep(POLL_SECONDS)
-        if _session is None or _last_names is None:
-            continue
+        if STATIC_TOOLS or _session is None or _last_names is None:
+            continue  # static listing never changes; the grant check happens at call time
         try:
             names = {t.name for t in BASE_TOOLS} | {t["name"] for t in tools_for_grants(await _active_grants())}
         except Exception:

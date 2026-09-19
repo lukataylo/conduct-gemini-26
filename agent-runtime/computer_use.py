@@ -98,6 +98,19 @@ def grant_goal(grant: Grant) -> str:
     )
 
 
+def revoke_goal(grant: Grant) -> str:
+    """Instruction for computer-use: remove this grant and no other."""
+    visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
+    return (
+        f"Revoke access to {grant.resource_id} ({visible}) for principal "
+        f"{grant.requester_id}. This is a Google Cloud Console. "
+        f"Open the matching product in the left nav, open the {visible} resource, "
+        f"open the Permissions tab, click Remove for {grant.requester_id}. "
+        f"In the dialog click Confirm revoke. "
+        f"Do not grant any other resource."
+    )
+
+
 def extra_console_hosts() -> list[str]:
     """Hosts from CONSOLE_ALLOWED_HOSTS plus the hostname of CONSOLE_URL."""
     hosts: list[str] = []
@@ -151,6 +164,16 @@ def verify_active(html: str, grant: Grant) -> bool:
     scanner = _ActiveGrantScanner()
     scanner.feed(html)
     return any(
+        resource == grant.resource_id and principal == grant.requester_id
+        for resource, principal in scanner.entries
+    )
+
+
+def verify_inactive(html: str, grant: Grant) -> bool:
+    """True when no data-resource+data-principal pair matches this grant."""
+    scanner = _ActiveGrantScanner()
+    scanner.feed(html)
+    return not any(
         resource == grant.resource_id and principal == grant.requester_id
         for resource, principal in scanner.entries
     )
@@ -269,6 +292,7 @@ def completed_event(
     mode: str,
     turn_count: int,
     video_path: str | None = None,
+    action: str = "grant",
 ) -> AuditEvent:
     """Emit and return the completed ACTION_EXECUTED event for a grant run."""
     if success:
@@ -299,6 +323,7 @@ def completed_event(
             "mode": mode,
             "turn_count": turn_count,
             "video_path": video_path,
+            "action": action,
         },
     )
 
@@ -870,6 +895,7 @@ def execute_grant(
     mode: str | None = None,
     watch_url: str | None = None,
     callback_base_url: str | None = None,
+    action: str = "grant",
 ) -> AuditEvent:
     """Drive the mock console to perform `grant`. Playwright is one scripted attempt."""
     resolved = mode or os.environ.get("EXECUTE_GRANT_MODE") or "computer_use"
@@ -879,13 +905,17 @@ def execute_grant(
 
         audit_logger.set_emitter(make_emitter(callback))
     on_frame = frame_publisher(grant, callback, resolved)
-    if resolved == "playwright":
+    if action == "revoke" or resolved == "playwright":
         return _execute_playwright(
-            grant, console_url, watch_url=watch_url, on_frame=on_frame
+            grant, console_url, watch_url=watch_url, on_frame=on_frame, action=action
         )
     if resolved == "computer_use":
         return _execute_computer_use(
-            grant, console_url, watch_url=watch_url, on_frame=on_frame
+            grant,
+            console_url,
+            watch_url=watch_url,
+            on_frame=on_frame,
+            action=action,
         )
     raise ValueError(f"unknown execute mode: {resolved}")
 
@@ -896,6 +926,7 @@ def _execute_computer_use(
     *,
     watch_url: str | None,
     on_frame=None,
+    action: str = "grant",
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -914,6 +945,7 @@ def _execute_computer_use(
             watch_url=watch_url,
             mode="computer_use",
             turn_count=0,
+            action=action,
         )
     key = _gemini_key_or_none()
     if not key:
@@ -925,6 +957,7 @@ def _execute_computer_use(
             watch_url=watch_url,
             mode="computer_use",
             turn_count=0,
+            action=action,
         )
     try:
         from playwright.sync_api import sync_playwright
@@ -957,6 +990,7 @@ def _execute_computer_use(
             watch_url=watch_url,
             mode="computer_use",
             turn_count=0,
+            action=action,
         )
     except Exception as exc:
         print(f"[computer_use] sandbox_error: {type(exc).__name__}: {exc}")
@@ -968,6 +1002,7 @@ def _execute_computer_use(
             watch_url=watch_url,
             mode="computer_use",
             turn_count=0,
+            action=action,
         )
     return completed_event(
         grant,
@@ -978,11 +1013,48 @@ def _execute_computer_use(
         mode="computer_use",
         turn_count=result["turn_count"],
         video_path=video_path,
+        action=action,
     )
 
 
+def _enact_grant_on_page(page, grant: Grant) -> None:
+    visible_name = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
+    expiry = grant.expires_at.date().isoformat()
+    _open_grant_surface(page, grant)
+    card = page.locator(".card").filter(has=page.locator(".name", has_text=visible_name))
+    grant_btn = card.get_by_role("button", name="Grant access")
+    _highlight_locator(page, grant_btn)
+    grant_btn.click()
+    principal = page.get_by_label("Principal")
+    _highlight_locator(page, principal)
+    principal.fill(grant.requester_id)
+    expires = page.get_by_label("Expires")
+    _highlight_locator(page, expires)
+    expires.fill(expiry)
+    confirm = page.get_by_role("button", name="Confirm")
+    _highlight_locator(page, confirm)
+    confirm.click()
+
+
+def _enact_revoke_on_page(page, grant: Grant) -> None:
+    _open_grant_surface(page, grant)
+    revoke_btn = page.locator(
+        f'[data-action="revoke"][data-principal="{grant.requester_id}"]'
+    )
+    _highlight_locator(page, revoke_btn)
+    revoke_btn.click()
+    confirm = page.get_by_role("button", name="Confirm revoke")
+    _highlight_locator(page, confirm)
+    confirm.click()
+
+
 def _execute_playwright(
-    grant: Grant, console_url: str, *, watch_url: str | None, on_frame=None
+    grant: Grant,
+    console_url: str,
+    *,
+    watch_url: str | None,
+    on_frame=None,
+    action: str = "grant",
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -1001,20 +1073,33 @@ def _execute_playwright(
             watch_url=watch_url,
             mode="playwright",
             turn_count=0,
+            action=action,
         )
 
     from playwright.sync_api import sync_playwright
 
     visible_name = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
     expiry = grant.expires_at.date().isoformat()
-    actions = [
-        {"intent": f"open {visible_name}", "name": "click", "args": {}},
-        {"intent": "open Permissions tab", "name": "click", "args": {}},
-        {"intent": f"click Grant access on {visible_name}", "name": "click", "args": {}},
-        {"intent": "fill Principal", "name": "type", "args": {"value": grant.requester_id}},
-        {"intent": "fill Expires", "name": "type", "args": {"value": expiry}},
-        {"intent": "click Confirm", "name": "click", "args": {}},
-    ]
+    if action == "revoke":
+        actions = [
+            {"intent": f"open {visible_name}", "name": "click", "args": {}},
+            {"intent": "open Permissions tab", "name": "click", "args": {}},
+            {
+                "intent": f"click Remove for {grant.requester_id}",
+                "name": "click",
+                "args": {},
+            },
+            {"intent": "click Confirm revoke", "name": "click", "args": {}},
+        ]
+    else:
+        actions = [
+            {"intent": f"open {visible_name}", "name": "click", "args": {}},
+            {"intent": "open Permissions tab", "name": "click", "args": {}},
+            {"intent": f"click Grant access on {visible_name}", "name": "click", "args": {}},
+            {"intent": "fill Principal", "name": "type", "args": {"value": grant.requester_id}},
+            {"intent": "fill Expires", "name": "type", "args": {"value": expiry}},
+            {"intent": "click Confirm", "name": "click", "args": {}},
+        ]
 
     rec = recording_dir()
     stem = f"playwright-{grant.resource_id}-{grant.id[:8]}"
@@ -1034,22 +1119,14 @@ def _execute_playwright(
                 mode="playwright",
                 on_frame=on_frame,
             )
-            _open_grant_surface(page, grant)
-            card = page.locator(".card").filter(
-                has=page.locator(".name", has_text=visible_name)
-            )
-            grant_btn = card.get_by_role("button", name="Grant access")
-            _highlight_locator(page, grant_btn)
-            grant_btn.click()
-            principal = page.get_by_label("Principal")
-            _highlight_locator(page, principal)
-            principal.fill(grant.requester_id)
-            expires = page.get_by_label("Expires")
-            _highlight_locator(page, expires)
-            expires.fill(expiry)
-            confirm = page.get_by_role("button", name="Confirm")
-            _highlight_locator(page, confirm)
-            confirm.click()
+            if action == "revoke":
+                # Mock console state is in-page only; grant first so Remove exists.
+                _enact_grant_on_page(page, grant)
+                _enact_revoke_on_page(page, grant)
+                frame_action = "confirm revoke"
+            else:
+                _enact_grant_on_page(page, grant)
+                frame_action = "confirm grant"
             html = page.locator("#active-grants").evaluate("el => el.outerHTML")
             last, last_mime = capture_screenshot(page)
             emit_turn_frame(
@@ -1057,14 +1134,14 @@ def _execute_playwright(
                 2,
                 last,
                 last_mime,
-                action="confirm grant",
+                action=frame_action,
                 mode="playwright",
                 on_frame=on_frame,
             )
         finally:
             video_path = _close_recorded_page(browser, context, page, rec, stem)
 
-    ok = verify_active(html, grant)
+    ok = verify_inactive(html, grant) if action == "revoke" else verify_active(html, grant)
     return completed_event(
         grant,
         success=ok,
@@ -1074,6 +1151,7 @@ def _execute_playwright(
         mode="playwright",
         turn_count=1,
         video_path=video_path,
+        action=action,
     )
 
 

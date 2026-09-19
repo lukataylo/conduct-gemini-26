@@ -11,11 +11,19 @@ from computer_use import (
     grant_goal,
     host_allowed,
     prune_old_screenshots,
+    revoke_goal,
     run_computer_use_loop,
     verify_active,
+    verify_inactive,
 )
 from gemini_models import DEFAULT_CU_MODEL, DEFAULT_PARSE_MODEL
 from mock_console.server import serve_in_thread
+
+
+def _serve_console():
+    server = serve_in_thread(port=0)
+    host, port = server.server_address
+    return server, f"http://{host}:{port}/"
 
 
 def test_models_are_lite_cu_and_3_8_parse():
@@ -124,6 +132,14 @@ def test_goal_names_resource_principal_and_expiry(grant):
     assert "Do not grant any other resource" in text
 
 
+def test_revoke_goal_names_resource_principal_and_remove(grant):
+    text = revoke_goal(grant)
+    assert "bucket-analytics-raw" in text
+    assert "u-newhire-1" in text
+    assert "Remove" in text
+    assert "Do not grant any other resource" in text
+
+
 def test_host_allowed_rejects_unknown():
     assert host_allowed("http://127.0.0.1:8765/", allowlist=["127.0.0.1", "localhost"]) is True
     assert host_allowed("https://evil.example/", allowlist=["127.0.0.1"]) is False
@@ -150,6 +166,18 @@ def test_verify_active_reads_data_attributes(grant):
     assert verify_active("<ul id='active-grants'></ul>", grant) is False
 
 
+def test_verify_inactive_reads_data_attributes(grant):
+    html = '<ul id="active-grants"><li data-resource="bucket-analytics-raw" data-principal="u-newhire-1">ok</li></ul>'
+    assert verify_inactive(html, grant) is False
+    assert verify_inactive("<ul id='active-grants'></ul>", grant) is True
+    other = (
+        '<ul id="active-grants">'
+        '<li data-resource="bq-project-x-finance" data-principal="u-newhire-1">x</li>'
+        "</ul>"
+    )
+    assert verify_inactive(other, grant) is True
+
+
 def test_completed_event_shape(grant):
     event = completed_event(
         grant,
@@ -165,16 +193,48 @@ def test_completed_event_shape(grant):
     assert event.payload["phase"] == "completed"
     assert event.payload["success"] is False
     assert event.payload["reason"] == "turn_budget"
+    assert event.payload["action"] == "grant"
     assert event.grant_id == grant.id
 
 
+def test_completed_event_includes_revoke_action(grant):
+    event = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="playwright",
+        turn_count=1,
+        action="revoke",
+    )
+    assert event.payload["action"] == "revoke"
+    assert event.payload["success"] is True
+
+
 def test_playwright_execute_grant_marks_active(grant):
-    server = serve_in_thread(port=8765)
+    server, url = _serve_console()
     try:
-        event = execute_grant(grant, "http://127.0.0.1:8765/", mode="playwright")
+        event = execute_grant(grant, url, mode="playwright")
         assert event.payload["phase"] == "completed"
         assert event.payload["success"] is True
         assert event.payload["mode"] == "playwright"
+        assert event.payload["action"] == "grant"
+    finally:
+        server.shutdown()
+
+
+def test_playwright_execute_grant_then_revoke_marks_inactive(grant):
+    server, url = _serve_console()
+    try:
+        granted = execute_grant(grant, url, mode="playwright")
+        assert granted.payload["success"] is True
+        assert granted.payload["action"] == "grant"
+        revoked = execute_grant(grant, url, mode="playwright", action="revoke")
+        assert revoked.payload["phase"] == "completed"
+        assert revoked.payload["success"] is True
+        assert revoked.payload["mode"] == "playwright"
+        assert revoked.payload["action"] == "revoke"
     finally:
         server.shutdown()
 
@@ -182,9 +242,9 @@ def test_playwright_execute_grant_marks_active(grant):
 def test_playwright_writes_video_when_record_dir_set(grant, monkeypatch, tmp_path):
     monkeypatch.setenv("EXECUTE_RECORD_DIR", str(tmp_path))
     monkeypatch.setenv("EXECUTE_SLOW_MO", "0")
-    server = serve_in_thread(port=8768)
+    server, url = _serve_console()
     try:
-        event = execute_grant(grant, "http://127.0.0.1:8768/", mode="playwright")
+        event = execute_grant(grant, url, mode="playwright")
         assert event.payload["success"] is True
         video = event.payload.get("video_path")
         assert video

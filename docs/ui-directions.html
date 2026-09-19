@@ -1,0 +1,800 @@
+<title>Aperture UI Directions</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ground: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf2;
+    --ink: #17212b; --ink-2: #4f5f70; --ink-3: #8593a2;
+    --line: #d3dae2; --line-2: #b9c3cf;
+    --accent: #1d5cc2; --accent-ink: #ffffff; --accent-soft: #e4edfb;
+    --good: #14663d; --warn: #8a4f00; --crit: #b83a3a;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1318; --surface: #161c23; --surface-2: #1e262f;
+      --ink: #e4eaf1; --ink-2: #a3b0be; --ink-3: #6f7d8c;
+      --line: #2a343f; --line-2: #3a4653;
+      --accent: #6ea3f5; --accent-ink: #0b1524; --accent-soft: #172a45;
+      --good: #4cc48a; --warn: #e2a24a; --crit: #ef7b7b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1318; --surface: #161c23; --surface-2: #1e262f;
+    --ink: #e4eaf1; --ink-2: #a3b0be; --ink-3: #6f7d8c;
+    --line: #2a343f; --line-2: #3a4653;
+    --accent: #6ea3f5; --accent-ink: #0b1524; --accent-soft: #172a45;
+    --good: #4cc48a; --warn: #e2a24a; --crit: #ef7b7b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; padding-block: 0 4rem; padding-inline: 20px; }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  h1, h2, h3, h4 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
+  h1 { font-size: 2.2rem; font-weight: 600; } h2 { font-size: 1.4rem; font-weight: 600; } h3 { font-size: 1.05rem; font-weight: 600; }
+  p { margin: 0; } ul { margin: 0; padding-left: 1.1rem; }
+  code { font-family: var(--mono); font-size: 0.86em; background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  header.masthead { padding-block: 3rem 2rem; display: grid; gap: 0.8rem; border-bottom: 1px solid var(--line); }
+  .lede { font-size: 1.08rem; color: var(--ink-2); max-width: 64ch; }
+  section { padding-block: 2.4rem; border-bottom: 1px solid var(--line); display: grid; gap: 1.2rem; }
+  .sub { color: var(--ink-2); max-width: 66ch; }
+
+  .field { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+  .field h3 { padding-bottom: 0.4rem; border-bottom: 1px solid var(--line-2); margin-bottom: 0.6rem; }
+  .field li { padding-block: 0.2rem; }
+  .field li b { font-weight: 500; }
+
+  .dirnav { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
+  .dirnav button { text-align: left; background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 0.9rem 1rem; cursor: pointer; font: inherit; display: grid; gap: 0.25rem; }
+  .dirnav button .k { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; }
+  .dirnav button .n { font-weight: 600; font-size: 1.05rem; }
+  .dirnav button .t { color: var(--ink-2); font-size: 0.9rem; }
+  .dirnav button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+
+  .dir { display: grid; gap: 1rem; }
+  .dir-head { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 760px) { .dir-head { grid-template-columns: 1fr; } }
+  .dir-head .thesis { font-size: 1.05rem; max-width: 60ch; }
+  .facts { display: grid; gap: 0.35rem; font-size: 0.88rem; }
+  .facts div { display: grid; grid-template-columns: 110px 1fr; gap: 0.6rem; }
+  .facts .k { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-top: 0.15rem; }
+  .screens { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .screens button { font: inherit; font-size: 0.85rem; background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); padding: 0.3rem 0.7rem; cursor: pointer; border-radius: 999px; }
+  .screens button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .framewrap { overflow-x: auto; border: 1px solid var(--line-2); background: var(--surface-2); }
+  .frame { min-width: 960px; width: 100%; min-height: 560px; display: grid; }
+  .cap { font-size: 0.85rem; color: var(--ink-2); max-width: 70ch; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- shared mock bits ---------- */
+  .badge { display: inline-block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.04em; padding: 0.12rem 0.45rem; border-radius: 3px; text-transform: uppercase; white-space: nowrap; }
+
+  /* ---------- A · Console ---------- */
+  .console { --g: #f8f9fb; --s: #ffffff; --s2: #eef1f5; --i: #1f2933; --i2: #5b6b7b; --i3: #8a98a6; --l: #dde3ea; --a: #1a5fd0; --a-soft: #e6eefb; --ok: #1a7f4b; --pend: #9a6200; --den: #b3261e;
+    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 13px; grid-template-columns: 200px 1fr; }
+  .console .side { background: #0f172a; color: #cbd5e1; padding: 1rem 0; display: grid; align-content: start; gap: 0.2rem; }
+  .console .side .logo { color: #fff; font-weight: 600; padding: 0.2rem 1rem 0.9rem; letter-spacing: 0.02em; }
+  .console .side a { color: #cbd5e1; padding: 0.45rem 1rem; display: block; }
+  .console .side a.on { background: #1e293b; color: #fff; border-left: 3px solid var(--a); padding-left: calc(1rem - 3px); }
+  .console .main { display: grid; align-content: start; }
+  .console .top { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); }
+  .console .top .proj { font-family: var(--mono); font-size: 12px; background: var(--s2); padding: 0.25rem 0.6rem; border-radius: 4px; }
+  .console .tabs { display: flex; gap: 1.4rem; padding: 0 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); }
+  .console .tabs span { padding: 0.7rem 0; color: var(--i2); }
+  .console .tabs span.on { color: var(--a); border-bottom: 2px solid var(--a); font-weight: 500; }
+  .console .body { padding: 1rem 1.2rem; display: grid; gap: 1rem; }
+  .console .composed { border: 1px dashed var(--l); background: var(--s); padding: 0.7rem 0.9rem; display: grid; gap: 0.6rem; }
+  .console .composed .lab { font-family: var(--mono); font-size: 11px; color: var(--i3); display: flex; justify-content: space-between; }
+  .console .composed .row { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  .console .mini { border: 1px solid var(--l); border-radius: 4px; padding: 0.55rem 0.75rem; min-width: 210px; display: grid; gap: 0.15rem; }
+  .console .mini b { font-weight: 500; } .console .mini span { color: var(--i2); font-size: 12px; }
+  .console table { width: 100%; border-collapse: collapse; background: var(--s); font-size: 13px; }
+  .console th { text-align: left; font-weight: 500; color: var(--i2); font-size: 12px; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--l); }
+  .console td { padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--l); vertical-align: top; }
+  .console td.mono, .console .mono { font-family: var(--mono); font-size: 12px; }
+  .console .st { font-weight: 500; } .console .st.ok { color: var(--ok); } .console .st.pend { color: var(--pend); } .console .st.den { color: var(--den); }
+  .console .btn { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 4px; border: 1px solid var(--l); background: var(--s); color: var(--i); font-size: 12px; }
+  .console .btn.p { background: var(--a); color: #fff; border-color: var(--a); }
+  .console .drawer { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
+  .console .panel { background: var(--s); border: 1px solid var(--l); border-radius: 4px; padding: 0.9rem 1rem; display: grid; gap: 0.6rem; align-content: start; }
+  .console .kv { display: grid; grid-template-columns: 110px 1fr; gap: 0.3rem 0.6rem; font-size: 12.5px; }
+  .console .kv .k { color: var(--i3); }
+  .console .quote { border-left: 3px solid var(--l); padding: 0.3rem 0.6rem; color: var(--i2); font-size: 12.5px; background: var(--s2); }
+  .console .quote .q { font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+  .console .actions { display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--l); padding-top: 0.7rem; }
+
+  /* ---------- B · Feed ---------- */
+  .feed { --g: #faf8f5; --s: #ffffff; --s2: #f1ede7; --i: #1d1b18; --i2: #625c54; --i3: #9a928a; --l: #e6e0d8; --a: #0f766e; --a-soft: #d9f0ec; --ok: #1a7f4b; --pend: #a05a00; --den: #b3261e;
+    background: var(--g); color: var(--i); font-family: "Manrope", var(--sans); font-size: 13.5px; grid-template-rows: auto 1fr; }
+  .feed .top { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--l); background: var(--s); font-weight: 600; }
+  .feed .top .who { font-weight: 500; color: var(--i2); font-size: 12.5px; }
+  .feed .cols { display: grid; grid-template-columns: 1fr 300px; gap: 0; min-height: 0; }
+  .feed .stream { padding: 1rem 1.2rem; display: grid; gap: 0.7rem; align-content: start; }
+  .feed .card { background: var(--s); border: 1px solid var(--l); border-radius: 12px; padding: 0.8rem 1rem; display: grid; gap: 0.45rem; max-width: 620px; }
+  .feed .card .from { display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: var(--i2); }
+  .feed .av { width: 22px; height: 22px; border-radius: 50%; background: var(--a-soft); color: var(--a); display: inline-grid; place-items: center; font-size: 10px; font-weight: 700; }
+  .feed .av.sys { background: #1d1b18; color: #fff; } .feed .av.p { background: #fde7d0; color: #a05a00; } .feed .av.j { background: #dce7fb; color: #1d4ed8; }
+  .feed .card .t { font-weight: 600; }
+  .feed .card .quote { background: var(--s2); border-radius: 8px; padding: 0.5rem 0.7rem; color: var(--i2); font-size: 12.5px; }
+  .feed .card .quote .q { font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+  .feed .line { display: grid; grid-template-columns: 8px 1fr auto; gap: 0.5rem; align-items: center; font-size: 12.5px; }
+  .feed .dot { width: 8px; height: 8px; border-radius: 50%; } .feed .dot.ok { background: var(--ok); } .feed .dot.pend { background: var(--pend); } .feed .dot.den { background: var(--den); }
+  .feed .reason { color: var(--i2); font-size: 12px; }
+  .feed .btns { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.2rem; }
+  .feed .btn { font: inherit; font-size: 12.5px; padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid var(--l); background: var(--s); color: var(--i); }
+  .feed .btn.deny { color: var(--den); } .feed .btn.ok { background: var(--a); color: #fff; border-color: var(--a); font-weight: 600; }
+  .feed .ctx { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; font-size: 12.5px; }
+  .feed .ctx .k { color: var(--i3); font-size: 11px; font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .feed .rail { border-left: 1px solid var(--l); background: var(--s); padding: 1rem; display: grid; gap: 0.8rem; align-content: start; }
+  .feed .rail h4 { margin: 0; font-size: 12px; font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--i3); font-weight: 500; }
+  .feed .now { display: grid; gap: 0.4rem; }
+  .feed .now div { display: flex; justify-content: space-between; font-size: 12.5px; padding: 0.4rem 0; border-bottom: 1px solid var(--l); }
+  .feed .compose { margin-top: auto; border: 1px solid var(--l); border-radius: 10px; padding: 0.6rem 0.8rem; color: var(--i3); font-size: 12.5px; background: var(--s); max-width: 620px; }
+  .feed .tools { display: grid; gap: 0.3rem; font-family: var(--mono); font-size: 12px; }
+  .feed .tools div { display: flex; justify-content: space-between; padding: 0.3rem 0.5rem; background: var(--s2); border-radius: 6px; }
+  .feed .tools .new { color: var(--ok); }
+
+  /* ---------- C · Aperture ---------- */
+  .ap { --g: #fbfbf9; --s: #ffffff; --s2: #f1f1ec; --i: #15181c; --i2: #565d66; --i3: #8b9199; --l: #dcdcd4; --a: #b4531b; --a-soft: #f8e7dc; --ok: #1e6e45; --pend: #8a5a00; --den: #9f2d2d;
+    background: var(--g); color: var(--i); font-family: var(--sans); font-size: 13.5px; grid-template-rows: auto auto auto 1fr; }
+  .ap .bar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.4rem; border-bottom: 1px solid var(--l); font-size: 12.5px; }
+  .ap .bar .brand { font-weight: 600; letter-spacing: 0.02em; } .ap .bar .brand::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--a); margin-right: 0.5rem; vertical-align: -1px; }
+  .ap .bar .verify { font-family: var(--mono); font-size: 11.5px; color: var(--ok); }
+  .ap .iris { display: grid; grid-template-columns: 170px 1fr; gap: 1.4rem; align-items: center; padding: 1rem 1.4rem 0.6rem; }
+  .ap .iris svg { width: 170px; height: 170px; display: block; }
+  .ap .iris .sum { display: grid; gap: 0.3rem; }
+  .ap .iris .sum .big { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; }
+  .ap .iris .sum .big span { color: var(--i3); font-weight: 400; font-size: 1rem; }
+  .ap .iris .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 12px; color: var(--i2); }
+  .ap .iris .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 0.35rem; vertical-align: -1px; border-radius: 2px; }
+  .ap .ribbon { margin: 0 1.4rem; border: 1px solid var(--l); border-left: 3px solid var(--a); background: var(--s); padding: 0.5rem 0.8rem; font-family: var(--mono); font-size: 11.5px; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+  .ap .ribbon .plus { color: var(--ok); } .ap .ribbon .minus { color: var(--den); } .ap .ribbon .meta { color: var(--i3); margin-left: auto; }
+  .ap .cols { display: grid; grid-template-columns: 300px 1fr; gap: 1.4rem; padding: 1rem 1.4rem 1.4rem; }
+  .ap .chrome { display: grid; gap: 0.9rem; align-content: start; }
+  .ap .chrome .lab, .ap .well .lab { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); }
+  .ap .id { border-top: 2px solid var(--i); padding-top: 0.5rem; display: grid; gap: 0.1rem; }
+  .ap .id b { font-weight: 600; } .ap .id span { color: var(--i2); font-size: 12.5px; }
+  .ap .ask { border: 1px solid var(--l); background: var(--s); padding: 0.6rem 0.8rem; display: grid; gap: 0.4rem; }
+  .ap .ask .in { color: var(--i3); font-size: 12.5px; }
+  .ap .ask .confirm { border-top: 1px dashed var(--l); padding-top: 0.4rem; font-size: 12px; color: var(--i2); display: grid; gap: 0.15rem; }
+  .ap .ask .confirm .mono { font-family: var(--mono); font-size: 11.5px; color: var(--i); }
+  .ap .prim { display: flex; gap: 0.5rem; }
+  .ap .btn { font: inherit; font-size: 12.5px; padding: 0.45rem 0.9rem; border: 1px solid var(--i); background: transparent; color: var(--i); }
+  .ap .btn.p { background: var(--i); color: var(--g); } .ap .btn.deny { border-color: var(--den); color: var(--den); } .ap .btn.a { background: var(--a); border-color: var(--a); color: #fff; }
+  .ap .well { border-top: 2px solid var(--a); padding-top: 0.5rem; display: grid; gap: 0.7rem; align-content: start; }
+  .ap .well .lab { display: flex; justify-content: space-between; }
+  .ap .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.7rem; }
+  .ap .panel { background: var(--s); border: 1px solid var(--l); padding: 0.7rem 0.85rem 0.6rem; display: grid; gap: 0.3rem; position: relative; overflow: hidden; transition: opacity 0.4s, transform 0.4s; }
+  .ap .panel .name { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+  .ap .panel .meta { color: var(--i2); font-size: 12px; }
+  .ap .panel .fill { height: 4px; background: var(--s2); margin-top: 0.3rem; position: relative; }
+  .ap .panel .fill i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); }
+  .ap .panel.pend { border-style: dashed; } .ap .panel.pend .fill i { background: var(--pend); }
+  .ap .panel.den { background: transparent; } .ap .panel.den .name { color: var(--den); }
+  .ap .panel .alt { font-size: 12px; color: var(--i2); border-top: 1px solid var(--l); padding-top: 0.3rem; }
+  .ap .panel .alt a { color: var(--a); }
+  .ap .panel.gone { opacity: 0.35; transform: scale(0.98); }
+  .ap .panel.gone .fill i { background: var(--den); width: 100% !important; }
+  .ap .badge.tier { background: var(--s2); color: var(--i2); }
+  .ap .ctx { display: grid; gap: 0.5rem; font-size: 12.5px; }
+  .ap .ctx .row { display: grid; grid-template-columns: 120px 1fr; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--l); }
+  .ap .ctx .row .k { color: var(--i3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding-top: 0.15rem; }
+  .ap .claim { background: var(--s2); border-left: 3px solid var(--l); padding: 0.45rem 0.7rem; font-size: 12.5px; color: var(--i2); font-style: italic; }
+  .ap .claim .q { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--i3); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+  .ap .queue { display: grid; gap: 0.4rem; }
+  .ap .queue div { display: flex; justify-content: space-between; padding: 0.45rem 0.6rem; border: 1px solid var(--l); background: var(--s); font-size: 12.5px; }
+  .ap .queue div.on { border-color: var(--a); }
+  .ap .queue small { color: var(--i3); font-family: var(--mono); font-size: 11px; }
+  .ap .toggle { display: inline-flex; border: 1px solid var(--l); font-size: 12px; }
+  .ap .toggle button { font: inherit; font-size: 12px; background: transparent; border: 0; padding: 0.3rem 0.7rem; color: var(--i2); cursor: pointer; }
+  .ap .toggle button[aria-pressed="true"] { background: var(--i); color: var(--g); }
+  .ap .tools { display: grid; gap: 0.35rem; }
+  .ap .tool { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; background: var(--s); border: 1px solid var(--l); padding: 0.5rem 0.75rem; font-family: var(--mono); font-size: 12px; transition: opacity 0.4s; }
+  .ap .tool .d { color: var(--i2); font-family: var(--sans); font-size: 12px; grid-column: 1 / -1; }
+  .ap .tool .st { color: var(--ok); } .ap .tool.gone { opacity: 0.35; text-decoration: line-through; } .ap .tool.gone .st { color: var(--den); text-decoration: none; }
+  .ap .trail { display: grid; gap: 0; border-left: 2px solid var(--l); margin-left: 0.3rem; }
+  .ap .ev { display: grid; grid-template-columns: 52px 1fr; gap: 0.6rem; padding: 0.3rem 0 0.3rem 0.8rem; font-size: 12.5px; position: relative; }
+  .ap .ev::before { content: ""; position: absolute; left: -5px; top: 0.6rem; width: 8px; height: 8px; border-radius: 50%; background: var(--l); }
+  .ap .ev.ok::before { background: var(--ok); } .ap .ev.den::before { background: var(--den); } .ap .ev.pend::before { background: var(--pend); }
+  .ap .ev .t { font-family: var(--mono); font-size: 11px; color: var(--i3); padding-top: 0.15rem; }
+  .ap .ev .d { color: var(--i2); } .ap .ev b { font-weight: 500; color: var(--i); }
+
+  /* ---------- D · Terminal ---------- */
+  .term { --g: #0b0f14; --s: #111720; --s2: #182030; --i: #d7dee8; --i2: #93a1b3; --i3: #5f6d80; --l: #232d3b; --a: #7dd3fc; --ok: #6ee7a7; --pend: #f2c14e; --den: #f87171;
+    background: var(--g); color: var(--i); font-family: var(--mono); font-size: 12.5px; grid-template-rows: auto 1fr; }
+  .term .banner { display: flex; justify-content: space-between; align-items: center; background: #2b2109; color: #f2c14e; border-bottom: 1px solid #4a3a12; padding: 0.5rem 1.2rem; }
+  .term .banner .rel { border: 1px solid #f2c14e; padding: 0.2rem 0.6rem; }
+  .term .cols { display: grid; grid-template-columns: 1fr 340px; }
+  .term .shell { padding: 1rem 1.2rem; display: grid; gap: 0.25rem; align-content: start; white-space: pre-wrap; line-height: 1.55; }
+  .term .c { color: var(--i3); } .term .cmd::before { content: "$ "; color: var(--a); } .term .cmd { color: #fff; }
+  .term .out { color: var(--i2); padding-left: 1.1rem; } .term .out.den { color: var(--den); } .term .out.ok { color: var(--ok); }
+  .term .sys { color: var(--a); } .term .sys::before { content: "[aperture] "; color: var(--i3); }
+  .term .side { border-left: 1px solid var(--l); background: var(--s); padding: 1rem; display: grid; gap: 1rem; align-content: start; }
+  .term h4 { margin: 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--i3); font-weight: 500; }
+  .term .tools { display: grid; gap: 0.3rem; }
+  .term .tools div { display: flex; justify-content: space-between; background: var(--s2); padding: 0.4rem 0.6rem; }
+  .term .tools .ok { color: var(--ok); } .term .tools .pend { color: var(--pend); } .term .tools .gone { color: var(--i3); text-decoration: line-through; }
+  .term .card { background: var(--s2); border: 1px solid var(--l); padding: 0.7rem 0.8rem; display: grid; gap: 0.4rem; font-family: var(--sans); font-size: 12.5px; }
+  .term .card .k { color: var(--i3); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .term .card .btns { display: flex; justify-content: space-between; margin-top: 0.3rem; }
+  .term .card .btn { font-family: var(--mono); font-size: 12px; padding: 0.35rem 0.8rem; border: 1px solid var(--l); background: transparent; color: var(--i); }
+  .term .card .btn.ok { background: var(--ok); color: #0b0f14; border-color: var(--ok); } .term .card .btn.deny { color: var(--den); }
+  .term .audit { display: grid; gap: 0.2rem; font-size: 11.5px; color: var(--i2); }
+  .term .audit b { color: var(--i); font-weight: 500; }
+
+  /* ---------- matrix ---------- */
+  .tablewrap { overflow-x: auto; }
+  table.mx { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 0.9rem; }
+  .mx th, .mx td { text-align: left; vertical-align: top; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); }
+  .mx th { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  .mx td:first-child { font-weight: 600; white-space: nowrap; }
+  .mx .hi { color: var(--good); font-weight: 500; } .mx .lo { color: var(--crit); } .mx .mid { color: var(--warn); }
+  .rec { border-top: 2px solid var(--accent); padding-top: 0.8rem; display: grid; gap: 0.5rem; max-width: 70ch; }
+  .sources { font-size: 0.82rem; color: var(--ink-2); columns: 2; column-gap: 2rem; } .sources li { break-inside: avoid; }
+  @media (max-width: 640px) { .sources { columns: 1; } }
+  @media (prefers-reduced-motion: reduce) { .ap .panel, .ap .tool { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">{Tech: Europe} Agentic AI Hack · Aperture · UI directions · 19 Sep 2026</div>
+    <h1>Aperture UI Directions</h1>
+    <p class="lede">Four ways the product could look, each drawn as a working mockup on the same Atlas scenario — Alex Chen's coding agent asks for a bucket and a dataset; Priya and Jordan decide; the project closes. Pick one, or the recommended blend at the end.</p>
+  </header>
+
+  <section id="field">
+    <h2>What the field looks like</h2>
+    <p class="sub">From a screen-level survey of ConductorOne, Opal, Teleport, P0, Britive, Apono, Entitle, Okta IGA and Google Cloud PAM, plus shipped generative UIs (A2UI, OpenAI Apps SDK, CopilotKit, Vercel AI SDK, Thesys C1).</p>
+    <div class="field">
+      <div>
+        <h3>Everyone does this</h3>
+        <ul>
+          <li><b>Request</b> = resource + duration picker (presets, capped by a max) + justification. Opal adds "expire when the ticket closes".</li>
+          <li><b>Approver</b> = a chat card: requester, resource, duration, justification. Approve on the right, Reject on the left, a reason popup on either (Apono, Entitle, P0). P0 lets the approver <em>set</em> the duration.</li>
+          <li><b>My access</b> = a table with a status label and time remaining, plus Revoke / Check in / Relinquish (Britive's library-checkout metaphor; PAM's twelve state labels).</li>
+          <li><b>Two buckets</b>: Active vs Pending (P0, PAM tabs, Britive filters). Teleport adds a persistent "elevated" banner with Switch back.</li>
+          <li><b>Audit</b> = a flat activity table filtered by request or user.</li>
+          <li><b>Generated UI</b>: host owns the chrome, the agent fills a well; skeletons carry request context; catalogs are ~15 components; values stream into an already-rendered tree.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Nobody does this</h3>
+        <ul>
+          <li>Shows the <b>system's reason</b> for escalating, the tier, or "who else on your team holds this" — every card shows only the requester's justification.</li>
+          <li>Shows the <b>agent's own view</b>: its scoped tool list, and that list shrinking on revoke.</li>
+          <li>A <b>per-request story</b> with verification (chain OK / broken).</li>
+          <li>A dashboard that <b>visibly re-composes</b> when scope changes — grants are rows that appear; nothing else moves.</li>
+          <li><b>Denial as a next step</b> — "request the narrower version".</li>
+          <li>A <b>"composed for you" affordance</b> — no shipped generative UI labels what the agent made versus what's fixed.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="pick">
+    <h2>Four directions</h2>
+    <div class="dirnav" role="tablist" aria-label="Directions">
+      <button role="tab" data-dir="a" aria-pressed="true"><span class="k">A</span><span class="n">Console</span><span class="t">What a cloud IAM console would ship. Familiar, dense, safe.</span></button>
+      <button role="tab" data-dir="b" aria-pressed="false"><span class="k">B</span><span class="n">Feed</span><span class="t">Everything is a card in a stream. Where approvers already live.</span></button>
+      <button role="tab" data-dir="c" aria-pressed="false"><span class="k">C</span><span class="n">Aperture</span><span class="t">Static chrome left, composed well right. The scope is the picture.</span></button>
+      <button role="tab" data-dir="d" aria-pressed="false"><span class="k">D</span><span class="n">Terminal</span><span class="t">The agent's-eye view. Tool list, proof terminal, elevated banner.</span></button>
+    </div>
+  </section>
+
+  <!-- ================= A · CONSOLE ================= -->
+  <section class="dir" id="dir-a">
+    <div class="dir-head">
+      <div>
+        <div class="eyebrow">Direction A</div>
+        <h2>Console</h2>
+        <p class="thesis">Borrow the shape every judge has used — sidebar, tabs, a table with status labels and time remaining — and confine the generated part to one labelled strip above the table. The dashboard doesn't re-compose; rows appear.</p>
+      </div>
+      <div class="facts">
+        <div><span class="k">Borrows</span><span>Google Cloud PAM tabs and state labels; Britive's My Access table; Opal's request form</span></div>
+        <div><span class="k">Trades away</span><span>The re-composing dashboard; the "composed for you" story; most of the wow</span></div>
+        <div><span class="k">Cost tonight</span><span>S–M — tables over existing endpoints</span></div>
+        <div><span class="k">Best beat</span><span>Grants to approve → row detail → approve; audit table</span></div>
+      </div>
+    </div>
+    <div class="screens" role="tablist" aria-label="Console screens">
+      <button data-screen="a-1" aria-pressed="true">Requester · My access</button>
+      <button data-screen="a-2" aria-pressed="false">Approver · Grants to approve</button>
+      <button data-screen="a-3" aria-pressed="false">Agent &amp; audit</button>
+    </div>
+
+    <div class="framewrap" id="a-1">
+      <div class="frame console">
+        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a class="on">My access</a><a>Grants to approve</a><a>Audit</a><a>Policy</a><a>Service accounts</a></nav>
+        <div class="main">
+          <div class="top"><span class="proj">project · atlas-migration</span><span>Alex Chen · data-platform · <span class="mono">u-newhire-1</span></span></div>
+          <div class="tabs"><span class="on">Active (1)</span><span>Pending (1)</span><span>Denied (1)</span><span>Expired</span></div>
+          <div class="body">
+            <div class="composed">
+              <div class="lab"><span>COMPOSED FOR YOU · 2 PANELS</span><span>gemini · catalog v1 · 14:32</span></div>
+              <div class="row">
+                <div class="mini"><b>analytics-raw</b><span>GCS bucket · write · 13d 6h left</span></div>
+                <div class="mini"><b>project-x-finance</b><span>BigQuery dataset · read · pending 1 of 2</span></div>
+              </div>
+            </div>
+            <table>
+              <thead><tr><th>Resource</th><th>Type</th><th>Tier</th><th>Status</th><th>Time remaining</th><th>Granted via</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="mono">bucket-analytics-raw</td><td>GCS bucket</td><td>internal</td><td class="st ok">Active</td><td class="mono">13d 06h 12m</td><td>auto-grant · same team, 14d ≤ 30d</td><td><span class="btn">Relinquish</span></td></tr>
+                <tr><td class="mono">bq-project-x-finance</td><td>BigQuery dataset</td><td>restricted</td><td class="st pend">Approval awaited</td><td class="mono">—</td><td>escalated · cross-team, 1 of 2 approved</td><td><span class="btn">Withdraw</span></td></tr>
+                <tr><td class="mono">sql-prod-primary</td><td>Cloud SQL</td><td>critical</td><td class="st den">Denied</td><td class="mono">—</td><td>critical tier always escalates · vetoed</td><td><span class="btn">Details</span></td></tr>
+              </tbody>
+            </table>
+            <div><span class="btn p">Request access</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="a-2" hidden>
+      <div class="frame console">
+        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a>My access</a><a class="on">Grants to approve</a><a>Audit</a><a>Policy</a><a>Service accounts</a></nav>
+        <div class="main">
+          <div class="top"><span class="proj">project · atlas-migration</span><span>Priya Nair · Engineering Manager · <span class="mono">u-manager-1</span></span></div>
+          <div class="tabs"><span class="on">Needs you (1)</span><span>Waiting on others (0)</span><span>Decided</span></div>
+          <div class="body">
+            <div class="drawer">
+              <table>
+                <thead><tr><th>Requester</th><th>Resource</th><th>Duration</th><th>Tier</th><th>Approvals</th><th>Age</th></tr></thead>
+                <tbody>
+                  <tr style="background:var(--a-soft)"><td>Alex Chen<br><span class="mono">data-platform</span></td><td class="mono">bq-project-x-finance</td><td>14 days</td><td>restricted</td><td class="mono">1 of 2 · Jordan ✓</td><td>4 min</td></tr>
+                </tbody>
+              </table>
+              <div class="panel">
+                <b>bq-project-x-finance</b>
+                <div class="kv">
+                  <span class="k">Why escalated</span><span>Cross-team request (data-platform → finance) — requires 2 approvals</span>
+                  <span class="k">Tier</span><span>restricted · max auto-grant 7d</span>
+                  <span class="k">Requester</span><span>Alex Chen · new hire · manager: you</span>
+                  <span class="k">Holds now</span><span class="mono">bucket-analytics-raw (write, 13d)</span>
+                  <span class="k">Peers</span><span>0 of 6 on data-platform hold this</span>
+                  <span class="k">Expires</span><span>3 Oct 2026 · 14d</span>
+                </div>
+                <div class="quote"><span class="q">Unverified requester text</span>"…build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
+                <div class="actions"><span class="btn">Deny</span><span class="btn p">Approve</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="a-3" hidden>
+      <div class="frame console">
+        <nav class="side"><div class="logo">Aperture</div><a>Requests</a><a>My access</a><a>Grants to approve</a><a class="on">Audit</a><a>Policy</a><a>Service accounts</a></nav>
+        <div class="main">
+          <div class="top"><span class="proj">project · atlas-migration</span><span>Filter: request <span class="mono">3f9a…</span> · chain <span class="st ok">verified · 11 events</span></span></div>
+          <div class="tabs"><span class="on">Activity</span><span>Service account · alex-chen-agent</span></div>
+          <div class="body">
+            <table>
+              <thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Detail</th><th>Hash</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">14:31:02</td><td>request_received</td><td class="mono">u-newhire-1</td><td>2 resources for 14d</td><td class="mono">a91c…</td></tr>
+                <tr><td class="mono">14:31:02</td><td>policy_evaluated</td><td>policy-engine</td><td>internal tier, 14d within 30d limit, same-team requester</td><td class="mono">7e02…</td></tr>
+                <tr><td class="mono">14:31:02</td><td class="st ok">grant_issued</td><td>policy-engine</td><td class="mono">bucket-analytics-raw · 14d</td><td class="mono">c4d8…</td></tr>
+                <tr><td class="mono">14:31:03</td><td class="st pend">escalated</td><td>policy-engine</td><td>Cross-team (data-platform → finance) — requires 2 approvals</td><td class="mono">12f7…</td></tr>
+                <tr><td class="mono">14:34:40</td><td>approval_vote_cast</td><td class="mono">u-finance-owner-1</td><td>approved · "Atlas is on the finance roadmap"</td><td class="mono">b0aa…</td></tr>
+                <tr><td class="mono">14:36:12</td><td>action_executed</td><td>agent</td><td class="mono">gcs_list_objects · 42 objects</td><td class="mono">5d19…</td></tr>
+              </tbody>
+            </table>
+            <div class="composed">
+              <div class="lab"><span>SERVICE ACCOUNT · alex-chen-agent · TOOLS FROM GRANTS</span><span>mcp · modal</span></div>
+              <div class="row">
+                <div class="mini"><b class="mono">gcs_list_objects</b><span>from bucket-analytics-raw · 13d</span></div>
+                <div class="mini"><b class="mono">gcs_read_object</b><span>from bucket-analytics-raw · 13d</span></div>
+                <div class="mini"><b class="mono">bq_query</b><span>pending · 1 of 2</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Reads as a product judges have seen before, which is both the strength and the ceiling. The one addition over GCP PAM is the "Why escalated" row and the peer count in the detail panel — the thing nobody shows — and the labelled "composed" strip.</p>
+  </section>
+
+  <!-- ================= B · FEED ================= -->
+  <section class="dir" id="dir-b" hidden>
+    <div class="dir-head">
+      <div>
+        <div class="eyebrow">Direction B</div>
+        <h2>Feed</h2>
+        <p class="thesis">Every event is a card in one stream — the agent's request, the engine's decision, the approver's card with Reject left and Approve right, the tool-list change. A "Now" rail on the right keeps current state visible so it never degrades into a transcript.</p>
+      </div>
+      <div class="facts">
+        <div><span class="k">Borrows</span><span>Apono / Entitle / P0 Slack cards; Vercel and A2UI chat-adjacent cards; Opal's comment thread</span></div>
+        <div><span class="k">Trades away</span><span>Reads as a chatbot to a skeptical judge; layout can't visibly re-compose</span></div>
+        <div><span class="k">Cost tonight</span><span>S — one card component, one stream</span></div>
+        <div><span class="k">Best beat</span><span>The approval, inline, with the engine's reason right above the buttons</span></div>
+      </div>
+    </div>
+    <div class="screens" role="tablist" aria-label="Feed screens">
+      <button data-screen="b-1" aria-pressed="true">Requester · Stream</button>
+      <button data-screen="b-2" aria-pressed="false">Approver · Needs you</button>
+      <button data-screen="b-3" aria-pressed="false">Agent &amp; audit</button>
+    </div>
+
+    <div class="framewrap" id="b-1">
+      <div class="frame feed">
+        <div class="top"><span>Aperture · atlas-migration</span><span class="who">Alex Chen · data-platform</span></div>
+        <div class="cols">
+          <div class="stream">
+            <div class="card">
+              <div class="from"><span class="av">AC</span>Alex's coding agent · via <code>request_access</code> · 14:31</div>
+              <div class="quote"><span class="q">Unverified requester text</span>I need access to the analytics-raw GCS bucket and the project-x-finance BigQuery dataset to build the ingestion pipeline for Project Atlas, done by Nov 15.</div>
+              <div class="reason">Parsed: <code>bucket-analytics-raw</code>, <code>bq-project-x-finance</code> · 14 days · project atlas-migration</div>
+            </div>
+            <div class="card">
+              <div class="from"><span class="av sys">A</span>Policy engine · 14:31</div>
+              <div class="line"><span class="dot ok"></span><span><b>analytics-raw</b> granted for 14 days</span><span class="reason">internal · same team · 14d ≤ 30d</span></div>
+              <div class="line"><span class="dot pend"></span><span><b>project-x-finance</b> escalated to Finance + your manager</span><span class="reason">restricted · cross-team · 2 approvals</span></div>
+              <div class="line"><span class="dot den"></span><span><b>prod-primary</b> not requested — would be denied</span><span class="reason">critical always escalates</span></div>
+            </div>
+            <div class="card">
+              <div class="from"><span class="av j">JL</span>Jordan Lee approved · Finance · 14:34</div>
+              <div class="reason">"Atlas is on the finance roadmap." · 1 of 2 · waiting on Priya Nair</div>
+            </div>
+            <div class="card">
+              <div class="from"><span class="av sys">A</span>Tool list changed · alex-chen-agent · 14:31</div>
+              <div class="tools"><div><span>gcs_list_objects</span><span class="new">+ added</span></div><div><span>gcs_read_object</span><span class="new">+ added</span></div><div><span>bq_query</span><span>pending</span></div></div>
+            </div>
+            <div class="compose">Ask for access, or ask why…</div>
+          </div>
+          <aside class="rail">
+            <h4>Now</h4>
+            <div class="now"><div><span>Active</span><b>1</b></div><div><span>Pending</span><b>1 · 1 of 2</b></div><div><span>Next expiry</span><b>3 Oct · 13d</b></div><div><span>Chain</span><b style="color:var(--ok)">verified</b></div></div>
+            <h4>Composed for you</h4>
+            <div class="now"><div><span>analytics-raw</span><b>13d</b></div><div><span>project-x-finance</span><b style="color:var(--pend)">pending</b></div></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="b-2" hidden>
+      <div class="frame feed">
+        <div class="top"><span>Aperture · Needs you (1)</span><span class="who">Priya Nair · Engineering Manager</span></div>
+        <div class="cols">
+          <div class="stream">
+            <div class="card">
+              <div class="from"><span class="av">AC</span>Alex Chen · data-platform · asks for <b>project-x-finance</b> · 14 days</div>
+              <div class="ctx">
+                <div><span class="k">Why escalated</span><br>Cross-team (data-platform → finance) · needs Finance + you</div>
+                <div><span class="k">Tier</span><br>restricted · max auto-grant 7d</div>
+                <div><span class="k">Already holds</span><br>analytics-raw (write, 13d)</div>
+                <div><span class="k">Peers</span><br>0 of 6 on data-platform hold this</div>
+                <div><span class="k">Finance</span><br>Jordan Lee approved 14:34</div>
+                <div><span class="k">Expires</span><br>3 Oct 2026</div>
+              </div>
+              <div class="quote"><span class="q">Unverified requester text</span>"…build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
+              <div class="btns"><button class="btn deny">Reject…</button><span class="reason">Reason optional at this tier</span><button class="btn ok">Approve</button></div>
+            </div>
+            <div class="card" style="opacity:0.7">
+              <div class="from"><span class="av sys">A</span>Earlier · 14:31</div>
+              <div class="reason">analytics-raw auto-granted to Alex (internal, same team). No action needed.</div>
+            </div>
+          </div>
+          <aside class="rail">
+            <h4>Your queue</h4>
+            <div class="now"><div><span>Needs you</span><b>1</b></div><div><span>Waiting on others</span><b>0</b></div><div><span>Decided today</span><b>3</b></div></div>
+            <h4>Policy in force</h4>
+            <div class="now"><div><span>internal</span><b>auto ≤ 30d</b></div><div><span>restricted</span><b>auto ≤ 7d · 2 approvers</b></div><div><span>critical</span><b>always escalate</b></div></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="b-3" hidden>
+      <div class="frame feed">
+        <div class="top"><span>Aperture · alex-chen-agent</span><span class="who">Agent view · MCP on Modal</span></div>
+        <div class="cols">
+          <div class="stream">
+            <div class="card">
+              <div class="from"><span class="av sys">A</span>Tools available now · from 2 grants</div>
+              <div class="tools">
+                <div><span>gcs_list_objects</span><span>analytics-raw · 13d</span></div>
+                <div><span>gcs_read_object</span><span>analytics-raw · 13d</span></div>
+                <div><span>bq_query</span><span>project-x-finance · 13d</span></div>
+                <div><span>request_access</span><span>always</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="from"><span class="av sys">A</span>Project atlas-migration closed · 16:02</div>
+              <div class="tools"><div><span>gcs_list_objects</span><span style="color:var(--den)">− removed</span></div><div><span>gcs_read_object</span><span style="color:var(--den)">− removed</span></div><div><span>bq_query</span><span style="color:var(--den)">− removed</span></div></div>
+              <div class="reason">2 grants revoked · chain verified · 14 events</div>
+            </div>
+          </div>
+          <aside class="rail">
+            <h4>Story · request 3f9a</h4>
+            <div class="now"><div><span>14:31 received</span></div><div><span>14:31 granted · analytics-raw</span></div><div><span>14:31 escalated · finance</span></div><div><span>14:34 Jordan ✓</span></div><div><span>14:37 Priya ✓ → granted</span></div><div><span>14:40 bq_query · 1 row</span></div><div><span>16:02 project closed · 2 revoked</span></div></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <p class="cap">The approver card is the industry's own pattern with the two missing rows added (why escalated, peers). Cheapest to build and the most familiar to Priya. The risk is the room hearing "chatbot" — the Now rail is what keeps it a dashboard.</p>
+  </section>
+
+  <!-- ================= C · APERTURE ================= -->
+  <section class="dir" id="dir-c" hidden>
+    <div class="dir-head">
+      <div>
+        <div class="eyebrow">Direction C</div>
+        <h2>Aperture</h2>
+        <p class="thesis">The scope is the picture. An iris at the top opens a wedge per grant and closes it on revoke; a diff ribbon says what changed and when it was composed. Left column is static chrome — identity, the request box, approve and deny. Right column is the generated well, labelled as such. Flip it to the agent's view and the same panels become tool rows.</p>
+      </div>
+      <div class="facts">
+        <div><span class="k">Borrows</span><span>Host-chrome / agent-well split (Apps SDK, CopilotKit); Thesys per-user composition; Teleport's elevated state; P0's relinquish</span></div>
+        <div><span class="k">Trades away</span><span>Familiarity — the iris has to earn itself in five seconds; more CSS than A or B</span></div>
+        <div><span class="k">Cost tonight</span><span>M — the well is the existing registry; the iris is one SVG; the ribbon is a diff of panel ids</span></div>
+        <div><span class="k">Best beat</span><span>Close project: wedges close, panels fade, tools strike through, ribbon shows the minus — one frame</span></div>
+      </div>
+    </div>
+    <div class="screens" role="tablist" aria-label="Aperture screens">
+      <button data-screen="c-1" aria-pressed="true">Requester · Dashboard</button>
+      <button data-screen="c-2" aria-pressed="false">Approver · Decide</button>
+      <button data-screen="c-3" aria-pressed="false">Agent view &amp; story</button>
+    </div>
+
+    <div class="framewrap" id="c-1">
+      <div class="frame ap">
+        <div class="bar"><span class="brand">Aperture</span><span>Alex Chen · data-platform · <span style="font-family:var(--mono)">u-newhire-1</span></span><span class="verify">chain verified · 11 events</span></div>
+        <div class="iris">
+          <svg viewBox="0 0 120 120" aria-label="Scope iris: two open wedges, one pending, one denied">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#e5e5df" stroke-width="10"/>
+            <path id="w1" d="M60 8 A52 52 0 0 1 112 60" fill="none" stroke="#1e6e45" stroke-width="10" stroke-linecap="butt"/>
+            <path id="w2" d="M112 60 A52 52 0 0 1 60 112" fill="none" stroke="#1e6e45" stroke-width="10"/>
+            <path id="w3" d="M60 112 A52 52 0 0 1 8 60" fill="none" stroke="#8a5a00" stroke-width="10" stroke-dasharray="4 4"/>
+            <path d="M8 60 A52 52 0 0 1 60 8" fill="none" stroke="#dcdcd4" stroke-width="10"/>
+            <circle cx="60" cy="60" r="34" fill="#fbfbf9"/>
+            <text x="60" y="57" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="22" font-weight="600" fill="#15181c" id="irisN">2</text>
+            <text x="60" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="7" fill="#8b9199">OPEN · 13D</text>
+          </svg>
+          <div class="sum">
+            <div class="big" id="sumBig">2 open <span>· 1 pending · next expiry 3 Oct</span></div>
+            <div class="legend"><span><i style="background:#1e6e45"></i>analytics-raw · write</span><span><i style="background:#1e6e45"></i>analytics-raw · read</span><span><i style="background:#8a5a00"></i>project-x-finance · 1 of 2</span><span><i style="background:#dcdcd4"></i>prod-primary · denied</span></div>
+            <div><button class="btn" id="closeBtn">Simulate: close project atlas-migration</button></div>
+          </div>
+        </div>
+        <div class="ribbon" id="ribbon"><span class="plus">+ gcs_list_objects</span><span class="plus">+ gcs_read_object</span><span style="color:var(--pend)">~ bq_query pending</span><span class="meta">composed 14:32 · from 1 grant, 1 case · why →</span></div>
+        <div class="cols">
+          <div class="chrome">
+            <div class="lab">Static</div>
+            <div class="id"><b>Alex Chen</b><span>Software Engineer · new hire · data-platform</span><span>manager · Priya Nair</span></div>
+            <div class="ask">
+              <div class="in">Ask for access, or ask why…</div>
+              <div class="confirm"><span class="lab">Understood as</span><span class="mono">bucket-analytics-raw · bq-project-x-finance</span><span>14 days · atlas-migration</span><span class="prim"><button class="btn p">Submit</button><button class="btn">Edit</button></span></div>
+            </div>
+            <div class="prim"><button class="btn">Relinquish all</button></div>
+          </div>
+          <div class="well">
+            <div class="lab"><span>Composed for u-newhire-1 · 3 panels</span><span>gemini 2.5 · catalog v1 · 14:32</span></div>
+            <div class="grid" id="wellGrid">
+              <div class="panel" data-g="1"><div class="name">analytics-raw</div><div class="meta">GCS bucket · write · <span class="badge tier">internal</span></div><div class="meta">13d 6h left · auto-granted, same team</div><div class="fill"><i style="width:95%"></i></div></div>
+              <div class="panel pend" data-g="2"><div class="name">project-x-finance</div><div class="meta">BigQuery dataset · read · <span class="badge tier">restricted</span></div><div class="meta">pending · Jordan ✓ · waiting on Priya</div><div class="fill"><i style="width:50%"></i></div></div>
+              <div class="panel den"><div class="name">prod-primary · denied</div><div class="meta">critical tier always escalates; vetoed by Finance</div><div class="alt">Ask instead for <a>read-only replica · 3 days</a></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="c-2" hidden>
+      <div class="frame ap">
+        <div class="bar"><span class="brand">Aperture</span><span>Priya Nair · Engineering Manager · <span style="font-family:var(--mono)">u-manager-1</span></span><span class="verify">chain verified · 11 events</span></div>
+        <div class="iris" style="padding-bottom:0.2rem"><div></div><div class="sum"><div class="big">1 needs you <span>· 0 waiting on others · 3 decided today</span></div></div></div>
+        <div class="ribbon"><span style="color:var(--pend)">~ bq-project-x-finance · Jordan approved 14:34 · you are 2 of 2</span><span class="meta">composed for approver · 14:35</span></div>
+        <div class="cols">
+          <div class="chrome">
+            <div class="lab">Static</div>
+            <div class="queue"><div class="on"><span>project-x-finance</span><small>4 min</small></div><div style="opacity:0.6"><span>analytics-raw</span><small>auto</small></div></div>
+            <div class="lab">Decision</div>
+            <div class="prim"><button class="btn deny">Deny…</button><button class="btn a">Approve</button></div>
+            <div class="lab" style="color:var(--i2)">restricted tier · reason optional. critical tier would require a justification before Approve enables.</div>
+          </div>
+          <div class="well">
+            <div class="lab"><span>Composed for approver · context</span><span>from the typed decision, not the request text</span></div>
+            <div class="ctx">
+              <div class="row"><span class="k">Why escalated</span><span>Cross-team request (data-platform → finance) — requires 2 approvals</span></div>
+              <div class="row"><span class="k">Summary</span><span>A new hire on your team wants read access to Finance's Project X dataset for two weeks to build the Atlas ingestion pipeline. Low blast radius: read-only, restricted tier, expires 3 Oct.</span></div>
+              <div class="row"><span class="k">Tier</span><span><span class="badge tier">restricted</span> · max auto-grant 7d · asked for 14d</span></div>
+              <div class="row"><span class="k">Requester</span><span>Alex Chen · new hire · data-platform · reports to you</span></div>
+              <div class="row"><span class="k">Holds now</span><span style="font-family:var(--mono);font-size:12px">bucket-analytics-raw · write · 13d</span></div>
+              <div class="row"><span class="k">Peers</span><span>0 of 6 on data-platform hold this · 4 of 5 on finance do</span></div>
+              <div class="row"><span class="k">Finance</span><span>Jordan Lee approved 14:34 — "Atlas is on the finance roadmap."</span></div>
+              <div class="row"><span class="k">Expires</span><span>3 Oct 2026 · revokes with project close</span></div>
+            </div>
+            <div class="claim"><span class="q">Unverified requester text</span>"I need access to the analytics-raw GCS bucket and the project-x-finance BigQuery dataset to build the ingestion pipeline for Project Atlas, done by Nov 15."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="c-3" hidden>
+      <div class="frame ap">
+        <div class="bar"><span class="brand">Aperture</span><span class="toggle"><button aria-pressed="false">Person view</button><button aria-pressed="true">Agent view</button></span><span class="verify">chain verified · 14 events</span></div>
+        <div class="iris" style="padding-bottom:0.2rem"><div></div><div class="sum"><div class="big">alex-chen-agent <span>· MCP on Modal · 3 tools from 2 grants</span></div></div></div>
+        <div class="ribbon"><span class="minus">− gcs_list_objects</span><span class="minus">− gcs_read_object</span><span class="minus">− bq_query</span><span class="meta">project atlas-migration closed 16:02 · tools/list_changed sent</span></div>
+        <div class="cols">
+          <div class="chrome">
+            <div class="lab">Story · request 3f9a</div>
+            <div class="trail">
+              <div class="ev"><span class="t">14:31</span><span class="d"><b>received</b> · 2 resources · 14d</span></div>
+              <div class="ev ok"><span class="t">14:31</span><span class="d"><b>granted</b> analytics-raw · same team</span></div>
+              <div class="ev pend"><span class="t">14:31</span><span class="d"><b>escalated</b> project-x-finance · cross-team</span></div>
+              <div class="ev ok"><span class="t">14:34</span><span class="d"><b>Jordan</b> approved</span></div>
+              <div class="ev ok"><span class="t">14:37</span><span class="d"><b>Priya</b> approved → granted</span></div>
+              <div class="ev"><span class="t">14:40</span><span class="d"><b>bq_query</b> · 1 row · by agent</span></div>
+              <div class="ev den"><span class="t">16:02</span><span class="d"><b>project closed</b> · 2 revoked</span></div>
+              <div class="ev ok"><span class="t">16:02</span><span class="d"><b>chain</b> verified · 14 events</span></div>
+            </div>
+          </div>
+          <div class="well">
+            <div class="lab"><span>Composed for alex-chen-agent · tools</span><span>same data as the person view</span></div>
+            <div class="tools">
+              <div class="tool gone"><span>gcs_list_objects</span><span class="st">revoked 16:02</span><span class="d">List objects in analytics-raw for the Atlas ingestion pipeline. Expired with project close.</span></div>
+              <div class="tool gone"><span>gcs_read_object</span><span class="st">revoked 16:02</span><span class="d">Read raw analytics events for the Atlas ingestion pipeline.</span></div>
+              <div class="tool gone"><span>bq_query</span><span class="st">revoked 16:02</span><span class="d">Query project_x_finance read-only. Was approved by Jordan Lee and Priya Nair.</span></div>
+              <div class="tool"><span>request_access</span><span class="st">always</span><span class="d">Ask for task-bounded access. Returns status, reason and alternatives on denial.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">The static/composed split is the security story made visible; the iris is the "your version is specific to you" story made visible. Press the simulate button on the requester screen to see the closing beat: wedges close, panels dim, ribbon flips to minus.</p>
+  </section>
+
+  <!-- ================= D · TERMINAL ================= -->
+  <section class="dir" id="dir-d" hidden>
+    <div class="dir-head">
+      <div>
+        <div class="eyebrow">Direction D</div>
+        <h2>Terminal</h2>
+        <p class="thesis">The requester is a coding agent, so the primary surface is its world: a proof terminal showing denied → allowed → denied against the real bucket, the MCP tool list beside it, an elevated-state banner with Relinquish. Approval is a card in the side pane.</p>
+      </div>
+      <div class="facts">
+        <div><span class="k">Borrows</span><span>Britive's terminal-first stance; Teleport's elevated banner and Switch back; P0's relinquish; the REAL_GCP proof terminal from CLAUDE.md</span></div>
+        <div><span class="k">Trades away</span><span>Priya. A manager persona has no home here; the generative layer is almost invisible</span></div>
+        <div><span class="k">Cost tonight</span><span>S — it's mostly the proof terminal the GCP track is already building</span></div>
+        <div><span class="k">Best beat</span><span>The last <code>gcloud storage ls</code> returning AccessDenied after close-project</span></div>
+      </div>
+    </div>
+    <div class="screens" role="tablist" aria-label="Terminal screens">
+      <button data-screen="d-1" aria-pressed="true">Agent · Proof terminal</button>
+      <button data-screen="d-2" aria-pressed="false">Approver · Side card</button>
+    </div>
+
+    <div class="framewrap" id="d-1">
+      <div class="frame term">
+        <div class="banner"><span>ELEVATED · alex-chen-agent · 2 grants active · expires in 13d 06h · project atlas-migration</span><span class="rel">Relinquish</span></div>
+        <div class="cols">
+          <div class="shell">
+<span class="c"># 14:30 — before any grant</span>
+<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
+<span class="out den">ERROR: (gcloud.storage.ls) HTTPError 403: alex-chen-agent does not have storage.objects.list access</span>
+<span class="sys">request 3f9a · bucket-analytics-raw granted 14d · same team, internal · IAM binding applied (propagation ≤ 2 min)</span>
+<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
+<span class="out ok">gs://atlas-analytics-raw/events/2026-09-18.parquet
+gs://atlas-analytics-raw/events/2026-09-19.parquet</span>
+<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
+<span class="out den">Access Denied: Dataset project_x_finance · pending approval (Jordan ✓, Priya …) · 1 of 2</span>
+<span class="sys">bq-project-x-finance approved by u-manager-1 · granted 14d · binding applied</span>
+<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
+<span class="out ok">+-------+
+| 48213 |
++-------+</span>
+<span class="sys">project atlas-migration closed · 2 grants revoked · tools/list_changed · chain verified 14 events</span>
+<span class="cmd">gcloud storage ls gs://atlas-analytics-raw --impersonate-service-account=alex-chen-agent@…</span>
+<span class="out den">ERROR: (gcloud.storage.ls) HTTPError 403: alex-chen-agent does not have storage.objects.list access</span>
+          </div>
+          <aside class="side">
+            <h4>tools/list · MCP on Modal</h4>
+            <div class="tools"><div><span>gcs_list_objects</span><span class="gone">revoked</span></div><div><span>gcs_read_object</span><span class="gone">revoked</span></div><div><span>bq_query</span><span class="gone">revoked</span></div><div><span>request_access</span><span class="ok">available</span></div></div>
+            <h4>audit · request 3f9a</h4>
+            <div class="audit"><div>14:31 <b>received</b> 2 res · 14d</div><div>14:31 <b>granted</b> analytics-raw</div><div>14:31 <b>escalated</b> project-x-finance</div><div>14:34 <b>vote</b> jordan ✓</div><div>14:37 <b>vote</b> priya ✓ → granted</div><div>14:40 <b>executed</b> bq_query</div><div>16:02 <b>closed</b> 2 revoked</div><div>16:02 <b>verify</b> ok · 14</div></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="framewrap" id="d-2" hidden>
+      <div class="frame term">
+        <div class="banner"><span>NEEDS YOU · 1 · priya nair</span><span class="rel">Open queue</span></div>
+        <div class="cols">
+          <div class="shell">
+<span class="c"># the agent is waiting on you</span>
+<span class="cmd">bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM project_x_finance.ledger'</span>
+<span class="out den">Access Denied: Dataset project_x_finance · pending approval (Jordan ✓, Priya …) · 1 of 2</span>
+<span class="sys">agent idle · will retry on tools/list_changed</span>
+          </div>
+          <aside class="side">
+            <div class="card">
+              <span class="k">Access request · restricted</span>
+              <b>Alex Chen → project-x-finance · read · 14d</b>
+              <span><span class="k">Why escalated</span><br>cross-team (data-platform → finance) · 2 approvals</span>
+              <span><span class="k">Peers</span><br>0 of 6 on data-platform hold this</span>
+              <span><span class="k">Finance</span><br>Jordan Lee approved 14:34</span>
+              <span><span class="k">Unverified requester text</span><br><i>"…ingestion pipeline for Project Atlas, done by Nov 15."</i></span>
+              <div class="btns"><button class="btn deny">Deny</button><button class="btn ok">Approve</button></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Unbeatable for the closing beat and for the REAL_GCP proof, weak for everything a manager touches. Its right pane is exactly the "Agent view" inside direction C — which is why the recommendation below folds D into C rather than choosing between them.</p>
+  </section>
+
+  <section id="compare">
+    <h2>Side by side</h2>
+    <div class="tablewrap">
+      <table class="mx">
+        <thead><tr><th>Criterion</th><th>A · Console</th><th>B · Feed</th><th>C · Aperture</th><th>D · Terminal</th></tr></thead>
+        <tbody>
+          <tr><td>Fixes approval fatigue</td><td class="mid">Detail panel, one click away</td><td class="hi">Reason + peers above the buttons</td><td class="hi">Reason, summary, peers, claim block, tiered friction</td><td class="mid">Card is small; fine for one request</td></tr>
+          <tr><td>Generation is visible</td><td class="lo">One labelled strip</td><td class="mid">Cards, but chat-shaped</td><td class="hi">Labelled well, ribbon, iris re-composes</td><td class="lo">Nearly invisible</td></tr>
+          <tr><td>Closing beat</td><td class="lo">Rows change status</td><td class="mid">A "removed" card</td><td class="hi">Wedges close, panels fade, tools strike, one frame</td><td class="hi">AccessDenied returns in the terminal</td></tr>
+          <tr><td>Familiar to judges</td><td class="hi">Very</td><td class="hi">Very</td><td class="mid">Earns it in five seconds or doesn't</td><td class="mid">Developers yes, managers no</td></tr>
+          <tr><td>Cost tonight</td><td class="hi">S–M</td><td class="hi">S</td><td class="mid">M</td><td class="hi">S (shared with GCP track)</td></tr>
+          <tr><td>Demo risk</td><td class="hi">Low</td><td class="hi">Low</td><td class="mid">Medium — animation must be smooth</td><td class="mid">Medium — real IAM propagation timing</td></tr>
+          <tr><td>Best persona</td><td>Auditor</td><td>Approver</td><td>Requester + approver</td><td>The agent</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="rec">
+      <h3>Recommendation: C, with D inside it and B's card anatomy</h3>
+      <p>Build direction C as the app. Its right column is already the registry renderer in the repo; add the label, the ribbon (a diff of panel ids over SSE), and the iris (one SVG with a wedge per grant). Put D's proof terminal and tool list behind C's "Agent view" toggle so the closing beat shows panel, wedge, tool row and <code>gcloud</code> all changing in the same second. Use B's card anatomy — reason and peers directly above Reject-left / Approve-right — for the approver screen, since it's the shape approvers already trust. Keep A's table as the audit and grants fallback: it's what <code>/audit</code> and <code>/grants</code> already return.</p>
+      <p><b>Build order for track 1:</b> SSE consumer → approver screen (B's card) → C's two-column shell with the label → ribbon → iris → agent-view toggle → the close-project animation. The iris and the animation are the only parts that aren't already data on the wire.</p>
+    </div>
+  </section>
+
+  <section id="sources">
+    <h2>Sources</h2>
+    <ul class="sources">
+      <li><a href="https://docs.apono.io/docs/access-requests-and-approvals/slack/approving-access-with-slack">Apono — approving in Slack</a></li>
+      <li><a href="https://docs.p0.dev/getting-started/getting-started-with-just-in-time-access">P0 — JIT access</a></li>
+      <li><a href="https://docs.opal.dev/docs/end-user-faq">Opal — end-user FAQ</a></li>
+      <li><a href="https://www.opal.dev/blog/featuring-painless-access-requests-it-all-comes-down-to-context">Opal — it all comes down to context</a></li>
+      <li><a href="https://docs.britive.com/docs/profile-mgmt-myaccess">Britive — My Access</a></li>
+      <li><a href="https://goteleport.com/docs/identity-governance/access-requests/role-requests/">Teleport — role requests</a></li>
+      <li><a href="https://docs.cloud.google.com/iam/docs/pam-view-grants">Google Cloud PAM — view grants</a></li>
+      <li><a href="https://help.okta.com/en-us/content/topics/identity-governance/access-requests/ar-submit-request.htm">Okta IGA — submit a request</a></li>
+      <li><a href="https://www.c1.ai/products/access-requests/">ConductorOne — access requests</a></li>
+      <li><a href="https://a2ui.org/reference/components/">A2UI — component reference</a></li>
+      <li><a href="https://developers.openai.com/apps-sdk/plan/components">OpenAI Apps SDK — components</a></li>
+      <li><a href="https://www.copilotkit.ai/generative-ui-spectrum">CopilotKit — generative UI spectrum</a></li>
+      <li><a href="https://vercel.com/blog/ai-sdk-3-generative-ui">Vercel — AI SDK generative UI</a></li>
+      <li><a href="https://abduzeedo.com/thesys-generative-ui-c1-api">Thesys C1</a></li>
+      <li><a href="https://github.com/narrowin/awesome-generative-ui">awesome-generative-ui</a></li>
+    </ul>
+  </section>
+</div>
+
+<script>
+  (function () {
+    var dirs = ["a", "b", "c", "d"];
+    document.querySelectorAll(".dirnav button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var d = b.getAttribute("data-dir");
+        document.querySelectorAll(".dirnav button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        dirs.forEach(function (k) { document.getElementById("dir-" + k).hidden = (k !== d); });
+        document.getElementById("dir-" + d).scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    });
+    document.querySelectorAll(".screens").forEach(function (group) {
+      group.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          group.querySelectorAll("button").forEach(function (x) {
+            var id = x.getAttribute("data-screen");
+            var on = (x === b);
+            x.setAttribute("aria-pressed", String(on));
+            document.getElementById(id).hidden = !on;
+          });
+        });
+      });
+    });
+    var closeBtn = document.getElementById("closeBtn");
+    if (closeBtn) closeBtn.addEventListener("click", function () {
+      document.querySelectorAll("#wellGrid .panel[data-g]").forEach(function (p) { p.classList.add("gone"); p.classList.remove("pend"); });
+      ["w1", "w2", "w3"].forEach(function (id) { var w = document.getElementById(id); w.setAttribute("stroke", "#dcdcd4"); w.removeAttribute("stroke-dasharray"); });
+      document.getElementById("irisN").textContent = "0";
+      document.getElementById("sumBig").innerHTML = '0 open <span>· project atlas-migration closed 16:02 · 2 revoked</span>';
+      document.getElementById("ribbon").innerHTML = '<span class="minus">− gcs_list_objects</span><span class="minus">− gcs_read_object</span><span class="minus">− bq_query</span><span class="meta">recomposed 16:02 · 0 grants · chain verified 14 events</span>';
+      closeBtn.disabled = true; closeBtn.textContent = "Project closed — panels revoked, wedges closed";
+    });
+  })();
+</script>

@@ -1,6 +1,6 @@
-# Aperture — Dynamic Access Scope Agent
+# Meerkat — Dynamic Access Scope Agent
 
-**Aperture** — an opening sized to what you're allowed to see — is an agent that gives
+**Meerkat** — an opening sized to what you're allowed to see — is an agent that gives
 **task-bounded access** to corporate tools (mocked GCP: GCS buckets,
 BigQuery datasets, Cloud SQL, IAM roles). A requester (e.g. a new hire's coding agent)
 describes a task in natural language; the system parses it, runs it through a

@@ -17,6 +17,7 @@ import os
 import sys
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -29,11 +30,12 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 import cu_frames  # noqa: E402
 
 import gcp_iam  # noqa: E402
+import policy_demo  # noqa: E402
 from policy_engine_paths import escalation, policy_engine, usecase_demo  # noqa: E402
 from shared.schemas import (  # noqa: E402
     AccessContext,
@@ -57,6 +59,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DEMO_KEY = os.environ.get("DEMO_KEY")  # when set, every write needs X-Demo-Key; unset = open (local dev)
+
+
+@app.middleware("http")
+async def demo_key_guard(request: Request, call_next):
+    if DEMO_KEY and request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("x-demo-key") != DEMO_KEY:
+        return JSONResponse({"detail": "forbidden: missing or wrong X-Demo-Key"}, status_code=403)
+    return await call_next(request)
+
 # --- in-memory store -------------------------------------------------------------------
 REQUESTS: dict[str, AccessRequest] = {}
 GRANTS: dict[str, Grant] = {}
@@ -75,6 +86,8 @@ KNOWN_REQUESTERS: dict[str, Requester] = {
 
 
 _CLOCK_OVERRIDE: datetime | None = None  # set only while POST /demo/seed writes history
+MAX_APPROVED_DAYS = 30  # an approval can exceed the tier's auto-grant limit, never this
+RESERVED_ACTORS = {"policy-engine", "gcp-iam"}
 
 
 def now() -> datetime:
@@ -138,7 +151,12 @@ def _parse_nl(raw_text: str, requester: Requester) -> AccessRequest:
     _agent_runtime_on_path()
     from gemini_parser import parse_request
 
-    return parse_request(raw_text, requester, known)
+    parsed = parse_request(raw_text, requester, known)
+    # Gemini sometimes puts the ticket id in `project`; only known projects are valid.
+    known_projects = {r.project for r in usecase_demo.RESOURCES.values()}
+    if parsed.project not in known_projects:
+        parsed = parsed.model_copy(update={"project": next(iter(known_projects))})
+    return parsed
 
 
 def _enqueue_execute(grant: Grant) -> None:
@@ -257,12 +275,18 @@ def _console_request_access(
 
 def _console_list_scope(viewer: Requester) -> dict:
     grants = [g.model_dump(mode="json") for g in active_grants(viewer.id)]
-    cases = [
-        c.model_dump(mode="json")
-        for c in ESCALATIONS.values()
-        if c.status == "pending" and c.requester_id == viewer.id
+    mine = [c for c in ESCALATIONS.values() if c.status == "pending" and c.requester_id == viewer.id]
+    awaiting_me = [
+        c for c in ESCALATIONS.values()
+        if c.status == "pending" and viewer.id in c.required_approver_ids and not any(v.approver_id == viewer.id for v in c.votes)
     ]
-    return {"grants": grants, "cases": cases}
+    cases = [c.model_dump(mode="json") for c in mine + awaiting_me]
+    return {
+        "grants": grants,
+        "cases": cases,
+        "my_requests_pending": [c.id for c in mine],
+        "awaiting_my_vote": [{"case_id": c.id, "resource_id": c.resource_id, "requester_id": c.requester_id, "tier": usecase_demo.RESOURCES[c.resource_id].sensitivity.value if c.resource_id in usecase_demo.RESOURCES else None} for c in awaiting_me],
+    }
 
 
 def _policy_event_for_viewer(event: AuditEvent, viewer: Requester) -> bool:
@@ -341,9 +365,10 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         )
 
     def request_access(raw_text: str) -> dict:
-        return _console_request_access(
-            raw_text, viewer, evaluate=False, conversation_id=conversation_id
-        )
+        # The parser calls agent.run_sync; Pydantic AI forbids that inside a sync tool on the
+        # same thread, so run it on a fresh one (fresh contextvars).
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            return ex.submit(_console_request_access, raw_text, viewer, evaluate=False, conversation_id=conversation_id).result()
 
     _agent_runtime_on_path()
     from console_agent import ConsoleAgentDeps, run_console_turn
@@ -372,7 +397,13 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
 
 def _evaluate_request(request: AccessRequest) -> dict:
     requester = request.requester
-    request = request.model_copy(update={"id": str(uuid.uuid4()), "requester": requester})
+    if request.requested_duration_days < 1:
+        raise HTTPException(400, "requested_duration_days must be at least 1")
+    request = request.model_copy(update={
+        "id": str(uuid.uuid4()),
+        "requester": requester,
+        "resource_ids": list(dict.fromkeys(request.resource_ids)),  # one decision per resource, even if asked twice
+    })
     REQUESTS[request.id] = request
     _audit(
         AuditEventType.REQUEST_RECEIVED,
@@ -401,13 +432,18 @@ def _evaluate_request(request: AccessRequest) -> dict:
         )
 
         if decision.decision == DecisionType.AUTO_GRANT:
+            existing = next((g for g in active_grants(requester.id) if g.resource_id == decision.resource_id), None)
+            if existing is not None:
+                # Asking twice doesn't mint twice; the lease they already hold is the answer.
+                results.append({"resource_id": decision.resource_id, "status": "granted", "grant_id": existing.id, "already_held": True})
+                continue
             grant = _issue_grant(
                 request.id,
                 requester.id,
                 decision.resource_id,
                 ttl_days=request.requested_duration_days,
                 ttl_hours=decision.ttl_hours,
-                metadata=request.metadata,
+                metadata={**request.metadata, "ticket_id": request.context.active_jira_ticket},  # the reaper sunsets by ticket
             )
             results.append({"resource_id": decision.resource_id, "status": "granted", "grant_id": grant.id})
 
@@ -454,6 +490,9 @@ def vote(escalation_id: str, vote: ApprovalVote) -> EscalationCase:
         raise HTTPException(403, "not a required approver for this case")
     # TODO(track 5): also require an X-Actor header set by the role picker to match approver_id
 
+    if case.status != "pending":
+        return case  # decided cases don't take more votes; a replayed approve must not mint another grant
+
     vote = vote.model_copy(update={"escalation_id": escalation_id, "voted_at": now()})
     case = escalation.apply_vote(case, vote)
     ESCALATIONS[escalation_id] = case
@@ -467,7 +506,14 @@ def vote(escalation_id: str, vote: ApprovalVote) -> EscalationCase:
     )
 
     if case.status == "approved":
-        _issue_grant(case.request_id, case.requester_id, case.resource_id, case.requested_duration_days)
+        request = REQUESTS.get(case.request_id)
+        _issue_grant(
+            case.request_id,
+            case.requester_id,
+            case.resource_id,
+            ttl_days=min(case.requested_duration_days, MAX_APPROVED_DAYS),
+            metadata={**(request.metadata if request else {}), "ticket_id": request.context.active_jira_ticket if request else None},
+        )
 
     return case
 
@@ -590,20 +636,33 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
 
 @app.post("/projects/{project}/close")
 def close_project(project: str) -> dict:
-    """The closing beat: every grant tied to `project` is revoked in one action."""
+    """The closing beat: every grant tied to `project` is revoked in one action, and
+    its pending approvals are closed so a late approve can't mint a grant on a dead project."""
     revoked = []
     for grant in active_grants():
         request = REQUESTS.get(grant.request_id)
         if request is not None and request.project == project:
             revoke_grant(grant.id, reason=f"project {project} closed")
             revoked.append(grant.id)
-    _audit(AuditEventType.PROJECT_CLOSED, actor="policy-engine", detail=f"{len(revoked)} grant(s) revoked", payload={"project": project, "grant_ids": revoked})
-    return {"project": project, "revoked": revoked}
+    closed_cases = []
+    for case in list(ESCALATIONS.values()):
+        request = REQUESTS.get(case.request_id)
+        if case.status == "pending" and request is not None and request.project == project:
+            ESCALATIONS[case.id] = case.model_copy(update={"status": "denied"})
+            closed_cases.append(case.id)
+            _audit(AuditEventType.REQUEST_DENIED, actor="policy-engine", detail=f"project {project} closed while pending", request_id=case.request_id, escalation_id=case.id, payload={"resource_id": case.resource_id})
+    _audit(AuditEventType.PROJECT_CLOSED, actor="policy-engine", detail=f"{len(revoked)} grant(s) revoked, {len(closed_cases)} pending closed", payload={"project": project, "grant_ids": revoked, "case_ids": closed_cases})
+    return {"project": project, "revoked": revoked, "closed_cases": closed_cases}
 
 
 @app.post("/audit")
 def append_audit(event: AuditEvent) -> AuditEvent:
-    """Ingest an agent-runtime event; id / prev_hash / timestamp stay server-assigned."""
+    """Ingest an agent-runtime event; id / prev_hash / timestamp stay server-assigned.
+    Only ACTION_EXECUTED may arrive from outside, and never as the engine or GCP."""
+    if event.type != AuditEventType.ACTION_EXECUTED:
+        raise HTTPException(400, "only action_executed may be posted; decisions are made here")
+    if event.actor in RESERVED_ACTORS:
+        raise HTTPException(400, f"actor '{event.actor}' is reserved")
     return _audit(
         event.type,
         event.actor,
@@ -809,3 +868,12 @@ def demo_seed() -> dict:
     finally:
         _CLOCK_OVERRIDE = None
     return {"grants": len(GRANTS), "cases": len(ESCALATIONS), "events": len(AUDIT_LOG)}
+
+
+@app.get("/demo/policy/final-story")
+def demo_policy_final_story() -> dict:
+    """The Friday Finance Freeze (usecase-demo/PolicyBasedUserCaseDemo.md): eight
+    scenarios run through the real policy engine on a fixed clock, plus the doc's
+    success criteria checked against the engine's own output. Read-only: touches no
+    store, writes no audit events, calls no model. Backs the console's Policy tab."""
+    return policy_demo.build_final_story()

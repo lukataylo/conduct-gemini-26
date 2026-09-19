@@ -45,6 +45,7 @@ def _headers() -> dict[str, str]:
     h = {"content-type": "application/json"}
     if TOKEN:
         h["authorization"] = f"Bearer {TOKEN}"
+        h["x-demo-key"] = TOKEN  # the hub's write guard (DEMO_KEY) — same secret tonight
     return h
 
 

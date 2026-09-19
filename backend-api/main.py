@@ -60,6 +60,8 @@ WATCH_URLS: dict[str, str] = {}
 PARSE_IMPL: Callable[[str, Requester], AccessRequest] | None = None
 EXECUTE_ENQUEUE_IMPL: Callable[[Grant], None] | None = None
 COMPOSE_IMPL: Callable[..., UISpec] | None = None
+AGENT_TURN_IMPL: Callable[..., object] | None = None
+CONVERSATIONS: dict[str, dict] = {}
 
 KNOWN_REQUESTERS: dict[str, Requester] = {
     r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
@@ -195,6 +197,96 @@ async def submit_request(http_request: Request) -> dict:
             raise HTTPException(400, f"unknown requester '{request.requester.id}'")
         request = request.model_copy(update={"requester": requester})
     return _evaluate_request(request)
+
+
+class AgentTurnIn(BaseModel):
+    viewer_id: str
+    message: str
+    conversation_id: str | None = None
+    confirm: bool = False
+
+
+class AgentTurnOut(BaseModel):
+    reply: str
+    tools_used: list[str] = []
+    request_result: dict | None = None
+    conversation_id: str
+
+
+def _console_request_access(raw_text: str, viewer: Requester) -> dict:
+    parsed = _parse_nl(raw_text, viewer)
+    parsed = parsed.model_copy(update={"requester": viewer, "raw_text": raw_text})
+    evaluated = _evaluate_request(parsed)
+    return {
+        "status": "evaluated",
+        "request_id": evaluated["request_id"],
+        "results": evaluated["results"],
+    }
+
+
+def _console_list_scope(viewer: Requester) -> dict:
+    grants = [g.model_dump(mode="json") for g in active_grants(viewer.id)]
+    cases = [
+        c.model_dump(mode="json")
+        for c in ESCALATIONS.values()
+        if c.status == "pending" and c.requester_id == viewer.id
+    ]
+    return {"grants": grants, "cases": cases}
+
+
+def _console_explain_decision(
+    viewer: Requester,
+    request_id: str | None = None,
+    resource_id: str | None = None,
+) -> dict:
+    for event in reversed(AUDIT_LOG):
+        if event.type != AuditEventType.POLICY_EVALUATED:
+            continue
+        if request_id and event.request_id != request_id:
+            continue
+        payload_rid = (event.payload or {}).get("resource_id")
+        if resource_id and payload_rid != resource_id:
+            continue
+        return {
+            "explanation": event.detail,
+            "request_id": event.request_id,
+            "resource_id": payload_rid,
+        }
+    return {"explanation": "No typed policy decision found for that id."}
+
+
+def _run_injected_or_live(message: str, viewer: Requester, conversation_id: str | None):
+    _agent_runtime_on_path()
+    from console_agent import ConsoleAgentDeps, run_console_turn
+
+    deps = ConsoleAgentDeps(
+        viewer=viewer,
+        request_access=lambda raw: _console_request_access(raw, viewer),
+        list_scope=lambda: _console_list_scope(viewer),
+        explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
+            viewer, request_id, resource_id
+        ),
+    )
+    return run_console_turn(
+        message,
+        deps,
+        runner=AGENT_TURN_IMPL,
+        conversation_id=conversation_id,
+    )
+
+
+@app.post("/agent/turn")
+def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
+    viewer = KNOWN_REQUESTERS.get(body.viewer_id)
+    if viewer is None:
+        raise HTTPException(400, f"unknown requester '{body.viewer_id}'")
+    turn = _run_injected_or_live(body.message, viewer, body.conversation_id)
+    return AgentTurnOut(
+        reply=turn.reply,
+        tools_used=list(turn.tools_used),
+        request_result=turn.request_result,
+        conversation_id=turn.conversation_id,
+    )
 
 
 def _evaluate_request(request: AccessRequest) -> dict:

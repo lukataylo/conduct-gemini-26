@@ -365,6 +365,46 @@ def _console_request_access(
     }
 
 
+def _console_request_access_for(
+    raw_text: str,
+    actor: Requester,
+    beneficiary: Requester,
+    *,
+    evaluate: bool,
+    conversation_id: str,
+) -> dict:
+    parsed = _parse_nl(raw_text, beneficiary)
+    metadata = {**(parsed.metadata or {}), "sponsored_by": actor.id}
+    parsed = parsed.model_copy(
+        update={"requester": beneficiary, "raw_text": raw_text, "metadata": metadata}
+    )
+    preview = {
+        "resource_ids": list(parsed.resource_ids),
+        "requested_duration_days": parsed.requested_duration_days,
+        "project": parsed.project,
+        "raw_text": raw_text,
+        "beneficiary_id": beneficiary.id,
+        "sponsored_by": actor.id,
+    }
+    slot = CONVERSATIONS.setdefault(
+        conversation_id,
+        {"pending_request": None, "pending_raw": None, "messages": [], "actor_id": actor.id},
+    )
+    slot["pending_request"] = parsed
+    slot["pending_raw"] = raw_text
+    if not evaluate:
+        return {"status": "needs_confirmation", "preview": preview}
+    evaluated = _evaluate_request(parsed)
+    slot["pending_request"] = None
+    slot["pending_raw"] = None
+    return {
+        "status": "evaluated",
+        "request_id": evaluated["request_id"],
+        "results": evaluated["results"],
+        "preview": preview,
+    }
+
+
 def _console_list_scope(viewer: Requester, *, focus: Requester | None = None) -> dict:
     grants = [g.model_dump(mode="json") for g in active_grants(viewer.id)]
     cases = [
@@ -444,7 +484,8 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         pending = slot.get("pending_request")
         if pending is None:
             raise HTTPException(400, "nothing to confirm")
-        if pending.requester.id != viewer.id:
+        sponsored_by = (pending.metadata or {}).get("sponsored_by")
+        if pending.requester.id != viewer.id and sponsored_by != viewer.id:
             raise HTTPException(400, "this confirm is not for this viewer; nothing to confirm")
         evaluated = _evaluate_request(pending)
         slot["pending_request"] = None
@@ -455,9 +496,12 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
             "project": pending.project,
             "raw_text": pending.raw_text,
         }
+        if sponsored_by:
+            preview["beneficiary_id"] = pending.requester.id
+            preview["sponsored_by"] = sponsored_by
         return AgentTurnOut(
             reply="Policy decided.",
-            tools_used=["request_access"],
+            tools_used=["request_access_for" if sponsored_by else "request_access"],
             request_result={
                 "status": "evaluated",
                 "request_id": evaluated["request_id"],
@@ -488,6 +532,14 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
             raw_text, viewer, evaluate=False, conversation_id=conversation_id
         )
 
+    def request_access_for(beneficiary_id: str, raw_text: str) -> dict:
+        beneficiary = _resolve_person(beneficiary_id)
+        if beneficiary is None:
+            raise HTTPException(400, f"unknown requester '{beneficiary_id}'")
+        return _console_request_access_for(
+            raw_text, viewer, beneficiary, evaluate=False, conversation_id=conversation_id
+        )
+
     focus = _resolve_person(body.focus_id) if body.focus_id else None
     history = list(slot["messages"][-20:])
 
@@ -497,6 +549,7 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     deps = ConsoleAgentDeps(
         viewer=viewer,
         request_access=request_access,
+        request_access_for=request_access_for,
         list_scope=lambda: _console_list_scope(viewer, focus=focus),
         explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
             viewer, request_id, resource_id
@@ -535,12 +588,17 @@ def _evaluate_request(request: AccessRequest) -> dict:
     request = _ensure_business_context(request)
     request = request.model_copy(update={"id": str(uuid.uuid4()), "requester": requester})
     REQUESTS[request.id] = request
+    sponsor_id = (request.metadata or {}).get("sponsored_by")
+    received_payload = {"task_description": request.task_description}  # requester's claim, unverified
+    if sponsor_id:
+        received_payload["beneficiary_id"] = requester.id
+        received_payload["sponsored_by"] = sponsor_id
     _audit(
         AuditEventType.REQUEST_RECEIVED,
-        actor=requester.id,
+        actor=sponsor_id or requester.id,
         detail=f"{len(request.resource_ids)} resource(s) for {request.requested_duration_days}d",
         request_id=request.id,
-        payload={"task_description": request.task_description},  # requester's claim, unverified
+        payload=received_payload,
     )
 
     resources = usecase_demo.RESOURCES
@@ -575,6 +633,9 @@ def _evaluate_request(request: AccessRequest) -> dict:
 
         elif decision.decision in {DecisionType.ESCALATE, DecisionType.WITNESS_REQUIRED}:
             approvers = usecase_demo.APPROVERS.get(decision.resource_id, [])
+            if sponsor_id:
+                filtered = [approver_id for approver_id in approvers if approver_id != sponsor_id]
+                approvers = filtered or approvers
             case = escalation.open_case(
                 decision,
                 case_id=str(uuid.uuid4()),

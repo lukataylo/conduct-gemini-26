@@ -17,6 +17,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -293,6 +294,8 @@ class AgentTurnIn(BaseModel):
     message: str
     conversation_id: str | None = None
     confirm: bool = False
+    focus_id: str | None = None
+    page: str = "overview"
 
 
 class AgentTurnOut(BaseModel):
@@ -300,6 +303,27 @@ class AgentTurnOut(BaseModel):
     tools_used: list[str] = []
     request_result: dict | None = None
     conversation_id: str
+    enact_result: dict | None = None
+    navigate: str | None = None
+
+
+def _viewer_console_role(viewer: Requester) -> str:
+    if re.search(r"manager|owner|lead|head", viewer.role or "", re.I):
+        return "manager"
+    return "user"
+
+
+def _resolve_person(raw: str) -> Requester | None:
+    key = (raw or "").strip()
+    if not key or key.lower() in {"all", "everyone"}:
+        return None
+    found = KNOWN_REQUESTERS.get(key)
+    if found is not None:
+        return found
+    matches = [person for person in KNOWN_REQUESTERS.values() if person.name.lower() == key.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 
 def _console_request_access(
@@ -317,7 +341,10 @@ def _console_request_access(
         "project": parsed.project,
         "raw_text": raw_text,
     }
-    slot = CONVERSATIONS.setdefault(conversation_id, {"pending_request": None, "pending_raw": None})
+    slot = CONVERSATIONS.setdefault(
+        conversation_id,
+        {"pending_request": None, "pending_raw": None, "messages": [], "actor_id": viewer.id},
+    )
     slot["pending_request"] = parsed
     slot["pending_raw"] = raw_text
     if not evaluate:
@@ -333,14 +360,31 @@ def _console_request_access(
     }
 
 
-def _console_list_scope(viewer: Requester) -> dict:
+def _console_list_scope(viewer: Requester, *, focus: Requester | None = None) -> dict:
     grants = [g.model_dump(mode="json") for g in active_grants(viewer.id)]
     cases = [
         c.model_dump(mode="json")
         for c in ESCALATIONS.values()
         if c.status == "pending" and c.requester_id == viewer.id
     ]
-    return {"grants": grants, "cases": cases}
+    waiting_on_me = [
+        c.model_dump(mode="json")
+        for c in ESCALATIONS.values()
+        if c.status == "pending" and viewer.id in c.required_approver_ids
+    ]
+    focus_grants = [g.model_dump(mode="json") for g in active_grants(focus.id)] if focus else []
+    focus_cases = [
+        c.model_dump(mode="json")
+        for c in ESCALATIONS.values()
+        if focus is not None and c.status == "pending" and c.requester_id == focus.id
+    ]
+    return {
+        "grants": grants,
+        "cases": cases,
+        "waiting_on_me": waiting_on_me,
+        "focus_grants": focus_grants,
+        "focus_cases": focus_cases,
+    }
 
 
 def _policy_event_for_viewer(event: AuditEvent, viewer: Requester) -> bool:
@@ -418,21 +462,48 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
             conversation_id=conversation_id,
         )
 
+    slot = CONVERSATIONS.get(conversation_id)
+    if slot is not None and slot.get("actor_id") and slot["actor_id"] != viewer.id:
+        conversation_id = str(uuid.uuid4())
+        slot = None
+    if slot is None:
+        slot = {
+            "pending_request": None,
+            "pending_raw": None,
+            "messages": [],
+            "actor_id": viewer.id,
+        }
+        CONVERSATIONS[conversation_id] = slot
+    else:
+        slot.setdefault("messages", [])
+        slot.setdefault("actor_id", viewer.id)
+
     def request_access(raw_text: str) -> dict:
         return _console_request_access(
             raw_text, viewer, evaluate=False, conversation_id=conversation_id
         )
 
+    focus = _resolve_person(body.focus_id) if body.focus_id else None
+    history = list(slot["messages"][-20:])
+
     _agent_runtime_on_path()
-    from console_agent import ConsoleAgentDeps, run_console_turn
+    from console_agent import ConsoleAgentDeps, ConsoleContext, run_console_turn
 
     deps = ConsoleAgentDeps(
         viewer=viewer,
         request_access=request_access,
-        list_scope=lambda: _console_list_scope(viewer),
+        list_scope=lambda: _console_list_scope(viewer, focus=focus),
         explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
             viewer, request_id, resource_id
         ),
+        context=ConsoleContext(
+            actor_id=viewer.id,
+            focus_id=focus.id if focus else None,
+            page=body.page,
+            role=_viewer_console_role(viewer),
+        ),
+        history=history,
+        focus=focus,
     )
     turn = run_console_turn(
         body.message,
@@ -440,11 +511,17 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         runner=AGENT_TURN_IMPL,
         conversation_id=conversation_id,
     )
+    messages = slot["messages"]
+    messages.append({"role": "user", "content": body.message})
+    messages.append({"role": "assistant", "content": turn.reply})
+    slot["messages"] = messages[-40:]
     return AgentTurnOut(
         reply=turn.reply,
         tools_used=list(turn.tools_used),
         request_result=turn.request_result,
         conversation_id=turn.conversation_id,
+        enact_result=turn.enact_result,
+        navigate=None,
     )
 
 
@@ -604,6 +681,23 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
 @app.get("/policy")
 def get_policy() -> PolicyRule:
     return LIVE_POLICY
+
+
+@app.get("/policy/routes")
+def policy_routes() -> dict:
+    gcp: list[dict] = []
+    sap: list[dict] = []
+    for resource in usecase_demo.RESOURCES.values():
+        row = {
+            "id": resource.id,
+            "name": resource.name,
+            "approver_ids": list(usecase_demo.APPROVERS.get(resource.id, [])),
+        }
+        if resource.id.startswith("sap-"):
+            sap.append(row)
+        else:
+            gcp.append(row)
+    return {"gcp": gcp, "sap": sap}
 
 
 @app.get("/resources")

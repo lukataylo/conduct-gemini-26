@@ -47,6 +47,11 @@ def open_case(
         escalation_reason=decision.reason,
         human_summary=synthesize_summary(request, resource, decision) if request and resource else decision.reason,
         routing_rationale=routing_rationale(request, resource, approver_ids) if request and resource else None,
+        peer_percentile=decision.metadata.get("peer_signal"),
+        risk_score=decision.metadata.get("risk_score") or _risk_score(decision, resource),
+        policy_violation=decision.metadata.get("policy_violation") or decision.reason,
+        suggested_downgrade=suggested_downgrade(request, resource, decision) if request and resource else None,
+        metadata=decision.metadata,
         opened_at=opened_at,
         sla_due_at=sla_deadline(opened_at, incident_backed=incident_backed),
         timeout_action="default_escalate" if incident_backed else "auto_deny",
@@ -133,6 +138,29 @@ def apply_vote(case: EscalationCase, vote: ApprovalVote) -> EscalationCase:
         return case.model_copy(update={"status": "approved"})
 
     return case
+
+
+def suggested_downgrade(
+    request: AccessRequest, resource: Resource, decision: PolicyDecision
+) -> str | None:
+    capability = resource.capability.lower()
+    if capability in {"admin", "delete", "drop", "terminate", "iam_change"} or request.requested_duration_days > 1:
+        return "Grant READ for 4 hours"
+    if capability in {"export", "power_query"}:
+        return "Grant VIEW with DISABLE_EXPORT for 4 hours"
+    return None
+
+
+def _risk_score(decision: PolicyDecision, resource: Resource | None) -> str:
+    reason = decision.reason.lower()
+    capability = resource.capability.lower() if resource else ""
+    if capability in {"admin", "delete", "drop", "terminate", "iam_change", "export", "power_query"}:
+        return "high"
+    if "critical" in reason or "blast" in reason or "circuit breaker" in reason:
+        return "high"
+    if "cross-team" in reason or "restricted" in reason:
+        return "medium"
+    return "low"
 
 
 def _has_incident_context(

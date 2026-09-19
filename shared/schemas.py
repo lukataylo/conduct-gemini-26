@@ -34,6 +34,20 @@ class ResourceType(str, Enum):
     BIGQUERY_DATASET = "bigquery_dataset"
     CLOUD_SQL_INSTANCE = "cloud_sql_instance"
     IAM_ROLE = "iam_role"
+    GITHUB_REPO = "github_repo"
+    GITHUB_REPO_UPPER = "GITHUB_REPO"
+    POWERBI_DATASET = "powerbi_dataset"
+    POWERBI_DATASET_UPPER = "POWERBI_DATASET"
+    PAYMENT_RAIL = "payment_rail"
+    PAYMENT_RAIL_UPPER = "PAYMENT_RAIL"
+    WMS_IOT = "wms_iot"
+    WMS_IOT_UPPER = "WMS_IOT"
+    IMPERSONATION_TOOL = "impersonation_tool"
+    IMPERSONATION_TOOL_UPPER = "IMPERSONATION_TOOL"
+    BUILD_PIPELINE = "build_pipeline"
+    BUILD_PIPELINE_UPPER = "BUILD_PIPELINE"
+    VAULT_SECRET = "vault_secret"
+    VAULT_SECRET_UPPER = "VAULT_SECRET"
 
 
 class AuthType(str, Enum):
@@ -51,7 +65,27 @@ class Resource(BaseModel):
     owning_team: str
     sensitivity: SensitivityTier
     project: str
-    capability: Literal["read", "write"] = "read"  # used by the cross-resource chaining check
+    capability: Literal[
+        "read",
+        "write",
+        "delete",
+        "shutdown",
+        "drop",
+        "terminate",
+        "iam_change",
+        "admin",
+        "ADMIN",
+        "view",
+        "VIEW",
+        "export",
+        "EXPORT",
+        "power_query",
+        "POWER_QUERY",
+    ] = "read"
+    target: str | None = None
+    surface: str | None = None
+    category: str | None = None
+    metadata: dict = Field(default_factory=dict)
     owner_group: str | None = None
 
 
@@ -62,7 +96,13 @@ class Requester(BaseModel):
     team: str
     manager_id: str | None = None
     manager_email: str | None = None
+    is_active: bool = True
     is_active_employee: bool = True
+    is_on_call: bool = False
+    identity_type: Literal["human", "agent"] = "human"
+    type: str = "EMPLOYEE"
+    tenure_days: int = Field(default=365, ge=0)
+    last_hr_sync: datetime = Field(default_factory=_utcnow)
     risk_score: int = Field(default=0, ge=0, le=100)
     auth_type: AuthType = AuthType.FIDO2_MFA
 
@@ -88,8 +128,16 @@ class AccessRequest(BaseModel):
     resource_ids: list[str]
     requested_duration_days: int
     context: AccessContext = Field(default_factory=AccessContext)
+    metadata: dict = Field(default_factory=dict)
     raw_text: str | None = None  # original NL input, kept for audit/debugging
     created_at: datetime = Field(default_factory=_utcnow)
+
+
+class PolicyEvaluationContext(BaseModel):
+    company_calendar: dict = Field(default_factory=dict)
+    requester_location: dict = Field(default_factory=dict)
+    external_signals: dict = Field(default_factory=dict)
+    current_date: datetime = Field(default_factory=_utcnow)
 
 
 # --------------------------------------------------------------------------------------
@@ -101,6 +149,7 @@ class DecisionType(str, Enum):
     AUTO_DENY = "auto_deny"
     ESCALATE = "escalate"
     STEP_UP_AUTH_REQUIRED = "step_up_auth_required"
+    WITNESS_REQUIRED = "witness_required"
 
 
 class PolicyRule(BaseModel):
@@ -129,8 +178,18 @@ class PolicyDecision(BaseModel):
     reason: str
     ttl_hours: int | None = None
     audit_tags: list[str] = Field(default_factory=list)
+    metadata: dict = Field(default_factory=dict)
     required_approver_ids: list[str] = Field(default_factory=list)
+    required_approval_groups: list[str] = Field(default_factory=list)
     evaluated_at: datetime = Field(default_factory=_utcnow)
+
+
+class RequestHistoryEvent(BaseModel):
+    requester_id: str
+    resource_id: str
+    decision: DecisionType
+    reason: str | None = None
+    timestamp: datetime = Field(default_factory=_utcnow)
 
 
 # --------------------------------------------------------------------------------------
@@ -158,6 +217,11 @@ class EscalationCase(BaseModel):
     escalation_reason: str | None = None
     human_summary: str | None = None
     routing_rationale: str | None = None
+    peer_percentile: str | None = None
+    risk_score: str | None = None
+    policy_violation: str | None = None
+    suggested_downgrade: str | None = None
+    metadata: dict = Field(default_factory=dict)
     opened_at: datetime = Field(default_factory=_utcnow)
     sla_due_at: datetime | None = None
     timeout_action: Literal["auto_deny", "default_escalate"] = "auto_deny"

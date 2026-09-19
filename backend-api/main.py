@@ -376,7 +376,12 @@ def _evaluate_request(request: AccessRequest) -> dict:
     )
 
     resources = usecase_demo.RESOURCES
-    decisions = policy_engine.evaluate_request(request, resources)
+    decisions = policy_engine.evaluate_request(
+        request,
+        resources,
+        active_grants=active_grants(requester.id),
+        now=now(),
+    )
 
     results = []
     for decision in decisions:
@@ -398,7 +403,7 @@ def _evaluate_request(request: AccessRequest) -> dict:
             )
             results.append({"resource_id": decision.resource_id, "status": "granted", "grant_id": grant.id})
 
-        elif decision.decision == DecisionType.ESCALATE:
+        elif decision.decision in {DecisionType.ESCALATE, DecisionType.WITNESS_REQUIRED}:
             approvers = usecase_demo.APPROVERS.get(decision.resource_id, [])
             case = escalation.open_case(
                 decision,

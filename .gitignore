@@ -41,3 +41,6 @@ backend-api/.cu-frames/
 *-key.json
 *credentials*.json
 sa-*.json
+
+# Personal dev tools — never part of the shared project
+/chat_gemini.py

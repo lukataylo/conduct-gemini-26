@@ -4,61 +4,54 @@
 that's the security answer to every judge question. Design brief:
 [`docs/ui-surfaces.html`](../docs/ui-surfaces.html) (surfaces 5, 8, 9 and "the one rule").
 
-## Policy Explanation
+## Current Policy Summary
 
-### 1. The Policy Engine (The "Automated Guard")
+### The Policy Engine: The Automated Guard
 
-The Policy Engine is an automated decision-maker designed to **handle 90–95% of access
-requests instantly**, with zero human involvement. It acts like an extremely fast,
-consistent guard standing at the door of your infrastructure.
+The Project Atlas Policy Engine is a deterministic security gatekeeper that replaces
+manual "rubber-stamping" with real-time, logic-based access control. It evaluates the
+**Who** (identity and HR status), **What** (resource sensitivity), **How** (capability
+like read vs. delete), and **Why** (ticket or incident context) of every request. By
+automating low-risk approvals and escalating high-risk anomalies, it ensures access is
+granted with the least privilege necessary and can be revoked the moment it is no
+longer required.
 
-**What it checks.** When someone asks for access, the Policy Engine runs a quick,
-objective checklist:
+`engine.py` currently enforces these checks in order:
 
-- **Who are you?** Are you an active employee? Did you log in with strong,
-  hardware-based multi-factor authentication (MFA)?
-- **How safe is your device?** Is your laptop managed, secure, and running required
-  security software?
-- **What are you asking for?** Is it a safe environment (like a test server) or a
-  sensitive one (like a live customer database)?
-- **Why do you need it right now?** Do you have an active ticket assigned to you, or
-  are you on call responding to a live incident?
+1. **Employment heartbeat hard deny** — if the requester is inactive or their HR sync
+   is older than 24 hours, the whole request is denied before any resource evaluation.
+2. **No context, no access** — every request needs a `ticket_id`, `incident_id`,
+   `active_jira_ticket`, or `active_pagerduty_incident`; missing business context is a
+   hard deny.
+3. **Device and user-risk hard deny** — non-compliant devices and user risk scores
+   above 70 are denied.
+4. **Step-up authentication** — non-phishing-resistant auth returns
+   `STEP_UP_AUTH_REQUIRED` instead of granting access.
+5. **Blast-radius protection** — requesting more than 5 resources at once, or pushing
+   the requester above 20 active resources, escalates to the Engineering VP group.
+6. **Capability-based escalation** — destructive capabilities (`delete`, `shutdown`,
+   `drop`, `terminate`) upgrade the request to CRITICAL and require security-lead
+   approval.
+7. **Tier, duration, and team policy** — same-team low-risk requests can auto-grant;
+   cross-team, over-duration, restricted, or critical requests escalate according to
+   `DEFAULT_POLICY`.
 
-**What decisions it makes.**
+The engine returns one deterministic `PolicyDecision` per resource unless a global hard
+deny or blast-radius escalation applies. It performs no I/O and makes no model calls.
 
-- **Auto-Approve** — if the checks pass and the request makes sense (e.g., you're on
-  call and need to look at a system during an outage), it instantly gives you
-  **temporary access** that automatically expires after a few hours.
-- **Hard Deny** — if basic security checks fail (e.g., your laptop isn't up to code or
-  your security risk score is sky-high), it blocks the request immediately.
-- **Escalate** — if the request is for something critical and lacks automated proof
-  (e.g., asking for root database access without an attached ticket), it hands the
-  request off to the Escalation Engine.
+### The Escalation Engine: The Smart Dispatcher
 
-### 2. The Escalation Engine (The "Smart Dispatcher")
+`escalation.py` takes over only after the policy engine returns `ESCALATE`. It does not
+decide security policy; it manages the human approval workflow:
 
-The Escalation Engine takes over **only when the automated Policy Engine isn't 100%
-sure** it should approve a request. Instead of making the decision itself, it
-translates the technical security request into a clear message for a human manager
-and manages the approval process.
+- synthesizes a concise approval summary,
+- records the routing rationale,
+- snapshots requester and duration at case-open time,
+- enforces 30-minute incident SLAs and 4-hour standard-ticket SLAs,
+- applies N-of-M approval rules with any-deny veto,
+- ignores votes from non-required approvers.
 
-**What it does.**
-
-- **Summarizes the Context** — strips away raw code and security logs, summarizing the
-  request into a simple 3-bullet Slack or Teams message: who wants access, what they
-  want access to, and why the computer couldn't approve it automatically.
-- **Finds the Right Approver** — figures out who needs to make the call (e.g., routing
-  a database request to the Lead Database Administrator, or an emergency request to
-  the On-Call Security Lead).
-- **Enforces a Timer (SLA)** — puts a clock on the request:
-  - **During an outage:** the manager gets 30 minutes to respond. If no one responds,
-    it triggers a temporary "break-glass" emergency access to keep the company
-    running, but alerts executives.
-  - **During normal ops:** it gives a 4-hour deadline. If no manager approves it in
-    time, it automatically denies the request to prevent open access requests from
-    sitting idle.
-
-### How they work together
+### How They Work Together
 
 ```
 [User Requests Access]
@@ -83,12 +76,45 @@ and manages the approval process.
 - **Escalation Engine** keeps human managers in the loop *only* when necessary, giving
   them all the context they need to make a fast, 1-click decision.
 
-> Implementation note: `engine.py` and `escalation.py` already cover most of this (hard
-> deny, step-up auth, ticket/incident-aware grants, SLA deadlines). Known gaps against
-> this description: the CRITICAL tier's incident-override path is currently unreachable
-> because `DEFAULT_POLICY.always_escalate_tiers` still escalates it unconditionally, and
-> `apply_timeout()`'s SLA break-glass behavior isn't wired into `backend-api` yet — see
-> the "Ambition ladder" and build order below.
+## Cisco Case Motivation
+
+### The Cisco Case: A Failure of Offboarding and Oversight
+
+In 2018, former Cisco engineer Sudhish Ramesh resigned from the company, but his access
+to their AWS cloud environment remained active. Five months after leaving, he used his
+"ghost" credentials to deploy a malicious script that deleted 456 virtual machines
+supporting the WebEx Teams application. This unauthorized action caused 16,000 customer
+accounts to go dark for two weeks, required a massive manual restoration effort, and
+resulted in a 24-month prison sentence for Ramesh.
+
+### The Cost of Failure: $2.4 Million+
+
+The lack of automated access controls resulted in major financial and operational
+damage:
+
+- **Operational cost:** $1,400,000 in employee time to rebuild infrastructure and
+  restore data.
+- **Direct financial loss:** $1,000,000 in refunds and credits issued to affected
+  customers.
+- **Intangible damage:** severe reputational harm to the WebEx brand and a two-week
+  service outage for 16,000 teams.
+
+### How Project Atlas Reflects and Prevents This Case
+
+The tightened policy engine directly addresses the "Ramesh Scenario" through three
+technical layers:
+
+- **HR-heartbeat sync** — the policy engine checks HR status and HR sync freshness
+  before evaluating resources. The moment an employee is inactive or stale in HR, the
+  "Who are you?" check fails. In a full deployment, agent-runtime/backend revocation
+  would purge existing cloud permissions, making ghost access impossible.
+- **Capability-based escalation** — destructive capabilities such as delete or shutdown
+  are treated differently from read access. Even on an internal resource, a destructive
+  request is upgraded to CRITICAL and requires multi-party approval including a security
+  lead.
+- **Just-in-time evidence** — access must be tied to active work through a ticket or
+  incident. A former employee attempting access months later would lack valid assigned
+  work context, triggering hard deny before any infrastructure action could run.
 
 ## Ambition ladder
 

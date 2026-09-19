@@ -1019,6 +1019,7 @@
           ((state && state.bindings) || []).forEach(renderBinding);
           refreshAuthStrip();
           refreshRedaction();
+          applyHash();
         })
         .catch(function () {
           // keep in-page empty state (no role assigned)

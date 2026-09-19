@@ -27,6 +27,7 @@ from pydantic import BaseModel
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -197,7 +198,8 @@ async def submit_request(http_request: Request) -> dict:
         requester = KNOWN_REQUESTERS.get(nl.requester_id)
         if requester is None:
             raise HTTPException(400, f"unknown requester '{nl.requester_id}'")
-        request = _parse_nl(nl.raw_text, requester)
+        # The parser runs a Pydantic AI agent with run_sync; keep it off the event loop thread.
+        request = await run_in_threadpool(_parse_nl, nl.raw_text, requester)
         request = request.model_copy(update={"requester": requester, "raw_text": nl.raw_text, **({"context": nl.context} if nl.context else {})})
     else:
         request = AccessRequest.model_validate(body)

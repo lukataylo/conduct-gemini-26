@@ -81,6 +81,75 @@ RESOURCES: dict[str, Resource] = {
             sensitivity=SensitivityTier.RESTRICTED,
             project="atlas-migration",
         ),
+        Resource(
+            id="sap-bp-display",
+            name="Customer Master · Northwind 1710001",
+            type=ResourceType.SAP_BUSINESS_PARTNER,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            project="atlas-migration",
+            capability="read",
+            metadata={
+                "company_code": "1000",
+                "customer_id": "1710001",
+                "role": "SAP_SD_CUST_DISPLAY",
+                "activity": "03",
+            },
+        ),
+        Resource(
+            id="sap-billing-display",
+            name="Billing · Northwind 90001234",
+            type=ResourceType.SAP_BILLING_DOCUMENT,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            project="atlas-migration",
+            capability="read",
+            metadata={
+                "company_code": "1000",
+                "customer_id": "1710001",
+                "role": "SAP_SD_BILL_DISPLAY",
+                "activity": "03",
+            },
+        ),
+        Resource(
+            id="sap-sales-order-display",
+            name="Sales Order · 4500008123",
+            type=ResourceType.SAP_SALES_ORDER,
+            owning_team="data-platform",
+            sensitivity=SensitivityTier.INTERNAL,
+            project="atlas-migration",
+            capability="read",
+            metadata={
+                "company_code": "1000",
+                "customer_id": "1710001",
+                "role": "SAP_SD_SO_DISPLAY",
+                "activity": "03",
+            },
+        ),
+        Resource(
+            id="sap-customer-directory",
+            name="Customer Directory / Export",
+            type=ResourceType.SAP_CUSTOMER_DIRECTORY,
+            owning_team="finance",
+            sensitivity=SensitivityTier.CRITICAL,
+            project="atlas-migration",
+            capability="export",
+            metadata={
+                "company_code": "1000",
+                "role": "SAP_SD_CUST_EXPORT",
+                "activity": "16",
+            },
+        ),
+        Resource(
+            id="sap-hr-payroll",
+            name="Employee Payroll",
+            type=ResourceType.SAP_HR_PAYROLL,
+            owning_team="finance",
+            sensitivity=SensitivityTier.CRITICAL,
+            project="atlas-migration",
+            capability="admin",
+            metadata={"locked": True},
+        ),
     ]
 }
 
@@ -92,6 +161,11 @@ APPROVERS: dict[str, list[str]] = {
     "sql-prod-primary": [MANAGER.id, FINANCE_OWNER.id],
     "repo-atlas-ingestion": [MANAGER.id],
     "repo-finance-ledger": [FINANCE_OWNER.id, MANAGER.id],
+    "sap-bp-display": [FINANCE_OWNER.id, MANAGER.id],
+    "sap-billing-display": [FINANCE_OWNER.id, MANAGER.id],
+    "sap-sales-order-display": [MANAGER.id],
+    "sap-customer-directory": [FINANCE_OWNER.id, MANAGER.id],
+    "sap-hr-payroll": [FINANCE_OWNER.id, MANAGER.id],
 }
 
 # The natural-language request agent-runtime parses at the start of the demo

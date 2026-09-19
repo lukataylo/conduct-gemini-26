@@ -48,6 +48,11 @@ class ResourceType(str, Enum):
     BUILD_PIPELINE_UPPER = "BUILD_PIPELINE"
     VAULT_SECRET = "vault_secret"
     VAULT_SECRET_UPPER = "VAULT_SECRET"
+    SAP_BUSINESS_PARTNER = "sap_business_partner"
+    SAP_BILLING_DOCUMENT = "sap_billing_document"
+    SAP_SALES_ORDER = "sap_sales_order"
+    SAP_CUSTOMER_DIRECTORY = "sap_customer_directory"
+    SAP_HR_PAYROLL = "sap_hr_payroll"
 
 
 class AuthType(str, Enum):

@@ -635,3 +635,62 @@ def test_seasonal_contractor_auto_grant_is_capped_to_thirty_days_and_no_renew():
     assert decision.decision == DecisionType.AUTO_GRANT
     assert decision.ttl_hours <= 30 * 24
     assert decision.metadata["renew_access_disabled"] is True
+
+
+def test_sap_customer_directory_and_payroll_are_auto_denied():
+    directory = evaluate_one(
+        access_request(resource_ids=["sap-customer-directory"]),
+        resource(
+            resource_id="sap-customer-directory",
+            resource_type=ResourceType.SAP_CUSTOMER_DIRECTORY,
+            owning_team="finance",
+            sensitivity=SensitivityTier.CRITICAL,
+            capability="export",
+        ),
+    )
+    payroll = evaluate_one(
+        access_request(resource_ids=["sap-hr-payroll"]),
+        resource(
+            resource_id="sap-hr-payroll",
+            resource_type=ResourceType.SAP_HR_PAYROLL,
+            owning_team="finance",
+            sensitivity=SensitivityTier.CRITICAL,
+            capability="admin",
+        ),
+    )
+
+    assert directory.decision == DecisionType.AUTO_DENY
+    assert payroll.decision == DecisionType.AUTO_DENY
+    assert "Conduct-SAP-01" in directory.reason
+    assert "Conduct-SAP-01" in payroll.reason
+
+
+def test_sap_business_partner_restricted_cross_team_escalates():
+    decision = evaluate_one(
+        access_request(requester_team="data-platform", resource_ids=["sap-bp-display"]),
+        resource(
+            resource_id="sap-bp-display",
+            resource_type=ResourceType.SAP_BUSINESS_PARTNER,
+            owning_team="finance",
+            sensitivity=SensitivityTier.RESTRICTED,
+            capability="read",
+        ),
+    )
+
+    assert decision.decision == DecisionType.ESCALATE
+    assert "Cross-team" in decision.reason
+
+
+def test_sap_sales_order_same_team_internal_auto_grants():
+    decision = evaluate_one(
+        access_request(requester_team="data-platform", resource_ids=["sap-sales-order-display"]),
+        resource(
+            resource_id="sap-sales-order-display",
+            resource_type=ResourceType.SAP_SALES_ORDER,
+            owning_team="data-platform",
+            sensitivity=SensitivityTier.INTERNAL,
+            capability="read",
+        ),
+    )
+
+    assert decision.decision == DecisionType.AUTO_GRANT

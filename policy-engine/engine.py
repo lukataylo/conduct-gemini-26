@@ -509,6 +509,15 @@ def _surface_decision(
     if resource.type in {ResourceType.POWERBI_DATASET, ResourceType.POWERBI_DATASET_UPPER}:
         return _powerbi_decision(request, resource, policy, peer_metadata)
 
+    if resource.type in {
+        ResourceType.SAP_BUSINESS_PARTNER,
+        ResourceType.SAP_BILLING_DOCUMENT,
+        ResourceType.SAP_SALES_ORDER,
+        ResourceType.SAP_CUSTOMER_DIRECTORY,
+        ResourceType.SAP_HR_PAYROLL,
+    }:
+        return _sap_decision(request, resource, policy, peer_metadata)
+
     return None
 
 
@@ -887,6 +896,24 @@ def _powerbi_decision(
                 "risk_score": "high" if capability == "export" else "medium",
                 "policy_violation": "PowerBI Action Separation",
             },
+        )
+
+    return None
+
+
+def _sap_decision(
+    request: AccessRequest,
+    resource: Resource,
+    policy: PolicyRule,
+    peer_metadata: dict,
+) -> PolicyDecision | None:
+    if resource.type in {ResourceType.SAP_CUSTOMER_DIRECTORY, ResourceType.SAP_HR_PAYROLL}:
+        return _deny(
+            request,
+            resource.id,
+            "Auto-Denied: customer-directory export is not grantable; "
+            "scope a single Business Partner (Conduct-SAP-01).",
+            metadata={**peer_metadata, "policy_violation": "Conduct-SAP-01"},
         )
 
     return None

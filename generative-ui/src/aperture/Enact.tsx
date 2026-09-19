@@ -100,6 +100,7 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
   const [recUrl, setRecUrl] = useState<string | null>(null);
 
   const session = sessions.find((s) => s.id === sessionId) ?? sessions[0];
+  const episodeNo = session ? sessions.findIndex((s) => s.id === session.id) + 1 : 0;
   const group: CuGroup | undefined = session?.groups.find((g) => g.id === groupId) ?? session?.groups[0];
   const stills = strip === "frames" && group?.action_frames.length ? group.action_frames : group?.frames ?? [];
   const latest = stills.length ? stills.length - 1 : 0;
@@ -157,12 +158,12 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
       </div>
 
       {sessions.length > 0 ? (
-        <div className="enact-sessions" role="tablist" aria-label="Sessions">
-          {sessions.map((s) => (
+        <div className="enact-sessions" role="tablist" aria-label="Episodes">
+          {sessions.map((s, i) => (
             <button
               key={s.id}
               type="button"
-              className="nb"
+              className="nb enact-ep"
               role="tab"
               aria-selected={s.id === session?.id}
               onClick={() => {
@@ -173,20 +174,20 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
                 setStrip("turns");
               }}
             >
-              {s.label}
-              {s.groups.length > 1 ? ` · ${s.groups.length}` : ""}
+              <em>Episode {String(i + 1).padStart(2, "0")}</em>
+              <b>{s.source === "live" ? (running ? "live now" : "just enacted") : s.label}</b>
             </button>
           ))}
         </div>
       ) : null}
 
       {session && session.groups.length > 1 ? (
-        <div className="enact-sessions" role="tablist" aria-label="Groups">
-          {session.groups.map((g) => (
+        <div className="enact-sessions" role="tablist" aria-label="Runs in this episode">
+          {session.groups.map((g, i) => (
             <button
               key={g.id}
               type="button"
-              className="nb"
+              className="nb enact-ep"
               role="tab"
               aria-selected={g.id === group?.id}
               onClick={() => {
@@ -196,7 +197,8 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
                 setStrip("turns");
               }}
             >
-              {g.label}
+              <em>Run {String(i + 1).padStart(2, "0")}</em>
+              <b>{g.label}</b>
             </button>
           ))}
         </div>
@@ -231,6 +233,12 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
           ) : null}
         </div>
         <div className="enact-side">
+          {stills.length > 0 && episodeNo > 0 ? (
+            <div className="enact-ep-h">
+              <b>Episode {String(episodeNo).padStart(2, "0")}</b>
+              <span>{stills.length} {stills.length === 1 ? "step" : "steps"}</span>
+            </div>
+          ) : null}
           {group && group.action_frames.length > 0 ? (
             <div className="enact-sessions" role="group" aria-label="Stills">
               <button type="button" className="nb" aria-pressed={strip === "turns"} onClick={() => { setStrip("turns"); setPin(null); setRecUrl(null); }}>
@@ -243,18 +251,19 @@ export function Enact({ events, grants, resources, users, selected, preview }: P
           ) : null}
           <div className="enact-strip" role="list">
             {stills.map((f, i) => (
-              <button
-                key={`${f.url}-${i}`}
-                type="button"
-                className="enact-thumb"
-                role="listitem"
-                aria-label={`turn ${String(f.turn).padStart(2, "0")}${f.action ? ` · ${f.action}` : ""}`}
-                aria-pressed={!rec && i === shown}
-                onClick={() => { setPin(i); setRecUrl(null); }}
-              >
-                <img src={mediaUrl(f.url)} alt="" />
-                <span>{String(f.turn).padStart(2, "0")}</span>
-              </button>
+              <div key={`${f.url}-${i}`} role="listitem">
+                <button
+                  type="button"
+                  className="enact-thumb"
+                  title={f.action ? `step ${String(i + 1).padStart(2, "0")} · ${f.action}` : `step ${String(i + 1).padStart(2, "0")}`}
+                  aria-label={`step ${String(i + 1).padStart(2, "0")}${f.action ? ` · ${f.action}` : ""}`}
+                  aria-pressed={!rec && i === shown}
+                  onClick={() => { setPin(i); setRecUrl(null); }}
+                >
+                  <img src={mediaUrl(f.url)} alt="" />
+                  <span>{String(i + 1).padStart(2, "0")}</span>
+                </button>
+              </div>
             ))}
           </div>
           {group && group.recordings.length > 0 ? (

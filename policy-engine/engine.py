@@ -675,6 +675,13 @@ def _surface_decision(
         return _powerbi_decision(request, resource, policy, peer_metadata)
 
     if resource.type in {
+        ResourceType.GCS_BUCKET,
+        ResourceType.BIGQUERY_DATASET,
+        ResourceType.CLOUD_SQL_INSTANCE,
+    }:
+        return _gcp_decision(request, resource, policy, peer_metadata)
+
+    if resource.type in {
         ResourceType.SAP_BUSINESS_PARTNER,
         ResourceType.SAP_BILLING_DOCUMENT,
         ResourceType.SAP_SALES_ORDER,
@@ -1066,6 +1073,15 @@ def _powerbi_decision(
     return None
 
 
+def _gcp_decision(
+    request: AccessRequest,
+    resource: Resource,
+    policy: PolicyRule,
+    peer_metadata: dict,
+) -> PolicyDecision | None:
+    return None
+
+
 def _sap_decision(
     request: AccessRequest,
     resource: Resource,
@@ -1079,6 +1095,14 @@ def _sap_decision(
             "Auto-Denied: customer-directory export is not grantable; "
             "scope a single Business Partner (Conduct-SAP-01).",
             metadata={**peer_metadata, "policy_violation": "Conduct-SAP-01"},
+        )
+
+    if resource.metadata.get("company_code") == "2000":
+        return _deny(
+            request,
+            resource.id,
+            "Auto-Denied: company 2000 is outside the granted SAP company code.",
+            metadata={**peer_metadata, "policy_violation": "SAP company 2000"},
         )
 
     return None
@@ -1267,7 +1291,12 @@ def _peer_metadata(
         "peer_signal": "Peer comparison unavailable",
         "peer_access_count": len(team_holders),
         "peer_team_size": team_size,
+        "platform": "sap" if resource.type.name.startswith("SAP_") else "gcp",
     }
+    if resource.type.name.startswith("SAP_"):
+        for key in ("role", "company_code", "customer_id", "activity"):
+            if key in resource.metadata:
+                metadata[key] = resource.metadata[key]
     if not team_size:
         return metadata
 

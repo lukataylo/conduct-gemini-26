@@ -14,8 +14,16 @@ Role is derived from `Requester.role` (`roleOf`: manager / owner / lead / head �
 manager; everyone else → user). `?role=user|manager&user=<id>` opens a state.
 
 - **Manager tabs:** Overview (people cards + Add a person + approvals column) ·
-  Timeline (Everyone or one person via chips).
+  Timeline (Everyone or one person via chips). The manager dropdown lists everyone;
+  picking a person scopes the Timeline.
 - **User tabs:** Onboard (landing) · Access (generated summary) · Timeline (that person).
+- **Person cards** are Nothing-style widget tiles: a white hero count (open leases), a
+  ring dial in the person's colour (time left on the soonest lease), *until*, *waiting*
+  (amber only when > 0, naming who), *refused* (red only when > 0), and dot-tick call
+  activity over the last three hours. Zero states are dimmed so colour means something.
+- **Gemini** is a bubble at the bottom right of every screen (`Live.tsx`): text chat
+  on `POST /agent/turn` as the current person, mic slot reserved for Gemini Live. It
+  explains and drafts requests; it cannot vote or grant.
 
 **Demo data is a morning of history, not an instant.** `POST /demo/seed` resets the
 store and replays a scenario through the normal request / vote / revoke paths with the

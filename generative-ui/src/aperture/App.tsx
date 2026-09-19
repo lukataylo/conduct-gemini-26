@@ -4,6 +4,7 @@ import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
 import { Composer } from "./Composer";
 import { Enact } from "./Enact";
+import { Live } from "./Live";
 import { ManagerSide } from "./Manager";
 import { Matrix } from "./Matrix";
 import { PersonMenu, roleOf, seedDemo, type Role } from "./Menu";
@@ -45,8 +46,9 @@ export default function ApertureApp() {
     if (snap.grants.length === 0 && snap.events.length === 0) seedDemo(users).catch(console.error);
   }, [snap.online, snap.grants.length, snap.events.length, users]);
 
-  const inRole = users.filter((u) => roleOf(u) === role);
-  const me = inRole.find((u) => u.id === person[role]) ?? inRole[0];
+  // Managers see everyone in the dropdown (picking someone scopes the Timeline); users see only users.
+  const inRole = role === "manager" ? users : users.filter((u) => roleOf(u) === "user");
+  const me = inRole.find((u) => u.id === person[role]) ?? (role === "manager" ? users.find((u) => roleOf(u) === "manager") : undefined) ?? inRole[0];
   const current = tab[role];
   const accent = me?.color ?? "#f4f4f4";
   const timelineFor = role === "manager" ? scope : me?.id ?? ALL;
@@ -75,7 +77,7 @@ export default function ApertureApp() {
             <button aria-pressed={role === "user"} onClick={() => setRole("user")}>User</button>
             <button aria-pressed={role === "manager"} onClick={() => setRole("manager")}>Manager</button>
           </span>
-          <PersonMenu role={role} users={inRole} selected={me?.id ?? ""} onSelect={(id) => setPerson((p) => ({ ...p, [role]: id }))} grants={snap.grants} cases={snap.cases} online={snap.online} />
+          <PersonMenu role={role} users={inRole} selected={me?.id ?? ""} onSelect={(id) => { setPerson((p) => ({ ...p, [role]: id })); if (role === "manager") setScope(id); }} grants={snap.grants} cases={snap.cases} online={snap.online} />
         </span>
       </header>
 
@@ -133,6 +135,8 @@ export default function ApertureApp() {
           <Composer key={timelineFor} selected={timelineFor === ALL ? "u-newhire-1" : timelineFor} users={users} online={snap.online} />
         </div>
       )}
+
+      <Live viewer={me} />
     </div>
   );
 }

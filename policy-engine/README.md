@@ -16,7 +16,8 @@ that's the security answer to every judge question. Design brief:
 
 - `engine.py` — `evaluate_request(request, resources, policy) -> list[PolicyDecision]`
   with a working `DEFAULT_POLICY`.
-- `escalation.py` — `open_case()`, `apply_vote()`; any deny → denied, all required → approved.
+- `escalation.py` — `open_case()` (snapshots requester + duration), `apply_vote()`;
+  votes from non-required approvers are ignored; any deny → denied, all required → approved.
 
 ## Build order
 
@@ -25,11 +26,13 @@ that's the security answer to every judge question. Design brief:
 2. **Approvers** — `_escalate()` takes an `approvers: dict[str, list[str]]` argument
    (resource id → approver ids) instead of the empty list; backend passes
    `usecase_demo.APPROVERS`.
-3. **Chaining** — `evaluate_set(request, resources, policy)` runs after per-resource
-   decisions: if the set contains a `RESTRICTED`+ read and any write-capable resource
-   outside the owning team, escalate every auto-grant in the set with reason
-   `"chained: <a> + <b> forms an export path"`. Add a `capability: read|write` field to
-   `Resource` in `shared/schemas.py` (additive, tell the others).
+3. **Chaining** — `evaluate_set(request, resources, policy, active_grants)` runs after
+   per-resource decisions over the requester's **effective set** (what they'd hold:
+   active grants plus requested — so splitting into two requests doesn't help): if it
+   contains a `RESTRICTED`+ read and any write-capable resource outside the owning
+   team, escalate every auto-grant in the request with reason
+   `"chained: <a> + <b> forms an export path"`. `Resource.capability` is already in the
+   schema; the bucket in seed data is `write`.
 4. **Peer signal** — `peer_comparison(requester, resource, grants) -> str` over seed
    history; pure string, no decision impact tonight, but it's on the card.
 5. **Hot reload** — `PolicyRule` is already Pydantic; backend holds one instance; `PATCH`

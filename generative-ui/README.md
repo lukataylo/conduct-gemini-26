@@ -9,9 +9,9 @@ Design brief with every surface and its options: [`docs/ui-surfaces.html`](../do
 
 | | What | Done when |
 |---|---|---|
-| **Core** (must demo) | Registry renderer fed by SSE instead of polling. Context-rich approval card with tiered justification. Per-request audit timeline. Policy table. | Golden path runs from the browser end to end, no curl. |
-| **Ambitious** (wins) | Gemini emits **A2UI** (Google's agent-driven UI protocol) against our catalog; client diffs panel ids and patches incrementally; data-model updates stream without regenerating layout. Then **role-adaptive composition**: intern / approver / auditor get different layouts from the same data. | A grant appears and a revocation removes a panel with no flicker and no lost scroll. Same request, three viewers, three compositions. |
-| **Fallback** (in repo) | Static shell, state-driven panels from `/ui-spec`, 3s poll. | Already works. |
+| **Core** (must demo) | Registry renderer fed by SSE. Chat input → confirmation card. **Approver view with a vote button** (doesn't exist yet — first thing after SSE). Approval card: reason string as the summary on day one, requester text in a labelled unverified block, critical-tier justification. Per-request timeline with verify. Policy table. Denied panel. | Golden path from the browser including the approval. Close project → panel leaves live. |
+| **Ambitious** (after 16:00) | Gemini emits **A2UI** against our catalog; client diffs on `panel.id` (in schema) and patches; data streams without regenerating layout. Then **role-adaptive composition**. Reviewed: with a three-component catalog this looks identical to the fallback — only build it once the catalog is wide enough to differ. | Same request, three viewers, three compositions, no flicker. |
+| **Fallback** (in repo) | Static shell, state-driven panels from `/ui-spec`, 3s poll, `hasOwn` lookup, per-panel error boundary. | Already works. |
 
 ## Why A2UI
 
@@ -32,20 +32,25 @@ enough. Keep our `UISpec`/`UIComponentSpec` as the wire type; make it A2UI-shape
 
 ## Build order
 
-1. **SSE** — replace the 3s poll with `EventSource('/api/stream')` (contributor 5 is
-   adding it). Panels update on `ui_spec` events; audit timeline on `audit_event`.
-2. **Approval card** — props: engine reason, Gemini summary, tier, requester + team +
-   manager, current holdings, peer comparison string, proposed expiry, task. Approve/deny
-   fixed at the bottom. Critical tier: approve disabled until `justification` is
-   non-empty; post it with the vote.
-3. **Per-request timeline** — group `/audit?request_id=` events; render reason strings
-   and vote comments inline; `ACTION_EXECUTED` events with a `screenshot` in payload
-   render as a filmstrip.
-4. **Policy table** — read `GET /policy`; sliders `PATCH /policy`; re-submit button.
-5. **A2UI generation** — new `GET /ui-spec/:id?mode=generated` returns Gemini's
-   A2UI-shaped spec (contributor 2 owns the prompt; you own the renderer). Diff by
-   `panel.id`; CSS transitions on add/remove; never replace the tree wholesale.
-6. **Role-adaptive** — pass `?role=requester|approver|auditor`; three prompt variants.
+1. **SSE** — replace the 3s poll with `EventSource('/api/stream')` (contributor 5 ships
+   it first). Panels update on `ui_spec` events; audit timeline on `audit_event`.
+2. **Approver view** — a role picker (sets `X-Actor`), `GET /escalations?status=pending`,
+   vote button posting `ApprovalVote` with `X-Demo-Key`. Then the chat input +
+   confirmation card for the requester side.
+3. **Approval card** — props: engine reason (the summary until Gemini's lands), tier,
+   requester + team + manager, current holdings, peer comparison string, proposed expiry.
+   Requester text only inside a quoted `RequesterClaim` block labelled "unverified
+   requester text", truncated. Approve/deny are static chrome at the bottom, never
+   catalog entries. Critical tier: approve disabled until `justification` is non-empty.
+4. **Per-request timeline** — group `/audit?request_id=` events; reason strings and
+   vote comments inline; a "verify chain" control calling `/audit/verify`;
+   `ACTION_EXECUTED` events with a `screenshot_url` render as a filmstrip.
+5. **Denied panel** — fixed position, reason string, alternative text if present.
+6. **Policy table** — read `GET /policy`; sliders `PATCH /policy`; re-submit button.
+7. **A2UI generation** (stretch) — `GET /ui-spec/:id?mode=generated` returns Gemini's
+   spec (contributor 2 owns the prompt; you own the renderer). Diff by `panel.id`; CSS
+   transitions on add/remove; never replace the tree wholesale.
+8. **Role-adaptive** (stretch) — `?role=requester|approver|auditor`; three prompt variants.
 
 ## Rules that don't bend
 

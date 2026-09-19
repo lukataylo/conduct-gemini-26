@@ -8,9 +8,9 @@ the approval endpoints, the audit spine, and deploy. Design brief:
 
 | | What | Done when |
 |---|---|---|
-| **Core** (must demo) | FastAPI hub (in repo, golden path verified). **SSE stream** `/stream` emitting `ui_spec`, `audit_event`, `grant_revoked`. Seed loader on startup. **Demo clock** — every time read goes through `clock.now()`, with `POST /clock/advance`. TTL sweeper. `POST /projects/{id}/close` bulk revoke. `GET/PATCH /policy`. | Front end never polls. Advancing the clock revokes on screen. |
-| **Ambitious** (wins) | **Hash-chained, event-sourced store**: `AuditEvent.prev_hash`; grants and cases are a fold over the log; `GET /audit/verify` re-hashes and reports. Approver resolution and peer-comparison plumbing for the card. `trace_id` on model-produced events linking to Logfire. Railway deploy with a public URL for the mock console (computer use needs it). | "Verify chain" returns OK on stage; tamper with one event in a shell, it returns the index that broke. |
-| **Fallback** | In-memory dicts (in repo). | Already works. |
+| **Core** (must demo) | Hardened hub (in repo, verified): server-assigned ids, requester lookup, approver-only votes, expiry enforced, hash-chained audit with `GET /audit/verify`, `GET /grants`, `POST /projects/{id}/close`. **SSE first, thirty minutes** — `/stream` emitting `ui_spec`, `audit_event`, `grant_revoked`; every track-1 item waits on it. `X-Demo-Key` on writes, `X-Actor` must match `approver_id` on votes. **Demo clock** with `POST /clock/advance`; TTL sweeper. **Railway deploy by 13:30** — the Modal Sandbox can't reach localhost. | Front end never polls. Close project → `grant_revoked` on the stream. Console has a public URL. |
+| **Ambitious** (after 16:00) | `GET/PATCH /policy` with validation. Per-requester MCP bearer tokens at seed time. `ACTION_EXECUTED` ingest requires the runtime secret. Chain head into a Logfire span every N events. CORS restricted to the UI origin. | Tamper with one event in a shell, `/audit/verify` names the index. |
+| **Fallback** | In-memory dicts (in repo). Full event-sourced fold was reviewed as a two-hour refactor for three seconds on stage — don't. | Already works. |
 
 ## What's here
 
@@ -20,20 +20,19 @@ the approval endpoints, the audit spine, and deploy. Design brief:
 
 ## Build order
 
-1. **SSE** — `/stream` via `sse-starlette`; an in-process broadcast; publish after every
-   state change. Contributor 1 switches to it immediately.
-2. **Clock + sweeper** — `clock.py` with an offset; background task every 2s revokes
-   expired grants and publishes `grant_revoked`.
-3. **Close project** — revoke all grants whose request's `project` matches; one event
-   per grant plus a `PROJECT_CLOSED` event (add to `AuditEventType`, additive).
-4. **Policy endpoints** — hold one `PolicyRule`; `PATCH` validates via Pydantic and swaps.
-5. **Event sourcing** — `store.py`: `append(event)` sets `prev_hash = sha256(prev)`;
-   `state()` folds the log into grants/cases; `/audit/verify`. Do this before 16:00 or
-   not at all — it's a two-hour refactor and everything else depends on the store.
+1. **SSE, first** — `/stream` via `sse-starlette`; in-process broadcast; publish after
+   every state change (`_audit` is the natural hook). Contributor 1 switches immediately.
+2. **Demo headers** — middleware: `X-Demo-Key` required on POST; on `/vote`, `X-Actor`
+   must equal `vote.approver_id`. Ten lines. Seed a bearer token per requester for MCP.
+3. **Deploy, by 13:30** — Railway service for this app + the mock console (contributor 4
+   hands you the page); env from `.env`. Computer use and the MCP server need the URL.
+4. **Clock + sweeper** — `clock.py` with a forward-only offset behind `now()`;
+   `POST /clock/advance` (audited); background task every 2s revokes expired grants.
+5. **Policy endpoints** — hold one `PolicyRule`; `GET /policy`; `PATCH` validates and swaps.
 6. **Wire contributor 2** — `POST /requests` accepts `{"raw_text": ...}` and calls the
-   Modal parse endpoint; `_issue_grant` enqueues `execute_grant`; `/grants` for the MCP
-   server; `/grants/execute` for the mock console form.
-7. **Deploy** — Railway service for this + the console; env from `.env`.
+   Modal parse endpoint; `/grants/execute` for the console form; `ACTION_EXECUTED`
+   ingest requires the runtime secret; `trace_id` passthrough.
+7. **Anchor** — every 20 events, log the chain head to Logfire. Restrict CORS.
 
 ## Rules that don't bend
 

@@ -9,9 +9,9 @@ use them for what they're actually for. Design brief: [`docs/ui-surfaces.html`](
 
 | | What | Done when |
 |---|---|---|
-| **Core** (must demo) | Gemini structured-output parse with resource ids as an **enum** (no hallucinated buckets). Pydantic AI agent wrapping it, `logfire.instrument_pydantic_ai()` on, every call traced. Gemini writes the approver-facing summary *from the structured `PolicyDecision`*, never from the requester's raw text. | Parse event in the audit trail links to its Logfire span. |
-| **Ambitious** (wins) | **Computer use in a Modal Sandbox** driving the mock console — one recorded run in the afternoon, every screenshot + action stored as `ACTION_EXECUTED` events. **Scoped MCP server**: `tools/list` derived from the requester's active grants; `tools/list_changed` on revoke; Claude Code as the on-stage client. Gemini composes the A2UI spec for contributor 1. | Claude Code lists tools, calls one against the mock GCS, and loses it when the project closes. |
-| **Fallback** | Recorded replay (already the default). Action log without images. | — |
+| **Core** (must demo) | **Scoped MCP server on Modal, from noon** — this is the thesis ("the agent's tool list is the UI"): `tools/list` from `GET /grants?requester_id=`; every handler re-checks the grant then logs `ACTION_EXECUTED`; `tools/list_changed` on `grant_revoked`; Claude Code as the client. Gemini structured-output parse with resource ids as an **enum**. Pydantic AI agent wrapping it, `logfire.instrument_pydantic_ai()` on. | Claude Code lists two tools, calls one, and loses it when the project closes — by 16:00, then rehearsed all afternoon. |
+| **Ambitious** (after 16:00) | Gemini writes the approver summary *from the typed `PolicyDecision`* (never from requester text) and task-scoped tool descriptions. **Computer use in a Modal Sandbox** against the *deployed* console — one recorded run, screenshots as `ACTION_EXECUTED`. Reviewed as L, not M; only start it with the checkpoint passed. Gemini composes the A2UI spec for contributor 1. | A filmstrip in the timeline with capture times. |
+| **Fallback** | Reason string as the summary. No computer use — the tool call *is* the enactment. | — |
 
 ## What's here
 
@@ -25,22 +25,28 @@ use them for what they're actually for. Design brief: [`docs/ui-surfaces.html`](
 
 ## Build order
 
-1. **Parse** — real Gemini call, enum-constrained. Return `AccessRequest`. Wrap in a
-   Pydantic AI `Agent` with `output_type=AccessRequest`; `logfire.configure()` +
-   `logfire.instrument_pydantic_ai()`. Put `trace_id` in `AuditEvent.payload`.
-2. **Summaries** — `summarize_decision(decision, resource, requester) -> str` for the
-   approval card. Input is the typed decision only. Fallback: the reason string.
-3. **A2UI spec** — `compose_ui(grants, cases, role) -> UISpec` with a fixed catalog in
-   the prompt and `response_schema=UISpec`. Contributor 1 renders it.
-4. **Computer use** — Modal Sandbox + headless Chromium against the mock console URL
-   (contributor 4). Goal derived from a `Grant`. Save each screenshot to a Modal Volume;
-   emit `ACTION_EXECUTED` with `{"screenshot_url", "action"}`. Record once at ~16:30.
-5. **Scoped MCP** — `mcp_server.py`: FastMCP; on `tools/list` query
-   `GET /grants?requester_id=` and expose `gcs_list_objects`, `gcs_read_object`,
-   `bq_query`, plus `request_access`. Tool descriptions written by Gemini from the grant
-   (task, expiry). Subscribe to `/stream`; on `grant_revoked` send `tools/list_changed`.
-6. **Live gate** — `execute_grant_endpoint` streams screenshots over SSE only if the
-   18:30 rehearsal passed twice. Otherwise replay.
+1. **Scoped MCP, 12:00** — `mcp_server.py` with FastMCP, deployed on Modal. On
+   `tools/list` query `GET /grants?requester_id=` (exists) and expose `gcs_list_objects`,
+   `gcs_read_object`, `bq_query`, plus `request_access` (returns
+   `{status, reason, alternatives}` on denial, never a bare error). Each handler
+   re-fetches the grant, checks active + unexpired + resource match, acts against the
+   mock layer, then POSTs `ACTION_EXECUTED`. Present a per-requester bearer token
+   (contributor 5 issues them at seed time). Subscribe to `/stream`; on `grant_revoked`
+   send `tools/list_changed`. Connect Claude Code on the presenter's laptop.
+2. **Parse** — real Gemini call, enum-constrained. Wrap in a Pydantic AI `Agent` with
+   `output_type=AccessRequest`; `logfire.configure()` + `logfire.instrument_pydantic_ai()`.
+   Put the span id in `AuditEvent.trace_id` (field exists).
+3. **Summaries + descriptions** — `summarize_decision(decision, resource, requester)`;
+   input is the typed decision only. Tool descriptions from the grant (task, expiry).
+   Fallback: the reason string.
+4. **Computer use** (stretch) — Modal Sandbox + headless Chromium against the *deployed*
+   console URL (contributor 5, by 13:30). Goal from the `Grant` only, turn budget, egress
+   limited to that URL; afterwards diff console state against the grant, revert on
+   mismatch. Screenshots to a Volume; `ACTION_EXECUTED` with `{"screenshot_url","action"}`.
+5. **A2UI spec** (stretch) — `compose_ui(grants, cases, role) -> UISpec` with the
+   catalog in the prompt and `response_schema=UISpec`; server drops panels whose ids
+   aren't in the viewer's active set. Contributor 1 renders it.
+6. **Live gate** — screenshots over SSE only if the 18:30 rehearsal passed twice.
 
 ## Rules that don't bend
 

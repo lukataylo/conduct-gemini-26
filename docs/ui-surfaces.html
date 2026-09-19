@@ -556,7 +556,7 @@
           <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
         </div>
         <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Sequential chain</h3></div><span class="tag fallback">Skip tonight</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Sequential chain</h3></div><span class="tag fallback">Defer</span></div>
           <p class="desc">Finance first, then the manager, one at a time.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Mirrors some org policies</li></ul></div>
@@ -595,16 +595,16 @@
           <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Hash-chained, event-sourced store</h3></div><span class="tag rec">Recommended · ambitious</span></div>
-          <p class="desc">Every <code>AuditEvent</code> carries the SHA-256 of the previous one. Grants and cases are a fold over the log, not separate tables. A "verify chain" control re-hashes the log on screen.</p>
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Hash-chained log with on-screen verify</h3></div><span class="tag rec">Add-on · in repo</span></div>
+          <p class="desc">Every <code>AuditEvent</code> carries the SHA-256 of the previous one, server-assigned on ingest along with id and timestamp. <code>GET /audit/verify</code> re-hashes and reports the first broken index. Tamper with one event in a shell, watch it fail. The dict store stays — a full event-sourced fold was reviewed as a two-hour refactor that buys three seconds on stage.</p>
           <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>Turns "we log things" into "the log is the system"</li><li>Tamper-evidence is a real security property, cheap to add</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>Backend store refactor, around two hours</li></ul></div>
+            <div class="pro"><h5>For</h5><ul><li>Tamper-evidence is a real property, already built</li><li>The demo beat ("verify: ok / broken at 3") costs nothing more</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Without an external anchor, someone holding the head can rewrite history — print the head hash into a Logfire span every N events</li></ul></div>
           </div>
-          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+          <div class="opt-foot"><span>cost <b>done</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Logfire trace on every model event</h3></div><span class="tag rec">Recommended · partner</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Logfire trace on every model event</h3></div><span class="tag rec">Add-on · partner</span></div>
           <p class="desc">Each event produced by a Gemini or Claude call links to its Pydantic Logfire span: the exact prompt, the structured response, latency, cost. Click the parse event, see what the model actually said.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Partner tech used for its real purpose, not name-dropped</li><li>Judges can inspect model output instead of trusting a summary</li></ul></div>
@@ -613,7 +613,7 @@
           <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt avoid">
-          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Flat chronological log</h3></div><span class="tag avoid">Avoid as final</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Flat chronological log</h3></div><span class="tag fallback">Fallback</span></div>
           <p class="desc">Timestamp, actor, detail, newest first.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>It's what <code>/audit</code> returns today</li></ul></div>
@@ -629,18 +629,18 @@
       <div class="surface-head">
         <span class="num">Surface 7</span>
         <h2>Agent in action — computer use</h2>
-        <p class="job">The moment the room leans in: an agent operating the console to perform a grant that was already decided. Never deciding, only executing. The Modal partner story lives here.</p>
-        <div class="chips"><span class="chip">track 2</span><span class="chip">Modal Sandbox</span><span class="chip">Claude computer use</span></div>
+        <p class="job">An agent operating the console to enact a grant that was already decided. Never deciding, only executing. After review this is the <b>stretch layer</b>, not the spine: it's the flashiest beat and the least connected to the thesis, and a Modal Sandbox can't reach localhost, so the console needs a public URL first. The answer to "you have an API, why is an agent clicking?": the console stands in for every enterprise system that has no API — Conduct's world. The engine decides; the agent enacts where only a UI exists; the <code>ACTION_EXECUTED</code> event proves it did.</p>
+        <div class="chips"><span class="chip">track 2 · stretch</span><span class="chip">Modal Sandbox</span><span class="chip">Claude computer use</span><span class="chip">needs public console URL</span></div>
       </div>
       <div class="options">
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Recorded replay from a real run</h3></div><span class="tag rec">Recommended</span></div>
-          <p class="desc">Run computer use once in the afternoon inside a Modal Sandbox against the mock console. Store every screenshot and action as <code>ACTION_EXECUTED</code> events. Play them back as a filmstrip inside the audit timeline, stamped with the time they were captured.</p>
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Recorded replay from a real run</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">Run computer use once in the afternoon inside a Modal Sandbox against the deployed mock console. The goal comes from the <code>Grant</code> only, with a turn budget; afterwards the console state must equal exactly the grant or it's reverted and audited. Store every screenshot and action as <code>ACTION_EXECUTED</code> events and play them back as a filmstrip in the timeline, stamped with capture time.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Nine tenths of the visual payoff, none of the live risk</li><li>Still real — the trace proves it</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>A judge may ask whether it's live; answer honestly and show the timestamp</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Reviewed as L, not M: headless Chromium, the tool loop, screenshots to a Volume, events back, a public console — for one person starting after the 16:00 checkpoint</li><li>Text on the console page can steer the agent; hence goal-from-grant and the post-run diff</li></ul></div>
           </div>
-          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+          <div class="opt-foot"><span>cost <b>L</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt">
           <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Live stream from the sandbox</h3></div><span class="tag stretch">Stretch · rehearsal-gated</span></div>
@@ -652,7 +652,7 @@
           <div class="opt-foot"><span>cost <b>L</b></span><span>demo risk <b>high</b></span></div>
         </div>
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Replay by default, "run live" behind a gate</h3></div><span class="tag rec">If B gets built</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Replay by default, "run live" behind a gate</h3></div><span class="tag stretch">Add-on to B</span></div>
           <p class="desc">The presenter presses "run live" only if the 18:30 rehearsal passed twice. Otherwise the replay plays. The decision is made on evidence, at 18:30, not on hope at 20:00.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>Best of both, with a rule for choosing</li></ul></div>
@@ -709,7 +709,7 @@
           <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>What-if simulation over history</h3></div><span class="tag fallback">Skip tonight</span></div>
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>What-if simulation over history</h3></div><span class="tag fallback">Defer</span></div>
           <p class="desc">Evaluate a proposed policy against every past request; show how many decisions would flip.</p>
           <div class="pc">
             <div class="pro"><h5>For</h5><ul><li>A real governance feature</li></ul></div>
@@ -773,45 +773,46 @@
       <div class="surface-head">
         <span class="num">Surface 10</span>
         <h2>Where approvals land</h2>
-        <p class="job">The in-app queue is decided. The question is how much of the chat-native pattern every vendor has moved to we borrow without taking on an integration tonight.</p>
-        <div class="chips"><span class="chip">track 5</span></div>
+        <p class="job">Decided: in-app. Style the queue item as the chat card people already trust from Slack and Teams approvals — sender, summary, inline controls — with an honestly-labelled "Open in Slack — next" affordance (S). A real Slack app is an L with OAuth and an interactivity endpoint; defer it. Email adds nothing visible on stage.</p>
+        <div class="chips"><span class="chip">track 1</span><span class="chip">decided</span></div>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="surface-head">
+        <span class="num">Surface 11</span>
+        <h2>Denial</h2>
+        <p class="job">The engine can say no (<code>AUTO_DENY</code>), any approver can veto, and the second scenario ends in a denial. Turn "no" into a next step — for the person and for their coding agent.</p>
+        <div class="chips"><span class="chip">track 1</span><span class="chip">track 2 · MCP</span><span class="chip">track 3 · reason</span></div>
       </div>
       <div class="options">
         <div class="opt rec">
-          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>In-app, styled as a chat card</h3></div><span class="tag rec">Recommended</span></div>
-          <p class="desc">The queue item takes the shape people already trust from Slack and Teams approvals — sender, summary, inline controls — with an honestly-labelled "Open in Slack — next" affordance.</p>
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Denied panel with the reason and an alternative</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">A fixed-position panel carrying the engine's reason string and a Gemini-written "what to ask for instead" (a narrower tier, a shorter duration). For the agent, <code>request_access</code> returns <code>{status: denied, reason, alternatives}</code> — never a bare tool error. <code>REQUEST_DENIED</code> lands in the trail.</p>
           <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>Signals we know where this pattern is going</li><li>Zero integration risk</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>It's a visual, not a channel</li></ul></div>
+            <div class="pro"><h5>For</h5><ul><li>The chaining scenario needs it to make sense to the room</li><li>Cheap: reason strings already exist</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>The alternative text is generated; fall back to the reason alone</li></ul></div>
           </div>
           <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Email notification to the approver</h3></div><span class="tag stretch">Optional</span></div>
-          <p class="desc">A real message linking back to the queue. Gmail tooling is already wired in this environment.</p>
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>One-click "request the narrower version"</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">The alternative is a pre-filled request the person or agent can submit immediately.</p>
           <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>Cheap and real</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>Still routes to the portal; adds nothing visible on stage</li></ul></div>
-          </div>
-          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
-        </div>
-        <div class="opt">
-          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>In-app, plain</h3></div><span class="tag base">Baseline · decided</span></div>
-          <p class="desc">The queue as a page in our app.</p>
-          <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>No external dependencies</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>The pattern the industry now calls legacy</li></ul></div>
+            <div class="pro"><h5>For</h5><ul><li>Denial becomes a loop, not a wall</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Another generated object that has to be valid</li></ul></div>
           </div>
           <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
         </div>
         <div class="opt avoid">
-          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Real Slack interactive message</h3></div><span class="tag avoid">Not tonight</span></div>
-          <p class="desc">A Slack app with approve and deny buttons that post back.</p>
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Silently remove the pending panel</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">The card disappears; nothing explains why.</p>
           <div class="pc">
-            <div class="pro"><h5>For</h5><ul><li>The industry-standard surface</li></ul></div>
-            <div class="con"><h5>Against</h5><ul><li>App, OAuth, interactivity endpoint and a workspace, on a one-day clock</li></ul></div>
+            <div class="pro"><h5>For</h5><ul><li>Nothing to build</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Looks like a bug on stage; the agent retries blindly</li></ul></div>
           </div>
-          <div class="opt-foot"><span>cost <b>L</b></span><span>demo risk <b>high</b></span></div>
+          <div class="opt-foot"><span>cost <b>—</b></span><span>demo risk <b>medium</b></span></div>
         </div>
       </div>
     </section>
@@ -819,46 +820,53 @@
     <section id="tonight">
       <div class="sec-head">
         <h2>Build order for tonight</h2>
-        <p class="sub">Assumes work starts around noon and the room sees it at 20:00. Each slot ends in something that can be shown; ambitious layers only start once the checkpoint before them passes.</p>
+        <p class="sub">Revised after the judge review: the first plan was over-scheduled by about two. The one beat — close the project, the tool vanishes from Claude Code — is now built by 16:00 and rehearsed all afternoon. Everything after the 16:00 checkpoint is optional.</p>
       </div>
       <div class="timeline">
+        <div class="slot">
+          <span class="t">done</span>
+          <div class="b">
+            <b>Already on main</b>
+            <span>Shared schema additions in one commit (panel <code>id</code>, <code>prev_hash</code>, <code>trace_id</code>, <code>capability</code>, <code>REQUEST_DENIED</code>, <code>PROJECT_CLOSED</code>, escalation snapshot). Hardened hub: server-assigned ids, requester looked up server-side, votes only from required approvers, expiry enforced, hash-chained audit with <code>/audit/verify</code>, <code>/grants</code>, <code>/projects/{id}/close</code>. Renderer: <code>hasOwn</code> lookup, per-panel error boundary, keyed by id.</span>
+          </div>
+        </div>
         <div class="slot">
           <span class="t">12:00–14:00</span>
           <div class="b">
             <b>Spine</b>
-            <span>Event-sourced, hash-chained store with SSE stream and seed loader (5). Gemini structured parse with the resource enum (2). Dashboard renders the scaffold spec over SSE instead of polling (1). Engine tests for the four decision cases (3). Interactive mock console page (4).</span>
-            <span class="chk">the golden path runs from the browser, end to end, with no curl</span>
+            <span><b>SSE first, thirty minutes</b> (5) — everything in track 1 waits on it. Then: <code>X-Demo-Key</code> + <code>X-Actor</code> headers, demo clock, Railway deploy so the console has a public URL by 13:30 (5). Chat input → Gemini enum-constrained parse → confirmation card (2, 1). <b>Approver view with a vote button</b> — it doesn't exist yet (1). Scoped MCP server skeleton on Modal listing tools from <code>/grants</code>, Claude Code connected (2). Engine tests, approver resolution (3). Mock console page, presenter panel at <code>/demo</code>: reset seed · submit scenario 1/2 · advance clock · close project (4).</span>
+            <span class="chk">golden path from the browser including the approval; Claude Code lists two tools</span>
           </div>
         </div>
         <div class="slot">
           <span class="t">14:00–16:00</span>
           <div class="b">
-            <b>Surfaces that win on their own</b>
-            <span>Context-rich approval card with tiered justification (1, 5). Per-request timeline (1). Policy table with hot-reload (3, 1). Demo clock, TTL sweeper, close-project (5). Chaining check and peer-comparison signal in the engine (3). Pydantic AI agent with Logfire instrumentation (2).</span>
-            <span class="chk">a full run-through with bucket auto-grant, dataset escalation, two approvals, expiry</span>
+            <b>The beat, and the surfaces that carry it</b>
+            <span>Approval card with the engine reason string as the day-one summary, requester text in the unverified block, critical-tier justification (1). Per-request timeline with verify (1). TTL sweeper, close-project publishes <code>grant_revoked</code> → MCP emits <code>tools/list_changed</code> (5, 2). MCP tool handlers re-check the grant and log <code>ACTION_EXECUTED</code> (2). Pydantic AI agent + Logfire on the parse (2). Policy table, read-only then sliders (1, 5). Denied panel (1).</span>
+            <span class="chk">close project → panel leaves the dashboard and the tool leaves Claude Code's session, live, twice in a row</span>
           </div>
         </div>
         <div class="slot">
           <span class="t">16:00–17:30</span>
           <div class="b">
-            <b>Ambitious layer</b>
-            <span>Gemini emits A2UI; client patches incrementally (1). Scoped MCP server whose tool list is derived from grants (2, 5). Computer use in a Modal Sandbox, one recorded run, screenshots into the trail (2). Adversarial second scenario: a chaining attempt denied with an explanation (4).</span>
-            <span class="chk">Claude Code lists tools, uses one, loses it on close-project</span>
+            <b>Only after the checkpoint</b>
+            <span>Chaining check over the requester's effective set + the denied second scenario (3, 4). Peer-comparison string from seed history (3, 4). Gemini summary and tool descriptions replacing the reason string (2). Computer use: one recorded run in a Modal Sandbox against the deployed console (2, stretch). A2UI composition with role-adaptive layouts, only if the catalog is wide enough to look different from the fallback (2, 1).</span>
+            <span class="chk">scenario 2 is denied with a reason the room understands</span>
           </div>
         </div>
         <div class="slot">
           <span class="t">17:30–18:30</span>
           <div class="b">
-            <b>Polish and rehearse</b>
-            <span>Role-adaptive layouts if A2UI is stable (1). Agent-driven request from Claude Code (2). Logfire links on events (5). Two timed run-throughs, one by someone who didn't build it.</span>
-            <span class="chk">the demo fits in four minutes twice in a row</span>
+            <b>Rehearse</b>
+            <span>Logfire links on model events (5). Fallback screen recording of the whole demo (4). Two timed run-throughs, one by someone who didn't build it. Cut anything that fails twice.</span>
+            <span class="chk">four minutes, twice, no curl, no console tab</span>
           </div>
         </div>
         <div class="slot gate">
           <span class="t">18:30</span>
           <div class="b">
             <b>Gate</b>
-            <span>Live computer use only if both rehearsals passed. Otherwise the replay. Freeze everything at 18:45 except copy.</span>
+            <span>Live computer use only if it passed both rehearsals; otherwise the replay, or nothing. Freeze at 18:45 except copy.</span>
           </div>
         </div>
         <div class="slot">
@@ -867,7 +875,7 @@
         </div>
         <div class="slot demo">
           <span class="t">20:00</span>
-          <div class="b"><b>Demo</b><span>Request → decide → approve → agent acts → project closes → tools vanish → the trail verifies.</span></div>
+          <div class="b"><b>Demo — five beats</b><span>Claude Code asks → the engine decides, one grant, one escalation → the manager approves from a card that explains itself → Claude Code uses the tool → close the project: the panel leaves, the tool vanishes mid-session, the chain verifies.</span></div>
         </div>
       </div>
     </section>
@@ -881,28 +889,58 @@
         <table>
           <thead><tr><th>Track</th><th>Core — must demo</th><th>Ambitious — wins</th><th>Fallback</th></tr></thead>
           <tbody>
-            <tr><td>1 · Generative UI</td><td>Registry renderer over SSE; approval card; per-request timeline</td><td>Gemini emits A2UI against our catalog with incremental patching; role-adaptive composition</td><td>Static shell, state-driven panels (in repo)</td></tr>
-            <tr><td>2 · Agent runtime</td><td>Gemini structured parse with resource enum; Pydantic AI agent instrumented with Logfire</td><td>Computer use in a Modal Sandbox with screenshots into the trail; scoped MCP server derived from grants</td><td>Recorded replay; action log</td></tr>
-            <tr><td>3 · Policy engine</td><td>Tiers and N-of-M (in repo) with tests for the four cases</td><td>Cross-resource chaining check; peer-comparison risk signal; hot-reloadable policy; Hypothesis property tests</td><td><code>DEFAULT_POLICY</code> as is</td></tr>
-            <tr><td>4 · Use case</td><td>Atlas scenario; interactive mock console; four-minute script</td><td>Adversarial second scenario (chaining attempt denied); close-project beat; rehearsal ownership</td><td>Static console page</td></tr>
-            <tr><td>5 · Backend</td><td>FastAPI hub (in repo); SSE; seed loader; demo clock</td><td>Hash-chained event-sourced store with verify; MCP endpoint; Railway deploy</td><td>In-memory dicts (in repo)</td></tr>
+            <tr><td>1 · Generative UI</td><td>Registry renderer over SSE; chat + confirmation card; <b>approver view</b>; approval card; per-request timeline; denied panel</td><td>A2UI composition with role-adaptive layouts — only with a catalog wide enough to differ from the fallback</td><td>Static shell, state-driven panels, polling (in repo)</td></tr>
+            <tr><td>2 · Agent runtime</td><td>Gemini enum-constrained parse; Pydantic AI + Logfire; <b>scoped MCP server on Modal</b> with re-checking tool handlers and <code>tools/list_changed</code></td><td>Gemini summaries and tool descriptions; computer use in a Modal Sandbox, recorded; A2UI compose prompt</td><td>Reason string as summary; no computer use</td></tr>
+            <tr><td>3 · Policy engine</td><td>Tiers and N-of-M with approver check (in repo); tests for the four cases; approver resolution</td><td>Chaining check over the effective set; peer-comparison signal; hot-reloadable policy; Hypothesis invariants</td><td><code>DEFAULT_POLICY</code> as is</td></tr>
+            <tr><td>4 · Use case</td><td>Atlas scenario; mock console; presenter panel; four-minute script; rehearsals</td><td>Denied second scenario; seed history; fallback recording</td><td>Static console page</td></tr>
+            <tr><td>5 · Backend</td><td>Hardened hub with chained audit, <code>/grants</code>, close-project (in repo); <b>SSE first</b>; demo headers; clock; sweeper; Railway by 13:30</td><td>Policy endpoints; Logfire anchor; MCP bearer tokens</td><td>In-memory dicts (in repo)</td></tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="hardening">
+      <div class="sec-head">
+        <h2>Hardening before the demo</h2>
+        <p class="sub">From the red-team pass. The first group is on <code>main</code>; the second is owed before 18:45. Anyone on venue wifi with the Railway URL is a threat model tonight.</p>
+      </div>
+      <div class="findings">
+        <div class="finding-col">
+          <h3>Done</h3>
+          <div class="finding"><p>Request ids are server-assigned; a re-POST can't swap the requester on an escalated case. The case snapshots requester and duration at open time and grants from the snapshot.</p></div>
+          <div class="finding"><p>The requester is looked up by id; posted <code>team</code> and <code>manager_id</code> are ignored, so cross-team checks can't be bypassed by self-assertion.</p></div>
+          <div class="finding"><p>Votes are accepted only from the case's required approvers, in both the engine and the endpoint.</p></div>
+          <div class="finding"><p>Every reader of grants filters on expiry, not just <code>revoked</code>. Audit ids, timestamps and <code>prev_hash</code> are stamped on ingest; <code>/audit/verify</code> reports the first broken index.</p></div>
+          <div class="finding"><p>Registry lookup uses <code>Object.hasOwn</code> — a generated name like <code>constructor</code> falls back instead of resolving through the prototype. A per-panel error boundary keeps one bad panel from blanking the dashboard.</p></div>
+        </div>
+        <div class="finding-col">
+          <h3>Owed today</h3>
+          <div class="finding"><p><b>Identity is a header tonight.</b> <code>X-Demo-Key</code> middleware on every write; <code>X-Actor</code> set by the role picker must match <code>approver_id</code> on votes. Say on stage: "this is the line SSO sits behind."</p></div>
+          <div class="finding"><p><b>MCP bearer tokens.</b> One per requester at seed time; the server presents it on <code>/grants</code>. A client can't pick the manager's tools by changing an id.</p></div>
+          <div class="finding"><p><b>Tool handlers re-check.</b> Active, unexpired, resource matches — then act, then <code>ACTION_EXECUTED</code>. This is the only place "policy runs twice" is true; don't claim more.</p></div>
+          <div class="finding"><p><b>Requester text is a claim.</b> Rendered only in a labelled, quoted, truncated block on the card. Never in the summary or compose prompts. Not in <code>REQUEST_RECEIVED.detail</code> (already moved to payload).</p></div>
+          <div class="finding"><p><b>Generated specs are filtered.</b> Drop any panel whose grant or case id isn't in the viewer's own active set. Approve and deny are static chrome, never catalog entries.</p></div>
+          <div class="finding"><p><b>Chaining over the effective set.</b> Active grants plus requested, against a short toxic-pairs list — a split request or a second requester doesn't help.</p></div>
+          <div class="finding"><p><b>Audit ingest is authenticated.</b> <code>ACTION_EXECUTED</code> requires the runtime's secret; the chain head goes into a Logfire span every N events as an anchor. Restrict CORS to the deployed UI origin.</p></div>
+          <div class="finding"><p><b>Computer use is fenced.</b> Goal from the <code>Grant</code> only, turn budget, egress limited to the console URL, post-run diff or revert.</p></div>
+        </div>
       </div>
     </section>
 
     <section id="judges">
       <div class="sec-head">
         <h2>What a judge will poke at</h2>
-        <p class="sub">Pre-empted answers. Each one points at something on screen.</p>
+        <p class="sub">Pre-empted answers, rewritten to claim only what the code guarantees. Each one points at something on screen.</p>
       </div>
       <div class="qa">
         <div><p class="q">Where is the model actually deciding?</p><p class="a">It isn't. Gemini parses and composes; the engine decides with pure functions you can read. Here's the reason string, here's the Logfire span with the model's raw output next to it.</p></div>
-        <div><p class="q">What stops a generated button from doing something it shouldn't?</p><p class="a">Buttons carry action ids, not parameters. The server re-runs policy at execution. Here's an off-catalog component name rendering as a visible fallback instead of a control.</p></div>
-        <div><p class="q">Isn't this an approval workflow with a chatbot on top?</p><p class="a">Watch the coding agent's tool list. Close the project — the tools are gone from its session in the same second the panel leaves the dashboard. Standing privilege is the number-one audit finding; here it can't exist.</p></div>
-        <div><p class="q">Prompt injection through the task description?</p><p class="a">Resource ids are an enum in the response schema; the description is a string field the engine never reads as instructions. The approver's summary is generated from the structured decision, not from the requester's text.</p></div>
-        <div><p class="q">Two individually-fine grants that combine into an exfiltration path?</p><p class="a">The engine evaluates the requested set, not just each resource: read on a restricted dataset plus write on a public bucket escalates as a pair. That's the second scenario.</p></div>
-        <div><p class="q">Is the computer-use live?</p><p class="a">Whichever is true. If replay: "recorded at 16:40 in a Modal Sandbox, here's the trace." If live: it passed rehearsal twice at 18:30.</p></div>
+        <div><p class="q">What stops a generated button from doing something it shouldn't?</p><p class="a">Generated panels are display-only; approve and deny are static chrome outside the generated tree. Policy is re-checked where it matters: every MCP tool call verifies the grant is active and unexpired before acting. And here's an off-catalog name rendering as a visible fallback, not a control.</p></div>
+        <div><p class="q">Isn't this an approval workflow with a chatbot on top?</p><p class="a">Watch the coding agent's tool list. Close the project — the tool is gone from its session in the same second the panel leaves the dashboard. Every grant expires and the sweeper enforces it; standing privilege is the number-one audit finding and here it has a deadline by construction.</p></div>
+        <div><p class="q">Prompt injection through the task description?</p><p class="a">Resource ids are an enum in the response schema. The summary prompt sees only the typed decision. The requester's words appear on the card in a quoted block labelled unverified — a claim the approver reads, not a fact the system asserts.</p></div>
+        <div><p class="q">Two individually-fine grants that combine into an exfiltration path?</p><p class="a">Only once built: the engine checks the requester's effective set — what they'd hold, not what they asked for — against named toxic combinations, so splitting the request doesn't help. That's the second scenario.</p></div>
+        <div><p class="q">You have an API. Why is an agent clicking through a console?</p><p class="a">The console stands in for every enterprise system that has no API. The engine decides; the agent enacts where only a UI exists; the <code>ACTION_EXECUTED</code> event and its screenshot prove it did. Nothing is decided in the console.</p></div>
+        <div><p class="q">Is the computer-use live?</p><p class="a">Whichever is true. If replay: "recorded at 16:40 in a Modal Sandbox, here's the trace." If live: it passed rehearsal twice at 18:30. If cut: "the tool call you just watched is the enactment; the console is next."</p></div>
+        <div><p class="q">Who can vote or revoke right now?</p><p class="a">Tonight, anyone holding the demo key and the actor header the role picker sets. That header is the line SSO sits behind; the engine and the audit chain don't change when it does.</p></div>
       </div>
     </section>
 

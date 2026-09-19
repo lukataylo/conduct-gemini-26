@@ -548,6 +548,39 @@ def list_resources() -> list:
     return list(usecase_demo.RESOURCES.values())
 
 
+_CONSOLE_ROLES = {
+    "bucket-analytics-raw": "Storage Object Viewer",
+    "bq-project-x-finance": "BigQuery Data Viewer",
+    "sql-prod-primary": "Cloud SQL Client",
+}
+
+
+def _console_role(resource_id: str) -> str:
+    mapped = _CONSOLE_ROLES.get(resource_id)
+    if mapped:
+        return mapped
+    resource = usecase_demo.RESOURCES.get(resource_id)
+    if resource is not None and resource.type.value.lower() == "github_repo":
+        return "Write" if resource.capability == "write" else "Triage"
+    return resource.capability if resource is not None else resource_id
+
+
+@app.get("/console/state")
+def console_state() -> dict:
+    """Active grant bindings the mock console hydrates into permissions tables."""
+    bindings = [
+        {
+            "resource_id": grant.resource_id,
+            "principal": grant.requester_id,
+            "role": _console_role(grant.resource_id),
+            "expires_at": grant.expires_at,
+            "grant_id": grant.id,
+        }
+        for grant in active_grants()
+    ]
+    return {"resources": list(usecase_demo.RESOURCES.values()), "bindings": bindings}
+
+
 @app.get("/people")
 def list_people() -> list[Requester]:
     return list(KNOWN_REQUESTERS.values())

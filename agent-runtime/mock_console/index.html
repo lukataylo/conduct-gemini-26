@@ -1247,6 +1247,74 @@
       principalInput.focus();
     }
 
+    function grantTypeLabel(resourceId) {
+      const view = (RESOURCES[resourceId] || {}).view;
+      if (view === "bucket") return "Bucket";
+      if (view === "dataset") return "Dataset";
+      if (view === "instance") return "Instance";
+      return "Resource";
+    }
+
+    function expiresLabel(expires) {
+      if (!expires) return "";
+      return String(expires).slice(0, 10);
+    }
+
+    function renderBinding(binding) {
+      const resourceId = binding.resource_id;
+      const principal = binding.principal;
+      const role = binding.role;
+      const expires = expiresLabel(binding.expires_at);
+      if (!resourceId || !principal) return;
+      const already = document.querySelector(
+        '#active-grants li[data-resource="' + resourceId + '"][data-principal="' + principal + '"]'
+      );
+      if (already) return;
+      const item = document.createElement("li");
+      item.setAttribute("data-resource", resourceId);
+      item.setAttribute("data-principal", principal);
+      if (binding.grant_id) item.setAttribute("data-grant-id", binding.grant_id);
+      item.innerHTML =
+        "<span>" + principal + "</span><span>" + resourceId + "</span><span>" + role +
+        "</span><span>" + grantTypeLabel(resourceId) + "</span><span>expires " + expires + "</span>";
+      activeGrants.appendChild(item);
+      const viewName = (RESOURCES[resourceId] || {}).view;
+      const root = viewName ? document.querySelector('[data-view="' + viewName + '"]') : null;
+      const tbody = root && root.querySelector('[data-tab-panel="permissions"] table.data tbody');
+      if (tbody) {
+        const row = document.createElement("tr");
+        row.setAttribute("data-resource", resourceId);
+        row.setAttribute("data-principal", principal);
+        row.innerHTML =
+          "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
+          "</td><td>Direct · expires " + expires +
+          ' <button type="button" class="btn" data-action="revoke" data-resource="' +
+          resourceId + '" data-principal="' + principal + '">Remove</button></td>';
+        tbody.appendChild(row);
+      }
+    }
+
+    function consoleBackend() {
+      const params = new URLSearchParams(location.search);
+      return params.get("backend") || window.CONSOLE_BACKEND || "";
+    }
+
+    function hydrateFromBackend() {
+      const backend = consoleBackend();
+      if (!backend) return;
+      fetch(backend + "/console/state")
+        .then((resp) => {
+          if (!resp.ok) throw new Error("console state " + resp.status);
+          return resp.json();
+        })
+        .then((state) => {
+          ((state && state.bindings) || []).forEach(renderBinding);
+        })
+        .catch(function () {
+          // keep in-page state
+        });
+    }
+
     document.getElementById("nav-toggle").addEventListener("click", () => {
       sidenav.classList.toggle("collapsed");
     });
@@ -1308,27 +1376,12 @@
       const expires = expiresInput.value;
       const role = roleInput.value;
       if (!principal || !expires) return;
-      const item = document.createElement("li");
-      item.setAttribute("data-resource", selectedId);
-      item.setAttribute("data-principal", principal);
-      item.innerHTML =
-        "<span>" + principal + "</span><span>" + selectedId + "</span><span>" + role +
-        "</span><span>Bucket</span><span>expires " + expires + "</span>";
-      activeGrants.appendChild(item);
-      const viewName = (RESOURCES[selectedId] || {}).view;
-      const root = viewName ? document.querySelector('[data-view="' + viewName + '"]') : null;
-      const tbody = root && root.querySelector('[data-tab-panel="permissions"] table.data tbody');
-      if (tbody) {
-        const row = document.createElement("tr");
-        row.setAttribute("data-resource", selectedId);
-        row.setAttribute("data-principal", principal);
-        row.innerHTML =
-          "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
-          "</td><td>Direct · expires " + expires +
-          ' <button type="button" class="btn" data-action="revoke" data-resource="' +
-          selectedId + '" data-principal="' + principal + '">Remove</button></td>';
-        tbody.appendChild(row);
-      }
+      renderBinding({
+        resource_id: selectedId,
+        principal: principal,
+        role: role,
+        expires_at: expires,
+      });
       form.reset();
       closeGrant();
     });
@@ -1361,6 +1414,7 @@
 
     window.addEventListener("hashchange", applyHash);
     applyHash();
+    hydrateFromBackend();
   </script>
 </body>
 </html>

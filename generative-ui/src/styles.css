@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f7f7f8;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.subtitle {
+  color: #666;
+  margin-top: -0.5rem;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  border-radius: 12px;
+  padding: 1rem;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-weight: 600;
+}
+
+.card-meta {
+  color: #666;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.card-id {
+  color: #aaa;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.card-granted {
+  border-left: 4px solid #2e7d32;
+}
+
+.card-pending {
+  border-left: 4px solid #ed6c02;
+}
+
+.card-unknown {
+  border-left: 4px solid #c62828;
+}
+
+.error {
+  color: #c62828;
+}

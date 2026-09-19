@@ -114,7 +114,14 @@ export function Timeline({ grants, cases, events, resources, users, selected, zo
           const clipped = b.end > t0 + span;
           return (
             <div className="tl-lane" key={b.key} style={{ top: `${i * 56}px` }}>
-              <div className={`pill ${b.kind} ${clipped ? "clipped" : ""}`} style={{ left: `${left}%`, width: `${Math.max(right - left, 0)}%`, ["--u" as string]: b.color }} title={b.sub}>
+              <div
+                className={`pill ${b.kind} ${clipped ? "clipped" : ""}`}
+                // Pending pills grow toward now, so anchor their right edge to now (min-width would otherwise push them past it).
+                style={b.kind === "pending"
+                  ? { left: `${right}%`, width: `${Math.max(right - left, 0)}%`, transform: "translateX(-100%)", ["--u" as string]: b.color }
+                  : { left: `${left}%`, width: `${Math.max(right - left, 0)}%`, ["--u" as string]: b.color }}
+                title={b.sub}
+              >
                 <span className="pill-name">{selected === ALL && b.who ? <em>{b.who}</em> : null}{b.name}</span>
                 <span className="pill-chip">{b.chip}</span>
               </div>
@@ -129,9 +136,9 @@ export function Timeline({ grants, cases, events, resources, users, selected, zo
             const color = bounced ? "#ef4444" : byId.get(g?.requester_id ?? "")?.color ?? "#fff";
             // Calls seconds apart land on the same x; stagger labels so they stay legible.
             return (
-              <span key={e.id} className={`tcall ${bounced ? "bounced" : ""}`} style={{ left: `${x(Date.parse(e.timestamp))}%`, top: `${(i % 3) * 16}px`, ["--u" as string]: color }} title={e.detail}>
+              <span key={e.id} className={`tcall ${bounced ? "bounced" : ""}`} style={{ left: `${x(Date.parse(e.timestamp))}%`, top: `${(i % 4) * 15}px`, ["--u" as string]: color }} title={e.detail}>
                 <i />
-                <b>{String(e.payload.tool ?? e.detail.split(" ")[0])}</b>
+                <b>{String(e.payload.tool ?? e.detail.split(" ")[0]).split("_").slice(0, 2).join("_")}</b>
               </span>
             );
           })}

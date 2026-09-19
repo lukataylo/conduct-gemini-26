@@ -147,6 +147,13 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .ob-card em { font-style: normal; color: var(--fg-2); font-size: 13px; }
 @media (max-width: 720px) { .ob-step { grid-template-columns: 1fr; } .ob-n { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 12px; } .ob-res, .ob-tool { grid-template-columns: 1fr; gap: 4px; } }
 
+/* top tabs */
+.hd .tabs { display: inline-flex; gap: 4px; margin-left: 8px; }
+.tab { font: inherit; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid transparent; color: var(--fg-2); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.tab:hover { color: var(--fg); border-color: var(--line-2); }
+.tab[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.sum .people { margin-right: 12px; }
+
 /* screen nav */
 .hd .screens { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; }
 .scr { font: inherit; background: transparent; border: 0; color: var(--fg-2); padding: 6px 14px; cursor: pointer; display: grid; line-height: 1.1; text-align: left; }

@@ -4,12 +4,18 @@ Status on `main` as of 19 Sep 2026, ~14:00. Everything below is runnable now aga
 the in-repo backend. This doc exists so the other tracks know what to build against, and
 why it's shaped this way.
 
-## Four screens, one dropdown (revised 19 Sep, 15:00)
+## Role, tabs, person (revised 19 Sep, 15:10)
 
-The dropdown at the top right (`Menu.tsx`) switches **screens** and holds the presenter
-actions (Reset demo, Approve all, Alex uses a tool, Close project). Person chips appear
-only where a screen is about one person. `?screen=users|onboard|me|console` and
-`?user=` work for demos.
+Header, left to right: brand · **tabs for the current role** · chain status ·
+**User | Manager** toggle · **person dropdown** (`Menu.tsx`, `PersonMenu`). Switching
+role swaps the tabs and the people in the dropdown; the dropdown also holds the
+presenter actions (Reset demo, Approve all, <person> uses a tool, Close project).
+Role is derived from `Requester.role` (`roleOf`: manager / owner / lead / head →
+manager; everyone else → user). `?role=user|manager&user=<id>` opens a state.
+
+- **Manager tabs:** Overview (people cards + Add a person + approvals column) ·
+  Timeline (Everyone or one person via chips).
+- **User tabs:** Onboard (landing) · Access (generated summary) · Timeline (that person).
 
 **Demo data is a morning of history, not an instant.** `POST /demo/seed` resets the
 store and replays a scenario through the normal request / vote / revoke paths with the

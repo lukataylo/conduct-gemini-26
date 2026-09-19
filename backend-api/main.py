@@ -279,33 +279,6 @@ def _console_explain_decision(
     return {"explanation": "No typed policy decision found for that id."}
 
 
-def _run_injected_or_live(message: str, viewer: Requester, conversation_id: str | None):
-    conversation_id = conversation_id or str(uuid.uuid4())
-
-    def request_access(raw_text: str) -> dict:
-        return _console_request_access(
-            raw_text, viewer, evaluate=False, conversation_id=conversation_id
-        )
-
-    _agent_runtime_on_path()
-    from console_agent import ConsoleAgentDeps, run_console_turn
-
-    deps = ConsoleAgentDeps(
-        viewer=viewer,
-        request_access=request_access,
-        list_scope=lambda: _console_list_scope(viewer),
-        explain_decision=lambda request_id=None, resource_id=None: _console_explain_decision(
-            viewer, request_id, resource_id
-        ),
-    )
-    return run_console_turn(
-        message,
-        deps,
-        runner=AGENT_TURN_IMPL,
-        conversation_id=conversation_id,
-    )
-
-
 @app.post("/agent/turn")
 def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
     viewer = KNOWN_REQUESTERS.get(body.viewer_id)

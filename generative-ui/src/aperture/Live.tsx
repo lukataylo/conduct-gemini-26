@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentTurnOut, User } from "./api";
-import { postAgentTurn, postLiveSession } from "./api";
+import { liveWsUrl, postAgentTurn, postLiveSession } from "./api";
+import { createPlayer, startMic } from "./liveAudio";
 
 type Mode = "idle" | "listening" | "thinking" | "speaking";
 type Row = { kind: "you" | "gemini" | "tool"; text: string };
@@ -100,6 +101,16 @@ function Wave({ mode, level }: { mode: Mode; level: React.MutableRefObject<numbe
   return <canvas ref={ref} className="wave" aria-hidden="true" />;
 }
 
+function rowKind(raw: string | undefined): Row["kind"] {
+  if (raw === "you" || raw === "gemini" || raw === "tool") return raw;
+  return "gemini";
+}
+
+function asMode(raw: string | undefined): Mode | null {
+  if (raw === "idle" || raw === "listening" || raw === "thinking" || raw === "speaking") return raw;
+  return null;
+}
+
 export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("idle");
@@ -107,45 +118,149 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [cid, setCid] = useState<string | null>(null);
   const [pending, setPending] = useState<AgentTurnOut | null>(null);
-  const [voice, setVoice] = useState(false);
   const [voiceOffline, setVoiceOffline] = useState(false);
-  const [interim, setInterim] = useState("");
+  const [micOn, setMicOn] = useState(false);
   const level = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
-  const recRef = useRef<any>(null);
-  const audioRef = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const micRef = useRef<{ stop: () => void } | null>(null);
+  const playerRef = useRef<ReturnType<typeof createPlayer> | null>(null);
+  const cidRef = useRef<string | null>(null);
+  const viewerRef = useRef(viewer);
+  const focusRef = useRef(focus);
+  const pageRef = useRef(page);
+  cidRef.current = cid;
+  viewerRef.current = viewer;
+  focusRef.current = focus;
+  pageRef.current = page;
+
+  const appendRow = (row: Row) => {
+    if (!row.text) return;
+    setRows((r) => {
+      const last = r[r.length - 1];
+      if (last && last.kind === row.kind && last.text === row.text) return r;
+      return [...r, row];
+    });
+  };
+
+  const kickPlayer = () => {
+    if (!playerRef.current) playerRef.current = createPlayer();
+    playerRef.current.push(new ArrayBuffer(0));
+  };
+
+  const playBinary = (data: ArrayBuffer | Blob) => {
+    if (data instanceof ArrayBuffer) {
+      playerRef.current?.push(data);
+      return;
+    }
+    void data.arrayBuffer().then((buf) => playerRef.current?.push(buf));
+  };
+
+  const handleWsMessage = (ev: MessageEvent) => {
+    if (typeof ev.data !== "string") {
+      playBinary(ev.data);
+      return;
+    }
+    let payload: { type?: string; conversation_id?: string; role?: string; kind?: string; text?: string; mode?: string; message?: string };
+    try { payload = JSON.parse(ev.data); } catch { return; }
+    if (payload.type === "ready") {
+      if (payload.conversation_id) setCid(payload.conversation_id);
+      return;
+    }
+    if (payload.type === "transcript") {
+      appendRow({ kind: rowKind(payload.role ?? payload.kind), text: String(payload.text ?? "") });
+      return;
+    }
+    if (payload.type === "mode") {
+      const next = asMode(payload.mode);
+      if (next) {
+        if (next === "listening") playerRef.current?.reset();
+        setMode(next);
+      }
+      return;
+    }
+    if (payload.type === "error") {
+      appendRow({ kind: "gemini", text: String(payload.message ?? "Live error") });
+    }
+  };
+
+  const openLiveWs = (conversationId: string) => {
+    const existing = wsRef.current;
+    if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) return;
+    if (!playerRef.current) playerRef.current = createPlayer();
+    const ws = new WebSocket(liveWsUrl());
+    ws.binaryType = "arraybuffer";
+    wsRef.current = ws;
+    ws.onopen = () => {
+      if (wsRef.current !== ws) return;
+      const actor = viewerRef.current;
+      if (!actor) return;
+      ws.send(JSON.stringify({
+        type: "hello",
+        viewer_id: actor.id,
+        focus_id: focusRef.current?.id ?? "all",
+        page: pageRef.current,
+        conversation_id: cidRef.current ?? conversationId,
+      }));
+    };
+    ws.onmessage = handleWsMessage;
+    ws.onclose = () => {
+      if (wsRef.current === ws) wsRef.current = null;
+    };
+  };
+
+  const tearDownLive = () => {
+    micRef.current?.stop();
+    micRef.current = null;
+    setMicOn(false);
+    playerRef.current?.close();
+    playerRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    level.current = 0;
+    setMode("idle");
+  };
 
   useEffect(() => { logRef.current?.scrollTo({ top: 1e6 }); }, [rows, pending, mode]);
-  useEffect(() => { setRows([]); setCid(null); setPending(null); setVoiceOffline(false); }, [viewer?.id]);
+  useEffect(() => {
+    setRows([]);
+    setCid(null);
+    cidRef.current = null;
+    setPending(null);
+    setVoiceOffline(false);
+    tearDownLive();
+  }, [viewer?.id]);
   useEffect(() => {
     if (!open || !viewer) return;
-    const hasSpeech = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    let cancelled = false;
     void postLiveSession({
       viewer_id: viewer.id,
       focus_id: focus?.id ?? "all",
       page,
-      conversation_id: cid,
+      conversation_id: cidRef.current,
     }).then((session) => {
+      if (cancelled) return;
       setCid((current) => current ?? session.conversation_id);
-      if (!session.ok && !hasSpeech) setVoiceOffline(true);
+      if (!session.ok) {
+        if (!wsRef.current) setVoiceOffline(true);
+        return;
+      }
+      setVoiceOffline(false);
+      openLiveWs(session.conversation_id);
     }).catch(() => {
-      if (!hasSpeech) setVoiceOffline(true);
+      if (!cancelled && !wsRef.current) setVoiceOffline(true);
     });
+    return () => { cancelled = true; };
   }, [open, viewer?.id, focus?.id, page]);
 
-  const speak = (text: string) => {
-    if (!voice || !("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.onstart = () => setMode("speaking");
-    u.onend = () => setMode("idle");
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  };
+  const liveOpen = () => wsRef.current?.readyState === WebSocket.OPEN;
 
-  const applyTurn = (turn: AgentTurnOut) => {
+  const applyTurn = (turn: AgentTurnOut, skipReply = false) => {
     setCid(turn.conversation_id);
-    for (const name of turn.tools_used) setRows((r) => [...r, { kind: "tool", text: name }]);
-    if (turn.reply) { setRows((r) => [...r, { kind: "gemini", text: turn.reply }]); speak(turn.reply); }
+    for (const name of turn.tools_used) appendRow({ kind: "tool", text: name });
+    if (turn.reply && !skipReply) appendRow({ kind: "gemini", text: turn.reply });
     setPending(turn.request_result?.status === "needs_confirmation" ? turn : null);
     if (turn.navigate === "timeline") onNavigateTimeline(focus?.id ?? "all");
   };
@@ -160,13 +275,18 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
 
   const send = async (text: string) => {
     if (!viewer || !text.trim()) return;
-    setRows((r) => [...r, { kind: "you", text: text.trim() }]);
-    setMsg(""); setInterim("");
+    const trimmed = text.trim();
+    appendRow({ kind: "you", text: trimmed });
+    setMsg("");
+    kickPlayer();
+    const ws = wsRef.current;
+    const viaLive = ws?.readyState === WebSocket.OPEN;
+    if (viaLive) ws.send(JSON.stringify({ type: "text", text: trimmed }));
     setMode("thinking");
     try {
-      applyTurn(await postAgentTurn(payload(text.trim(), { conversation_id: cid })));
+      applyTurn(await postAgentTurn(payload(trimmed, { conversation_id: cid })), viaLive);
     } catch (e) {
-      setRows((r) => [...r, { kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` }]);
+      appendRow({ kind: "gemini", text: `Offline (${String(e).slice(0, 40)})` });
     } finally {
       setMode((m) => (m === "thinking" ? "idle" : m));
     }
@@ -178,60 +298,52 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
     try {
       applyTurn(await postAgentTurn(payload(pending.request_result?.preview?.raw_text || "confirm", { conversation_id: pending.conversation_id, confirm: true })));
     } catch (e) {
-      setRows((r) => [...r, { kind: "gemini", text: String(e) }]);
+      appendRow({ kind: "gemini", text: String(e) });
     } finally {
       setMode((m) => (m === "thinking" ? "idle" : m));
     }
   };
 
-  const stopListening = () => {
-    recRef.current?.stop?.(); recRef.current = null;
-    if (audioRef.current) { cancelAnimationFrame(audioRef.current.raf); audioRef.current.stream.getTracks().forEach((t) => t.stop()); audioRef.current.ctx.close(); audioRef.current = null; }
-    level.current = 0;
-    setMode((m) => (m === "listening" ? "idle" : m));
-  };
-
-  const listen = async () => {
-    if (mode === "listening") { stopListening(); return; }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setRows((r) => [...r, { kind: "gemini", text: "Voice needs Chrome or Safari here — type instead." }]); return; }
-    setVoice(true);
+  const toggleMic = async () => {
+    if (micRef.current) {
+      micRef.current.stop();
+      micRef.current = null;
+      setMicOn(false);
+      level.current = 0;
+      setMode((m) => (m === "listening" ? "idle" : m));
+      return;
+    }
+    if (voiceOffline || !liveOpen()) return;
+    kickPlayer();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const ctx = new AudioContext(); const src = ctx.createMediaStreamSource(stream); const an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an);
-      const buf = new Uint8Array(an.fftSize);
-      const tick = () => { an.getByteTimeDomainData(buf); let s = 0; for (const v of buf) { const d = (v - 128) / 128; s += d * d; } level.current = Math.min(1, Math.sqrt(s / buf.length) * 6); audioRef.current!.raf = requestAnimationFrame(tick); };
-      audioRef.current = { ctx, stream, raf: 0 }; tick();
-    } catch { /* no mic level; recognition can still run */ }
-    const rec = new SR(); rec.lang = "en-GB"; rec.interimResults = true; rec.continuous = false;
-    rec.onresult = (e: any) => {
-      let finalText = "", partial = "";
-      for (const res of e.results) (res.isFinal ? (finalText += res[0].transcript) : (partial += res[0].transcript));
-      setInterim(partial);
-      if (finalText) { stopListening(); void send(finalText); }
-    };
-    rec.onerror = () => stopListening();
-    rec.onend = () => { if (recRef.current === rec) stopListening(); };
-    recRef.current = rec; setMode("listening"); rec.start();
+      const handle = await startMic(
+        (buf) => { if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(buf); },
+        (n) => { level.current = n; },
+      );
+      micRef.current = handle;
+      setMicOn(true);
+      setMode("listening");
+    } catch {
+      appendRow({ kind: "gemini", text: "Mic blocked — type instead." });
+    }
   };
 
   const preview = pending?.request_result?.preview;
 
   return (
     <>
-      <button className={`live-bubble ${open ? "open" : ""}`} aria-expanded={open} aria-label="Gemini" onClick={() => setOpen((o) => !o)}>
+      <button className={`live-bubble ${open ? "open" : ""}`} aria-expanded={open} aria-label="Gemini" onClick={() => { kickPlayer(); setOpen((o) => !o); }}>
         <Face mode={mode} small /><span>{open ? "Close" : voiceOffline ? "voice offline — use chat" : "Gemini"}</span>
       </button>
       {open && (
         <div className="live-panel" style={{ ["--u" as string]: viewer?.color ?? "#f4f4f4" }}>
-          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{mode}</b><small>as {viewer?.name ?? "…"} · looking at {focus?.name ?? "everyone"}</small></div></div>
+          <div className="live-face"><Face mode={mode} /><div className="live-state"><b>{voiceOffline ? "voice offline — use chat" : mode}</b><small>helping {viewer?.name ?? "…"} · looking at {focus?.name ?? "everyone"}</small></div></div>
           <Wave mode={mode} level={level} />
           <div className="live-log" ref={logRef}>
-            {rows.length === 0 && <div className="live-empty">Ask what's waiting, why something was refused, or ask for access. Gemini explains and drafts; it never grants.</div>}
+            {rows.length === 0 && <div className="live-empty">Talk or type. I'm the assistant — I never grant.</div>}
             {rows.map((m, i) => m.kind === "tool"
               ? <div className="live-msg tool" key={i}><b>⚙</b><span>used {m.text}</span></div>
               : <div key={i} className={`live-msg ${m.kind}`}><b>{m.kind === "you" ? viewer?.short ?? "you" : "G"}</b><span>{m.text}</span></div>)}
-            {interim && <div className="live-msg you dim"><b>{viewer?.short ?? "you"}</b><span>{interim}…</span></div>}
             {preview && (
               <div className="confirm-card">
                 <div className="confirm-k">confirm request</div>
@@ -242,8 +354,8 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
             )}
           </div>
           <div className="live-in">
-            <button className={`nb mic ${mode === "listening" ? "on" : ""}`} title={mode === "listening" ? "Stop" : "Talk"} onClick={listen}>●</button>
-            <input id="live-text" autoFocus value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send(msg)} placeholder={mode === "listening" ? "Listening…" : "Who is waiting on me?"} />
+            <button className={`nb mic ${micOn ? "on" : ""}`} title={micOn ? "Stop" : "Talk"} onClick={toggleMic}>●</button>
+            <input id="live-text" autoFocus value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send(msg)} placeholder={micOn ? "Listening…" : "Who is waiting on me?"} />
             <button className="nb" onClick={() => send(msg)} disabled={mode === "thinking" || !msg.trim()}>Send</button>
           </div>
         </div>

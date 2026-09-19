@@ -86,9 +86,13 @@ export function ManagerSide({ grants, cases, events, resources, users, company =
   const setPlatform = async (u: User, platform: PlatformId, action: "grant" | "revoke") => {
     const key = `${u.id}:${platform}:${action}`;
     setBusy(key); setErr(null);
-    try { await post(`/people/${u.id}/platforms`, { platform, action }); }
-    catch (e) { console.error(e); setErr("platform update failed"); }
-    finally { setBusy(null); }
+    try {
+      await post(`/people/${u.id}/platforms`, { platform, action });
+      onEnacted?.(u.id);
+    } catch (e) {
+      console.error(e);
+      setErr("platform update failed");
+    } finally { setBusy(null); }
   };
   return (
     <aside className="mgr-side">

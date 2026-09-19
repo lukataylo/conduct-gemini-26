@@ -107,12 +107,14 @@ def test_platform_grants_are_not_enqueued():
     granted = client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "grant"})
     assert granted.status_code == 200
     assert all(resource_id != "platform-sap" for resource_id, _ in seen)
-    assert ("sap-bp-display", "inspect") in seen
+    assert ("sap-bp-display", "grant") in seen
 
     seen.clear()
     client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "revoke"})
-    assert seen == []
+    assert ("sap-bp-display", "revoke") in seen
+    assert all(resource_id != "platform-sap" for resource_id, _ in seen)
 
+    seen.clear()
     now = main.now()
     main._enqueue_execute(
         Grant(

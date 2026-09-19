@@ -117,9 +117,12 @@ LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
 DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
 NEVER_ENACT_IDS = frozenset({"sql-prod-primary", "sap-customer-directory", "sap-hr-payroll"})
 _CHAT_ENACT_ACTIONS = frozenset({"browse", "query", "inspect", "export"})
+_PERMISSION_ACTIONS = frozenset({"grant", "revoke"})
+_SCENARIO_ACTIONS = _CHAT_ENACT_ACTIONS | _PERMISSION_ACTIONS
 _REFUSE_ENACT_IDS = frozenset({"sql-prod-primary", "sap-hr-payroll"})
 _DIRECTORY_EXPORT_ID = "sap-customer-directory"
 _DEFAULT_PLATFORM_ACTION = {"gcp": "browse", "sap": "inspect"}
+_PLATFORM_RESOURCE = {"gcp": "bucket-analytics-raw", "sap": "sap-bp-display"}
 _ENACT_BY_ACTION = {
     "browse": ("gcp", "bucket-analytics-raw"),
     "query": ("gcp", "bq-project-x-finance"),
@@ -571,9 +574,9 @@ def _enqueue_scenario(
     resource_id: str,
     ask: str | None = None,
 ) -> dict:
-    """Start browse/query/inspect/export. Uses a held lease when one exists; otherwise a throwaway grant."""
+    """Start a console run. Uses a held lease when one exists; otherwise a throwaway grant."""
     verb = (action or "").strip().lower()
-    if verb not in _CHAT_ENACT_ACTIONS or resource_id in _REFUSE_ENACT_IDS:
+    if verb not in _SCENARIO_ACTIONS or resource_id in _REFUSE_ENACT_IDS:
         return {
             "status": "refused",
             "action": verb,
@@ -606,12 +609,22 @@ def _enqueue_scenario(
     }
 
 
-def _auto_enact_platform(person_id: str, platform: str, ask: str | None = None) -> dict | None:
-    action = _DEFAULT_PLATFORM_ACTION.get(platform)
-    mapped = _ENACT_BY_ACTION.get(action or "")
-    if action is None or mapped is None:
+def _auto_enact_platform(
+    person_id: str,
+    platform: str,
+    action: str | None = None,
+    ask: str | None = None,
+) -> dict | None:
+    verb = (action or _DEFAULT_PLATFORM_ACTION.get(platform) or "").strip().lower()
+    if verb in _PERMISSION_ACTIONS:
+        resource_id = _PLATFORM_RESOURCE.get(platform)
+        if not resource_id:
+            return None
+        return _enqueue_scenario(person_id, verb, resource_id, ask=ask)
+    mapped = _ENACT_BY_ACTION.get(verb)
+    if mapped is None:
         return None
-    return _enqueue_scenario(person_id, action, mapped[1], ask=ask)
+    return _enqueue_scenario(person_id, verb, mapped[1], ask=ask)
 
 
 def _console_enact(
@@ -1173,12 +1186,23 @@ def change_person_platform(person_id: str, body: PlatformChange) -> Requester:
         _set_requester_platform(person_id, body.platform, True)
         if not any(grant.resource_id == resource_id for grant in active_grants(person_id)):
             _issue_grant(str(uuid.uuid4()), person_id, resource_id, ttl_days=90)
-        _auto_enact_platform(person_id, body.platform, ask=f"grant {body.platform} to {person.name}")
+        _auto_enact_platform(
+            person_id,
+            body.platform,
+            action="grant",
+            ask=f"grant {body.platform} to {person.name}",
+        )
     else:
         for grant in list(active_grants(person_id)):
             if grant.resource_id == resource_id:
                 revoke_grant(grant.id, reason=f"{body.platform} platform revoked")
         _set_requester_platform(person_id, body.platform, False)
+        _auto_enact_platform(
+            person_id,
+            body.platform,
+            action="revoke",
+            ask=f"revoke {body.platform} from {person.name}",
+        )
     return KNOWN_REQUESTERS[person_id]
 
 

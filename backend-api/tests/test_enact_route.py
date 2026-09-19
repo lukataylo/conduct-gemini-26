@@ -141,9 +141,10 @@ def test_platform_grant_auto_enacts_use_not_platform_id():
     granted = client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "grant"})
     assert granted.status_code == 200
     assert all(row["resource_id"] != "platform-sap" for row in seen)
-    assert ("sap-bp-display", "inspect") in {(row["resource_id"], row["action"]) for row in seen}
+    assert ("sap-bp-display", "grant") in {(row["resource_id"], row["action"]) for row in seen}
 
     seen.clear()
     revoked = client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "revoke"})
     assert revoked.status_code == 200
-    assert seen == []
+    assert ("sap-bp-display", "revoke") in {(row["resource_id"], row["action"]) for row in seen}
+    assert all(row["resource_id"] != "platform-sap" for row in seen)

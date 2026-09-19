@@ -1,0 +1,69 @@
+<title>Alex Chen Access Summary</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700&family=Geist:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root { --bg: #000; --s1: #0d0d0d; --line: #242424; --line-2: #333; --fg: #f4f4f4; --fg-2: #9a9a9a; --fg-3: #5c5c5c; --u: #22c55e; --amber: #d4a017; --red: #ef4444; --violet: #a78bfa; --orange: #fb923c;
+    --dot: "Doto", "IBM Plex Mono", monospace; --sans: "Geist", "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.45; padding-block: 0 40px; padding-inline: 20px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  .prov { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 0; border-bottom: 1px solid var(--line); font-family: var(--dot); font-size: 11.5px; letter-spacing: 0.06em; color: var(--fg-3); }
+  .prov b { color: var(--u); font-weight: 700; }
+  h1 { margin: 28px 0 10px; font-family: var(--dot); font-weight: 700; font-size: clamp(26px, 4vw, 46px); line-height: 1.1; letter-spacing: 0.02em; text-wrap: balance; }
+  h1 b { color: var(--u); }
+  .lede { color: var(--fg-2); max-width: 70ch; margin: 0 0 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--line-2); border-radius: 16px; padding: 16px 18px; display: grid; gap: 8px; background: var(--s1); align-content: start; }
+  .card.guide { border-color: var(--u); background: rgba(34, 197, 94, 0.06); }
+  .card.pending { border-style: dashed; border-color: var(--amber); }
+  .card.tools { grid-column: 1 / -1; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .name { font-family: var(--dot); font-size: 20px; font-weight: 700; letter-spacing: 0.04em; }
+  .exp { font-family: var(--dot); font-size: 12px; color: var(--fg-2); } .exp.amber { color: var(--amber); }
+  .meta { color: var(--fg-2); font-size: 13px; }
+  .k { font-family: var(--dot); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); margin-top: 4px; }
+  pre { margin: 0; font-family: var(--mono); font-size: 12px; background: #000; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; }
+  a { color: var(--u); text-decoration: none; font-size: 12.5px; }
+  .people { display: flex; flex-wrap: wrap; gap: 8px; }
+  .people span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 10px 3px 6px; }
+  .people i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .tl { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tl span { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line-2); border-radius: 8px; padding: 4px 10px; color: var(--fg-2); }
+  .tl span.live { border-color: var(--u); color: var(--u); }
+  code { font-family: var(--mono); font-size: 12px; }
+  .foot { margin-top: 24px; color: var(--fg-3); font-size: 12px; max-width: 70ch; }
+</style>
+<div class="wrap">
+  <div class="prov"><span>composed for <b>u-newhire-1</b> · 4 panels · aperture · 19 Sep 2026 13:59</span><span>delivered as an artifact by the onboarding agent</span></div>
+
+  <h1>Alex, you can use <b>1</b> thing until <b>September 20</b>.</h1>
+  <p class="lede">2 requests are waiting on a human. Everything here expires on its own or when Project Atlas closes. Your agent sees exactly this list as tools.</p>
+
+  <div class="grid">
+    <div class="card guide">
+      <div class="top"><span class="name">analytics-raw</span><span class="exp">24 hours left</span></div>
+      <div class="meta">Object storage bucket · write · internal · owned by data-platform</div>
+      <div class="k">how to use it</div>
+      <pre>gcloud storage ls gs://atlas-analytics-raw</pre>
+      <a href="https://cloud.google.com/storage/docs/listing-objects" target="_blank" rel="noreferrer">Cloud Storage — listing objects ↗</a>
+    </div>
+    <div class="card pending">
+      <div class="top"><span class="name">project-x-finance</span><span class="exp amber">waiting</span></div>
+      <div class="meta">Requested 14d exceeds the 7d auto-grant limit for the restricted tier — requires 1 approval.</div>
+      <div class="k">deciding</div>
+      <div class="people"><span><i style="background:var(--orange)"></i>Jordan Lee ✓</span><span><i style="background:var(--violet)"></i>Priya Nair</span></div>
+    </div>
+    <div class="card pending">
+      <div class="top"><span class="name">prod-primary</span><span class="exp amber">waiting</span></div>
+      <div class="meta">Critical tier always escalates — requires 2 approvals. Production never auto-grants.</div>
+      <div class="k">deciding</div>
+      <div class="people"><span><i style="background:var(--violet)"></i>Priya Nair</span><span><i style="background:var(--orange)"></i>Jordan Lee</span></div>
+    </div>
+    <div class="card tools">
+      <div class="top"><span class="name">what your agent sees</span><span class="exp">tools/list</span></div>
+      <div class="tl"><span>request_access</span><span>my_access</span><span class="live">gcs_list_analytics_raw</span></div>
+      <div class="meta">Connect: <code>claude mcp add aperture -e APERTURE_REQUESTER=u-newhire-1 -- python agent-runtime/mcp_serve.py</code></div>
+    </div>
+  </div>
+
+  <p class="foot">This page is generated from Alex's live grants, pending cases and the audit log — nothing here is typed by hand. When Priya approves, a second tool appears; when the project closes, every card and every tool goes away and the audit chain records it.</p>
+</div>

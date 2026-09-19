@@ -4,6 +4,18 @@ Status on `main` as of 19 Sep 2026, ~14:00. Everything below is runnable now aga
 the in-repo backend. This doc exists so the other tracks know what to build against, and
 why it's shaped this way.
 
+## The three screens (revised 19 Sep, 14:15)
+
+The app is three screens for three people, plus a deep-dive. Switch with the header
+nav or `?screen=onboard|me|manager|console`, and act as a person with `?user=`.
+
+| Screen | For | What it shows | File |
+|---|---|---|---|
+| **Onboard** | the new hire | greeting, the one-line `claude mcp add …` for their agent, "or ask here", where they stand (active / waiting on whom), the three findings that motivate the product | `Onboard.tsx` |
+| **My access** | the end user | a *generated* summary: headline ("you can use N things until …"), one guide card per active grant (what it is, a real command, the docs link, time left), pending cards (who's deciding, ✓ as votes land), refused cards with an alternative, and the exact `tools/list` their agent sees. Uses `/ui-spec` when a composer produced rich panels, else a deterministic fallback with the same vocabulary (`AccessSummary`, `ResourceGuide`, `PendingCard`, `DeniedCard`). Provenance line says which. An example is delivered as a Claude artifact: `docs/alex-access-summary.html` | `Summary.tsx` |
+| **Manager** | the approver | every person as a row — colour, counts, a *mini* lease timeline, current resources — click to open their full timeline; the approval cards (Deny/Approve, real votes); a read-only policy pane (mirrors `DEFAULT_POLICY`, live when `/policy` ships); a Gemini dock on `POST /agent/turn` with the mic slot reserved for Gemini Live (track 2) | `Manager.tsx` |
+| **Timeline** | deep-dive | the full console: stats, dot-matrix access grid, approvals, lease Gantt, recorder | `App.tsx` (console branch) |
+
 ## What exists
 
 | Piece | Where | State |

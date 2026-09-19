@@ -4,6 +4,92 @@
 that's the security answer to every judge question. Design brief:
 [`docs/ui-surfaces.html`](../docs/ui-surfaces.html) (surfaces 5, 8, 9 and "the one rule").
 
+## Plain-English breakdown
+
+### 1. The Policy Engine (The "Automated Guard")
+
+The Policy Engine is an automated decision-maker designed to **handle 90–95% of access
+requests instantly**, with zero human involvement. It acts like an extremely fast,
+consistent guard standing at the door of your infrastructure.
+
+**What it checks.** When someone asks for access, the Policy Engine runs a quick,
+objective checklist:
+
+- **Who are you?** Are you an active employee? Did you log in with strong,
+  hardware-based multi-factor authentication (MFA)?
+- **How safe is your device?** Is your laptop managed, secure, and running required
+  security software?
+- **What are you asking for?** Is it a safe environment (like a test server) or a
+  sensitive one (like a live customer database)?
+- **Why do you need it right now?** Do you have an active ticket assigned to you, or
+  are you on call responding to a live incident?
+
+**What decisions it makes.**
+
+- **Auto-Approve** — if the checks pass and the request makes sense (e.g., you're on
+  call and need to look at a system during an outage), it instantly gives you
+  **temporary access** that automatically expires after a few hours.
+- **Hard Deny** — if basic security checks fail (e.g., your laptop isn't up to code or
+  your security risk score is sky-high), it blocks the request immediately.
+- **Escalate** — if the request is for something critical and lacks automated proof
+  (e.g., asking for root database access without an attached ticket), it hands the
+  request off to the Escalation Engine.
+
+### 2. The Escalation Engine (The "Smart Dispatcher")
+
+The Escalation Engine takes over **only when the automated Policy Engine isn't 100%
+sure** it should approve a request. Instead of making the decision itself, it
+translates the technical security request into a clear message for a human manager
+and manages the approval process.
+
+**What it does.**
+
+- **Summarizes the Context** — strips away raw code and security logs, summarizing the
+  request into a simple 3-bullet Slack or Teams message: who wants access, what they
+  want access to, and why the computer couldn't approve it automatically.
+- **Finds the Right Approver** — figures out who needs to make the call (e.g., routing
+  a database request to the Lead Database Administrator, or an emergency request to
+  the On-Call Security Lead).
+- **Enforces a Timer (SLA)** — puts a clock on the request:
+  - **During an outage:** the manager gets 30 minutes to respond. If no one responds,
+    it triggers a temporary "break-glass" emergency access to keep the company
+    running, but alerts executives.
+  - **During normal ops:** it gives a 4-hour deadline. If no manager approves it in
+    time, it automatically denies the request to prevent open access requests from
+    sitting idle.
+
+### How they work together
+
+```
+[User Requests Access]
+         │
+         ▼
+┌─────────────────────────┐
+│     POLICY ENGINE       │ ──(Pass)──> [Instant Access Granted]
+│  (Automated Checkup)    │ ──(Fail)──> [Instant Access Denied]
+└─────────────────────────┘
+         │
+    (Unsure / High Risk)
+         │
+         ▼
+┌─────────────────────────┐
+│   ESCALATION ENGINE     │ ──> Sends Slack/Teams Card to Manager ──> [Human Approves/Denies]
+│   (Smart Dispatcher)    │ ──> Tracks 30m/4h SLA Timer
+└─────────────────────────┘
+```
+
+- **Policy Engine** does the heavy lifting, checking rules in milliseconds so humans
+  don't waste time clicking "Approve" on routine requests.
+- **Escalation Engine** keeps human managers in the loop *only* when necessary, giving
+  them all the context they need to make a fast, 1-click decision.
+
+> Implementation note: `engine.py` and `escalation.py` already cover most of this (hard
+> deny, step-up auth, ticket/incident-aware grants, SLA deadlines). Known gaps against
+> this description: the CRITICAL tier's incident-override path is currently unreachable
+> because `DEFAULT_POLICY.always_escalate_tiers` still escalates it unconditionally, and
+> `apply_timeout()`'s SLA break-glass behavior isn't wired into `backend-api` yet — see
+> the "Ambition ladder" and build order below.
+
 ## Ambition ladder
 
 | | What | Done when |

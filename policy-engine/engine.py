@@ -14,12 +14,19 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from shared.schemas import (  # noqa: E402
     AccessRequest,
+    AuthType,
     DecisionType,
     PolicyDecision,
     PolicyRule,
     Resource,
     SensitivityTier,
 )
+
+PHISHING_RESISTANT_AUTH = {
+    AuthType.FIDO2_MFA,
+    AuthType.PASSKEY,
+    AuthType.HARDWARE_TOKEN,
+}
 
 DEFAULT_POLICY = PolicyRule(
     id="default",
@@ -67,6 +74,21 @@ def evaluate_request(
 def _evaluate_single(
     request: AccessRequest, resource: Resource, policy: PolicyRule
 ) -> PolicyDecision:
+    hard_deny_reason = _hard_deny_reason(request)
+    if hard_deny_reason is not None:
+        return _deny(request, resource.id, hard_deny_reason)
+
+    auth_decision = _authentication_decision(request, resource)
+    if auth_decision is not None:
+        return auth_decision
+
+    if resource.project != request.project:
+        return _deny(
+            request,
+            resource.id,
+            f"Resource project '{resource.project}' is outside requested project '{request.project}'",
+        )
+
     tier = resource.sensitivity
     cross_team = resource.owning_team != request.requester.team
 
@@ -93,14 +115,137 @@ def _evaluate_single(
             reason=f"Cross-team request ({request.requester.team} -> {resource.owning_team})",
         )
 
+    if tier in {SensitivityTier.PUBLIC, SensitivityTier.INTERNAL}:
+        return _grant(
+            request,
+            resource,
+            reason="Level 1 low-sensitivity asset auto-approved",
+            ttl_hours=24,
+        )
+
+    if tier == SensitivityTier.RESTRICTED:
+        return _evaluate_level_2(request, resource)
+
+    if tier == SensitivityTier.CRITICAL:
+        return _evaluate_level_3(request, resource, policy)
+
+    return _escalate(request, resource, policy, reason=f"Unhandled sensitivity tier '{tier.value}'")
+
+
+def _hard_deny_reason(request: AccessRequest) -> str | None:
+    requester = request.requester
+    context = request.context
+
+    if not requester.is_active_employee:
+        return "Inactive Identity"
+
+    if not context.device_compliant:
+        return "Non-compliant device"
+
+    if requester.risk_score > 70:
+        return "Elevated user risk score"
+
+    return None
+
+
+def _authentication_decision(
+    request: AccessRequest, resource: Resource
+) -> PolicyDecision | None:
+    if request.requester.auth_type not in PHISHING_RESISTANT_AUTH:
+        return PolicyDecision(
+            request_id=request.id,
+            resource_id=resource.id,
+            decision=DecisionType.STEP_UP_AUTH_REQUIRED,
+            reason="Authenticate with a phishing-resistant hardware token or passkey",
+        )
+
+    if request.context.location_anomaly and resource.sensitivity == SensitivityTier.CRITICAL:
+        return PolicyDecision(
+            request_id=request.id,
+            resource_id=resource.id,
+            decision=DecisionType.ESCALATE,
+            reason="Anomaly detected on critical asset",
+        )
+
+    return None
+
+
+def _evaluate_level_2(request: AccessRequest, resource: Resource) -> PolicyDecision:
+    context = request.context
+    if context.active_jira_ticket or context.active_pagerduty_incident:
+        return _grant(
+            request,
+            resource,
+            reason="Level 2 medium-sensitivity asset with active ticket or incident",
+            ttl_hours=8,
+        )
+
+    return _grant(
+        request,
+        resource,
+        reason="Level 2 medium-sensitivity asset without ticket; mandatory audit tag applied",
+        ttl_hours=2,
+        audit_tags=["missing_ticket_context"],
+    )
+
+
+def _evaluate_level_3(
+    request: AccessRequest, resource: Resource, policy: PolicyRule
+) -> PolicyDecision:
+    context = request.context
+    risk_score = request.requester.risk_score
+
+    if context.active_pagerduty_incident:
+        return _grant(
+            request,
+            resource,
+            reason="Level 3 critical asset auto-approved under incident emergency override",
+            ttl_hours=1,
+            audit_tags=["incident_emergency_override"],
+        )
+
+    if context.active_jira_ticket and risk_score < 30:
+        return _grant(
+            request,
+            resource,
+            reason="Level 3 critical asset with active Jira ticket and low requester risk",
+            ttl_hours=4,
+        )
+
+    return _escalate(
+        request,
+        resource,
+        policy,
+        reason=(
+            "High-value target lacks sufficient automated context or carries moderate risk"
+        ),
+    )
+
+
+def _grant(
+    request: AccessRequest,
+    resource: Resource,
+    *,
+    reason: str,
+    ttl_hours: int,
+    audit_tags: list[str] | None = None,
+) -> PolicyDecision:
     return PolicyDecision(
         request_id=request.id,
         resource_id=resource.id,
         decision=DecisionType.AUTO_GRANT,
-        reason=(
-            f"{tier.value} tier, {request.requested_duration_days}d within {max_days}d limit, "
-            "same-team requester"
-        ),
+        reason=reason,
+        ttl_hours=ttl_hours,
+        audit_tags=audit_tags or [],
+    )
+
+
+def _deny(request: AccessRequest, resource_id: str, reason: str) -> PolicyDecision:
+    return PolicyDecision(
+        request_id=request.id,
+        resource_id=resource_id,
+        decision=DecisionType.AUTO_DENY,
+        reason=reason,
     )
 
 

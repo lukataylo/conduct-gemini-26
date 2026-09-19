@@ -36,6 +36,14 @@ class ResourceType(str, Enum):
     IAM_ROLE = "iam_role"
 
 
+class AuthType(str, Enum):
+    FIDO2_MFA = "fido2_mfa"
+    PASSKEY = "passkey"
+    HARDWARE_TOKEN = "hardware_token"
+    TOTP_MFA = "totp_mfa"
+    PASSWORD = "password"
+
+
 class Resource(BaseModel):
     id: str
     name: str
@@ -44,6 +52,7 @@ class Resource(BaseModel):
     sensitivity: SensitivityTier
     project: str
     capability: Literal["read", "write"] = "read"  # used by the cross-resource chaining check
+    owner_group: str | None = None
 
 
 class Requester(BaseModel):
@@ -52,6 +61,19 @@ class Requester(BaseModel):
     role: str
     team: str
     manager_id: str | None = None
+    manager_email: str | None = None
+    is_active_employee: bool = True
+    risk_score: int = Field(default=0, ge=0, le=100)
+    auth_type: AuthType = AuthType.FIDO2_MFA
+
+
+class AccessContext(BaseModel):
+    device_compliant: bool = True
+    location_anomaly: bool = False
+    active_jira_ticket: str | None = None
+    active_pagerduty_incident: str | None = None
+    location: str | None = None
+    justification_provided: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -65,6 +87,7 @@ class AccessRequest(BaseModel):
     project: str
     resource_ids: list[str]
     requested_duration_days: int
+    context: AccessContext = Field(default_factory=AccessContext)
     raw_text: str | None = None  # original NL input, kept for audit/debugging
     created_at: datetime = Field(default_factory=_utcnow)
 
@@ -77,6 +100,7 @@ class DecisionType(str, Enum):
     AUTO_GRANT = "auto_grant"
     AUTO_DENY = "auto_deny"
     ESCALATE = "escalate"
+    STEP_UP_AUTH_REQUIRED = "step_up_auth_required"
 
 
 class PolicyRule(BaseModel):
@@ -103,6 +127,8 @@ class PolicyDecision(BaseModel):
     resource_id: str
     decision: DecisionType
     reason: str
+    ttl_hours: int | None = None
+    audit_tags: list[str] = Field(default_factory=list)
     required_approver_ids: list[str] = Field(default_factory=list)
     evaluated_at: datetime = Field(default_factory=_utcnow)
 
@@ -129,6 +155,12 @@ class EscalationCase(BaseModel):
     requester_id: str
     requested_duration_days: int
     votes: list[ApprovalVote] = Field(default_factory=list)
+    escalation_reason: str | None = None
+    human_summary: str | None = None
+    routing_rationale: str | None = None
+    opened_at: datetime = Field(default_factory=_utcnow)
+    sla_due_at: datetime | None = None
+    timeout_action: Literal["auto_deny", "default_escalate"] = "auto_deny"
     status: Literal["pending", "approved", "denied"] = "pending"
 
 

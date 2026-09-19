@@ -111,7 +111,13 @@ def submit_request(request: AccessRequest) -> dict:
         )
 
         if decision.decision == DecisionType.AUTO_GRANT:
-            grant = _issue_grant(request.id, requester.id, decision.resource_id, request.requested_duration_days)
+            grant = _issue_grant(
+                request.id,
+                requester.id,
+                decision.resource_id,
+                ttl_days=request.requested_duration_days,
+                ttl_hours=decision.ttl_hours,
+            )
             results.append({"resource_id": decision.resource_id, "status": "granted", "grant_id": grant.id})
 
         elif decision.decision == DecisionType.ESCALATE:
@@ -122,10 +128,16 @@ def submit_request(request: AccessRequest) -> dict:
                 approver_ids=approvers,
                 requester_id=requester.id,
                 requested_duration_days=request.requested_duration_days,
+                request=request,
+                resource=resources.get(decision.resource_id),
+                now=now(),
             )
             ESCALATIONS[case.id] = case
             _audit(AuditEventType.ESCALATED, actor="policy-engine", detail=decision.reason, request_id=request.id, escalation_id=case.id)
             results.append({"resource_id": decision.resource_id, "status": "escalated", "escalation_id": case.id})
+
+        elif decision.decision == DecisionType.STEP_UP_AUTH_REQUIRED:
+            results.append({"resource_id": decision.resource_id, "status": "step_up_auth_required", "reason": decision.reason})
 
         else:
             _audit(AuditEventType.REQUEST_DENIED, actor="policy-engine", detail=decision.reason, request_id=request.id, payload={"resource_id": decision.resource_id})
@@ -169,17 +181,25 @@ def vote(escalation_id: str, vote: ApprovalVote) -> EscalationCase:
     return case
 
 
-def _issue_grant(request_id: str, requester_id: str, resource_id: str, ttl_days: int) -> Grant:
+def _issue_grant(
+    request_id: str,
+    requester_id: str,
+    resource_id: str,
+    ttl_days: int | None = None,
+    ttl_hours: int | None = None,
+) -> Grant:
+    ttl = timedelta(hours=ttl_hours) if ttl_hours is not None else timedelta(days=ttl_days or 0)
     grant = Grant(
         id=str(uuid.uuid4()),
         request_id=request_id,
         resource_id=resource_id,
         requester_id=requester_id,
         granted_at=now(),
-        expires_at=now() + timedelta(days=ttl_days),
+        expires_at=now() + ttl,
     )
     GRANTS[grant.id] = grant
-    _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_days}d", request_id=request_id, grant_id=grant.id)
+    ttl_label = f"{ttl_hours}h" if ttl_hours is not None else f"{ttl_days}d"
+    _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_label}", request_id=request_id, grant_id=grant.id)
     return grant
 
 

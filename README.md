@@ -26,7 +26,8 @@ ladder; build the core, then climb.
 per-person approvals, recorder, onboarding) and the agent's MCP server — reasoning,
 implementation details, run instructions and cross-track conventions in
 [`docs/console-and-mcp.md`](docs/console-and-mcp.md). Visual concepts in
-[`docs/ui-directions.html`](docs/ui-directions.html).
+[`docs/ui-directions.html`](docs/ui-directions.html). Open findings from the
+adversarial review, with suggested owners, in [`docs/known-bugs.md`](docs/known-bugs.md).
 
 ## Architecture
 

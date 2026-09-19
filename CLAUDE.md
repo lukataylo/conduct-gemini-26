@@ -44,9 +44,17 @@ the real names are configured by env var (see `.env.example`), not hardcoded:
 - `access-granter@<project>.iam.gserviceaccount.com` — what backend-api acts as. Can
   change IAM **only** on the two demo resources (least privilege for the access agent
   itself).
-- **No service account key files.** Use impersonation
-  (`--impersonate-service-account=...` / `google.auth.impersonated_credentials`).
-  Never commit credentials; `.env` is gitignored.
+- **Hackathon lab account limits (checked 2026-09-19):** it CAN create service accounts
+  and change IAM on the bucket and dataset. It CANNOT change project-level IAM, create
+  custom roles, impersonate service accounts, or create SA key files (org policy). So:
+  - Real grants must target the bucket/dataset IAM directly, never project-level roles.
+  - `alex-chen-agent` has no `bigquery.jobUser`; demo reads use `bq head` (no query job).
+  - Code making real GCP calls needs a Google identity: either run on a laptop with
+    `gcloud auth application-default login`, or run *inside* GCP (Cloud Run / a VM) with
+    a service account attached. **Railway can't do real GCP calls** — keep `REAL_GCP=false` there.
+  - Open team decisions: backend on demo laptop vs Cloud Run as `access-granter`; a small
+    `alex-laptop` VM running as `alex-chen-agent` for the proof terminal.
+- Never commit credentials; `.env` is gitignored.
 
 ### Demo "proof terminal"
 

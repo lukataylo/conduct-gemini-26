@@ -61,25 +61,26 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .tl-body { position: relative; min-height: 220px; padding-top: 16px; }
 .tl-now { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--green); opacity: 0.9; pointer-events: none; z-index: 2; }
 .tl-lane { position: absolute; left: 0; right: 0; height: 48px; }
-.pill { position: absolute; top: 4px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 8px 0 14px; font-size: 13px; overflow: hidden; white-space: nowrap; transition: width 0.5s ease, opacity 0.5s ease; }
+.pill { position: absolute; top: 4px; height: 40px; min-width: 128px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 8px 0 14px; font-size: 13px; overflow: hidden; white-space: nowrap; transition: width 0.5s ease, opacity 0.5s ease; }
 .pill .pill-name { font-weight: 500; }
 .pill .pill-chip { font-family: var(--dot); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: var(--fg); flex: none; }
 .pill.active { background: linear-gradient(90deg, var(--green-deep) 0%, #14532d 35%, var(--green) 100%); color: #eafff1; }
 .pill.active .pill-chip { background: rgba(0, 0, 0, 0.35); }
 .pill.clipped { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
-.pill.revoked { background: var(--s2); color: var(--fg-3); border: 1px solid var(--line-2); border-right: 2px solid var(--red); border-radius: 12px 3px 3px 12px; }
+.pill.revoked { min-width: 184px; background: var(--s2); color: var(--fg-3); border: 1px solid var(--line-2); border-right: 2px solid var(--red); border-radius: 12px 3px 3px 12px; }
+.pill.pending { min-width: 184px; }
 .pill.revoked .pill-chip { color: var(--fg-2); }
 .pill.pending { background: transparent; border: 1px dashed var(--line-2); color: var(--fg-2); }
 .pill.pending .pill-chip { background: transparent; border: 1px solid var(--line-2); color: var(--amber); }
 .pill.denied { background: transparent; border: 1px solid #4a1d1d; color: #f3a3a3; }
 .pill.denied .pill-chip { background: transparent; border: 1px solid #4a1d1d; color: var(--red); }
 .tl-empty { color: var(--fg-3); font-family: var(--dot); font-size: 13px; padding: 24px 0; }
-.tl-calls { position: absolute; left: 0; right: 0; height: 40px; }
-.call { position: absolute; top: 0; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; }
-.call i { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); }
-.call b { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--fg-3); white-space: nowrap; }
-.call.bounced i { background: var(--red); border-radius: 2px; transform: rotate(45deg); box-shadow: 0 0 10px var(--red); }
-.call.bounced b { color: var(--red); }
+.tl-calls { position: absolute; left: 0; right: 0; height: 44px; }
+.tcall { position: absolute; top: 0; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; }
+.tcall i { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); }
+.tcall b { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--fg-3); white-space: nowrap; }
+.tcall.bounced i { background: var(--red); border-radius: 2px; transform: rotate(45deg); box-shadow: 0 0 10px var(--red); }
+.tcall.bounced b { color: var(--red); }
 
 /* recorder */
 .rec { padding: 0 24px 24px; display: grid; }

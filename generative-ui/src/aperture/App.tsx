@@ -4,6 +4,7 @@ import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
 import { DemoBar } from "./DemoBar";
 import { Matrix } from "./Matrix";
+import { Onboard } from "./Onboard";
 import { Recorder } from "./Recorder";
 import { Timeline } from "./Timeline";
 
@@ -12,10 +13,15 @@ function initialUser(): string {
   return q ?? "u-newhire-1";
 }
 
+function initialView(): "console" | "onboard" {
+  return new URLSearchParams(window.location.search).get("view") === "onboard" ? "onboard" : "console";
+}
+
 export default function ApertureApp() {
   const snap = useSnapshot();
   const users = useMemo(() => toUsers(snap.people), [snap.people]);
   const [selected, setSelected] = useState<string>(initialUser);
+  const [view, setView] = useState<"console" | "onboard">(initialView);
   const [zoom, setZoom] = useState<"session" | "project">("session");
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -58,9 +64,20 @@ export default function ApertureApp() {
             <button aria-pressed={zoom === "session"} onClick={() => setZoom("session")}>session</button>
             <button aria-pressed={zoom === "project"} onClick={() => setZoom("project")}>project</button>
           </span>
+          <span className="seg" role="group" aria-label="View">
+            <button aria-pressed={view === "console"} onClick={() => setView("console")}>console</button>
+            <button aria-pressed={view === "onboard"} onClick={() => setView("onboard")}>onboard</button>
+          </span>
         </span>
       </header>
 
+      {view === "onboard" ? (
+        <>
+          <Onboard users={users} resources={snap.resources} selected={selected === ALL ? "u-newhire-1" : selected} online={snap.online} />
+          <DemoBar grants={snap.grants} cases={snap.cases} users={users} selected={selected} online={snap.online} />
+        </>
+      ) : (
+      <>
       <div className="sum">
         <div><span className="n" style={{ color: accent }}>{active.length}</span><span className="k">active leases</span></div>
         <div><span className="n amber">{pending.length}</span><span className="k">pending</span></div>
@@ -90,6 +107,8 @@ export default function ApertureApp() {
       </main>
 
       <DemoBar grants={snap.grants} cases={snap.cases} users={users} selected={selected} online={snap.online} />
+      </>
+      )}
     </div>
   );
 }

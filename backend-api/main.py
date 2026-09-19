@@ -349,6 +349,16 @@ def list_people() -> list[Requester]:
     return list(KNOWN_REQUESTERS.values())
 
 
+@app.get("/tools")
+def list_tools(requester_id: str) -> list[dict]:
+    """The MCP tool list this requester's agent sees right now — same derivation the
+    stdio server uses (agent-runtime/mcp_server.tools_for_grants)."""
+    _agent_runtime_on_path()
+    from mcp_server import tools_for_grants
+
+    return tools_for_grants(active_grants(requester_id), now=now())
+
+
 @app.get("/grants")
 def list_grants(requester_id: str | None = None, include_revoked: bool = False) -> list[Grant]:
     """Active, unexpired grants — what the scoped MCP server derives its tool list from.

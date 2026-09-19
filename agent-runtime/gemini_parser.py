@@ -27,6 +27,8 @@ PARSE_PROMPT = """You are extracting a structured access request from an employe
 - which resource names/ids they're asking for
 - the project this work belongs to
 - how many days they need access for (infer a reasonable default like 14 if unstated)
+Visible names include: Northwind, 1710001, Customer Master, billing, sales order,
+customer directory, export customers, payroll.
 Respond only with the fields asked for in the schema.
 """
 
@@ -43,6 +45,40 @@ def constrain_resource_ids(ids: list[str], known: list[str]) -> list[str]:
     for item in ids:
         if item in known_set and item not in out:
             out.append(item)
+    return out
+
+
+_HINT_NEEDLES: tuple[tuple[str, str], ...] = tuple(
+    sorted(
+        (
+            ("export all", "sap-customer-directory"),
+            ("export customer", "sap-customer-directory"),
+            ("customer directory", "sap-customer-directory"),
+            ("all customers", "sap-customer-directory"),
+            ("payroll", "sap-hr-payroll"),
+            ("billing", "sap-billing-display"),
+            ("sales order", "sap-sales-order-display"),
+            ("northwind", "sap-bp-display"),
+            ("1710001", "sap-bp-display"),
+            ("customer master", "sap-bp-display"),
+            ("business partner", "sap-bp-display"),
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
+
+
+def hint_resource_ids(raw_text: str, known: list[str]) -> list[str]:
+    """Map utterance keywords to known resource ids. Longer needles first."""
+    known_set = set(known)
+    lowered = raw_text.lower()
+    out: list[str] = []
+    for needle, resource_id in _HINT_NEEDLES:
+        if resource_id not in known_set or resource_id in out:
+            continue
+        if needle in lowered:
+            out.append(resource_id)
     return out
 
 
@@ -112,6 +148,9 @@ def parse_request(
     )
     fields = runner(prompt)
     resource_ids = constrain_resource_ids(fields.resource_ids, known_resource_ids)
+    for hinted in hint_resource_ids(raw_text, known_resource_ids):
+        if hinted not in resource_ids:
+            resource_ids.append(hinted)
     requested_duration_days = duration_days(raw_text, fields.requested_duration_days)
     return _build_request(
         raw_text,

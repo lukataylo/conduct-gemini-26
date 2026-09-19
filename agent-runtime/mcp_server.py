@@ -41,6 +41,27 @@ TOOL_SPECS: dict[str, dict[str, str]] = {
             "{grant_id} is active (expires {expires})."
         ),
     },
+    "sap-bp-display": {
+        "name": "sap_display_bp_1710001",
+        "description": (
+            "Display Business Partner 1710001 in Customer Master. Only while grant "
+            "{grant_id} is active (expires {expires})."
+        ),
+    },
+    "sap-billing-display": {
+        "name": "sap_display_billing_northwind",
+        "description": (
+            "Display the Northwind billing document. Only while grant "
+            "{grant_id} is active (expires {expires})."
+        ),
+    },
+    "sap-sales-order-display": {
+        "name": "sap_display_sales_order_northwind",
+        "description": (
+            "Display the Northwind sales order. Only while grant "
+            "{grant_id} is active (expires {expires})."
+        ),
+    },
 }
 
 

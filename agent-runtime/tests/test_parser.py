@@ -1,6 +1,6 @@
 from datetime import date
 
-from gemini_parser import constrain_resource_ids, duration_days, _build_request
+from gemini_parser import constrain_resource_ids, duration_days, hint_resource_ids, _build_request
 from shared.schemas import Requester
 
 ALEX = Requester(
@@ -11,6 +11,14 @@ ALEX = Requester(
     manager_id="u-manager-1",
 )
 KNOWN = ["bucket-analytics-raw", "bq-project-x-finance", "sql-prod-primary"]
+SAP_KNOWN = KNOWN + [
+    "sap-bp-display",
+    "sap-billing-display",
+    "sap-sales-order-display",
+    "sap-customer-directory",
+    "sap-hr-payroll",
+]
+ATLAS_TEXT = "I need access to analytics-raw for Project Atlas"
 
 
 def test_constrain_drops_unknown_preserves_order():
@@ -99,3 +107,80 @@ def test_parse_request_empty_ids_when_nothing_matches(requester):
 
     req = parse_request("please give me prod", requester, ["bucket-analytics-raw"], runner=runner)
     assert req.resource_ids == []
+
+
+def test_hint_northwind_and_customer_master_map_to_bp():
+    for text in (
+        "display Northwind Trading 1710001 in Customer Master for INC-8841",
+        "business partner 1710001",
+        "northwind",
+        "customer master",
+    ):
+        assert hint_resource_ids(text, SAP_KNOWN) == ["sap-bp-display"]
+
+
+def test_hint_billing_and_sales_order():
+    assert hint_resource_ids("need the billing doc", SAP_KNOWN) == ["sap-billing-display"]
+    assert hint_resource_ids("need the sales order", SAP_KNOWN) == ["sap-sales-order-display"]
+
+
+def test_hint_export_needles_map_to_directory():
+    for text in (
+        "export all customers",
+        "export customer list",
+        "full customer directory",
+        "all customers",
+    ):
+        assert hint_resource_ids(text, SAP_KNOWN) == ["sap-customer-directory"]
+
+
+def test_hint_payroll_maps_to_hr():
+    assert hint_resource_ids("need payroll access", SAP_KNOWN) == ["sap-hr-payroll"]
+
+
+def test_hint_full_customer_file_is_not_export():
+    assert "sap-customer-directory" not in hint_resource_ids(
+        "I do not need the full customer file", SAP_KNOWN
+    )
+    assert hint_resource_ids(
+        "I need display on Northwind Trading customer 1710001 in SAP Customer Master "
+        "to answer INC-8841. I do not need the full customer file.",
+        SAP_KNOWN,
+    ) == ["sap-bp-display"]
+
+
+def test_hint_skips_ids_not_in_known():
+    assert hint_resource_ids("payroll and northwind", KNOWN) == []
+
+
+def test_hint_atlas_text_maps_to_no_sap_ids():
+    assert hint_resource_ids(ATLAS_TEXT, SAP_KNOWN) == []
+
+
+def test_parse_request_merges_hints_after_constrain(requester):
+    def runner(prompt: str) -> ParseFields:
+        return ParseFields(
+            project="atlas-migration",
+            resource_ids=["totally-fake"],
+            requested_duration_days=3,
+        )
+
+    req = parse_request(
+        "display Northwind Trading 1710001 in Customer Master for INC-8841",
+        requester,
+        SAP_KNOWN,
+        runner=runner,
+    )
+    assert req.resource_ids == ["sap-bp-display"]
+
+
+def test_parse_request_atlas_text_stays_gcp_only(requester):
+    def runner(prompt: str) -> ParseFields:
+        return ParseFields(
+            project="atlas-migration",
+            resource_ids=["bucket-analytics-raw"],
+            requested_duration_days=14,
+        )
+
+    req = parse_request(ATLAS_TEXT, requester, SAP_KNOWN, runner=runner)
+    assert req.resource_ids == ["bucket-analytics-raw"]

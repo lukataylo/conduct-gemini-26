@@ -480,6 +480,25 @@
         linear-gradient(#d2e3fc, #d2e3fc) 80% 60% / 12% 40% no-repeat,
         var(--wash);
     }
+    tr[data-object] { cursor: pointer; }
+    #object-preview { margin-top: 16px; }
+    #query-editor {
+      width: 100%;
+      min-height: 160px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+    #query-editor:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    #query-results { margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -632,9 +651,16 @@
             <tbody>
               <tr><td>atlas/ingest/2026-09-18/events.jsonl</td><td>2.4 MB</td><td>application/jsonl</td><td>Sep 18, 2026</td><td>Standard</td><td>Not public</td></tr>
               <tr><td>atlas/ingest/2026-09-19/events.jsonl</td><td>1.1 MB</td><td>application/jsonl</td><td>Sep 19, 2026</td><td>Standard</td><td>Not public</td></tr>
+              <tr data-object="events/2026-09-18.parquet"><td>events/2026-09-18.parquet</td><td>8.6 MB</td><td>application/vnd.apache.parquet</td><td>Sep 18, 2026</td><td>Standard</td><td>Not public</td></tr>
               <tr><td>_readme.txt</td><td>412 B</td><td>text/plain</td><td>Sep 12, 2026</td><td>Standard</td><td>Not public</td></tr>
             </tbody>
           </table>
+          <aside id="object-preview" hidden>
+            <article class="info-card">
+              <h3>Object details</h3>
+              <p class="subtitle" data-preview-name></p>
+            </article>
+          </aside>
         </div>
 
         <div data-tab-panel="configuration" hidden>
@@ -747,7 +773,7 @@
             <div class="crumbs">BigQuery Studio</div>
             <div class="page-head">
               <h1>Welcome to BigQuery</h1>
-              <div class="actions"><button type="button" class="btn-filled">COMPOSE A NEW QUERY</button></div>
+              <div class="actions"><button type="button" class="btn-filled" data-open-resource="bq-project-x-finance" data-open-tab="query">COMPOSE A NEW QUERY</button></div>
             </div>
             <p class="subtitle">Select a dataset in Explorer. The finance dataset is <button type="button" class="linkish" data-open-resource="bq-project-x-finance">project-x-finance</button>.</p>
           </div>
@@ -774,11 +800,12 @@
               </div>
               <div class="actions">
                 <button type="button" class="btn" data-tab-jump="permissions">SHARING</button>
-                <button type="button" class="btn-filled">COMPOSE A NEW QUERY</button>
+                <button type="button" class="btn-filled" data-tab-jump="query">COMPOSE A NEW QUERY</button>
               </div>
             </div>
             <div class="tabs" role="tablist">
               <button type="button" role="tab" data-tab="details" aria-selected="true">Details</button>
+              <button type="button" role="tab" data-tab="query">Query</button>
               <button type="button" role="tab" data-tab="permissions">Permissions</button>
               <button type="button" role="tab" data-tab="tables">Tables</button>
               <button type="button" role="tab" data-tab="routines">Routines</button>
@@ -792,6 +819,15 @@
                 <dt>Default collation</dt><dd>unspecified</dd>
                 <dt>Labels</dt><dd>team=finance, project=atlas-migration, tier=restricted</dd>
               </dl>
+            </div>
+            <div data-tab-panel="query" hidden>
+              <div class="toolbar" style="margin-top:16px">
+                <button type="button" class="btn-filled" id="query-run">Run</button>
+              </div>
+              <label class="field">Query
+                <textarea id="query-editor" rows="8" placeholder="SELECT table_id, row_count FROM seed tables"></textarea>
+              </label>
+              <div id="query-results"></div>
             </div>
             <div data-tab-panel="permissions" hidden>
               <div class="card" data-resource-id="bq-project-x-finance">
@@ -1223,7 +1259,7 @@
     });
 
     document.querySelectorAll("[data-open-resource]").forEach((btn) => {
-      btn.addEventListener("click", () => openResource(btn.dataset.openResource));
+      btn.addEventListener("click", () => openResource(btn.dataset.openResource, btn.dataset.openTab));
     });
 
     document.querySelectorAll("[role=tab], .sql-side button").forEach((tab) => {
@@ -1300,6 +1336,22 @@
     document.addEventListener("click", (event) => {
       const btn = event.target.closest("[data-action=revoke]");
       if (btn) openRevoke(btn.dataset.resource, btn.dataset.principal);
+      const objectRow = event.target.closest("tr[data-object]");
+      if (objectRow) {
+        const preview = document.getElementById("object-preview");
+        const name = objectRow.getAttribute("data-object");
+        preview.hidden = false;
+        preview.setAttribute("data-object", name);
+        const label = preview.querySelector("[data-preview-name]");
+        if (label) label.textContent = name;
+      }
+    });
+
+    document.getElementById("query-run").addEventListener("click", () => {
+      document.getElementById("query-results").outerHTML =
+        '<div id="query-results" data-dataset="bq-project-x-finance">' +
+        '<table class="data"><thead><tr><th>table_id</th><th>count</th></tr></thead>' +
+        "<tbody><tr><td>events_raw</td><td>184221</td></tr></tbody></table></div>";
     });
 
     document.querySelectorAll("[data-close-revoke]").forEach((el) => {

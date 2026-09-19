@@ -52,3 +52,13 @@ def test_console_has_revoke_and_hash_hooks():
     assert 'data-hash-example="#storage/bucket-analytics-raw/permissions"' in text
     assert "location.hash" in text
     assert "Remove" in text
+
+
+def test_console_has_object_preview_and_query():
+    text = HTML.read_text()
+    assert 'data-object="events/2026-09-18.parquet"' in text
+    assert 'id="object-preview"' in text
+    assert 'id="query-editor"' in text
+    assert 'id="query-run"' in text
+    assert 'id="query-results"' in text
+    assert 'data-dataset="bq-project-x-finance"' in text

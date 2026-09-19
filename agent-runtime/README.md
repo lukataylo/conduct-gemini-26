@@ -27,6 +27,17 @@ thesis; it does not replace those three. Plan:
   Start from Modal's official example: https://modal.com/docs/examples/anthropic_computer_use
 - `audit_logger.py` — `log(...)`; call `set_emitter()` to POST to `backend-api /audit`.
 - `modal_app.py` — endpoints for parse and execute.
+- `mcp_server.py` — `tools_for_grants(grants)`: the allowlisted, grant-derived tool
+  list (`sql-prod-primary` is never exposed). Pure function; the backend's `GET /tools`
+  and the stdio server both call it.
+- `mcp_serve.py` — **the running MCP server** (built 19 Sep, verified over stdio).
+  `request_access` + `my_access` always; grant-derived tools appear/disappear with
+  grants; every call re-checks the grant and logs `ACTION_EXECUTED` (`ok`/`bounced`);
+  `tools/list_changed` is pushed when the grant set changes. Env: `APERTURE_BACKEND`,
+  `APERTURE_REQUESTER`, `APERTURE_TOKEN`, `APERTURE_POLL`. Uses the `mcp` 1.x API —
+  `requirements.txt` pins `mcp>=1.10,<2` (2.x renamed the server API). Connect with:
+  `claude mcp add aperture -e APERTURE_REQUESTER=u-newhire-1 -- python agent-runtime/mcp_serve.py`.
+  Details and conventions: [`docs/console-and-mcp.md`](../docs/console-and-mcp.md).
 
 ## Build order
 

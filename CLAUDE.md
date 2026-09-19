@@ -72,3 +72,24 @@ GCS IAM can take up to ~1–2 min to propagate — rehearse the timing.
 
 Use an AI Studio API key (`GEMINI_API_KEY` in `.env`), not Vertex AI. Ask eddbr for the
 key; share it privately, never in git or public chat.
+
+## Console and MCP conventions (owner: track 1 / luka — see docs/console-and-mcp.md)
+
+- The demo beat we protect: **close the project → the tool vanishes from the agent's
+  MCP session** and the lease bar is cut, in the same second. Don't build anything
+  that makes that slower or less visible.
+- `ACTION_EXECUTED` events carry `payload = {"tool", "status": "ok"|"bounced",
+  "requester_id"}`; `grant_id` is set when authorised, `null` when bounced. The console
+  draws bounces red. The MCP server (`agent-runtime/mcp_serve.py`) writes these; any
+  other executor (computer use, real IAM) should too.
+- The agent's tool list is derived from grants in exactly one place:
+  `agent-runtime/mcp_server.tools_for_grants`. `GET /tools` and the stdio server both
+  call it. Add a resource to `TOOL_SPECS` if the agent should get a tool for it.
+- One colour per person, assigned in `GET /people` order; **red is never a person** —
+  it means denied or bounced.
+- Deny / Approve are static chrome in `Approvals.tsx`. Generated layouts must not
+  produce decision controls.
+- Presenter controls (the demo bar) go through the API so they appear in the chain.
+  Nothing on screen is UI-only state.
+- `mcp` Python SDK is pinned `<2` in `agent-runtime/requirements.txt`; 2.x renamed the
+  server API.

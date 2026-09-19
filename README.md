@@ -22,6 +22,12 @@ ladder; build the core, then climb.
 
 **Working codename:** Aperture — an opening sized to what you're allowed to see.
 
+**What's built (19 Sep):** the console (lease timeline, dot-matrix access grid,
+per-person approvals, recorder, onboarding) and the agent's MCP server — reasoning,
+implementation details, run instructions and cross-track conventions in
+[`docs/console-and-mcp.md`](docs/console-and-mcp.md). Visual concepts in
+[`docs/ui-directions.html`](docs/ui-directions.html).
+
 ## Architecture
 
 ```mermaid

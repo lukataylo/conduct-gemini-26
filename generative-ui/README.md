@@ -31,6 +31,22 @@ enough. Keep our `UISpec`/`UIComponentSpec` as the wire type; make it A2UI-shape
 
 ## What's here (runnable now)
 
+**Built 19 Sep, on `main`** — see [`docs/console-and-mcp.md`](../docs/console-and-mcp.md)
+for reasoning, implementation details and the conventions other tracks depend on:
+
+- `src/aperture/` — the console that `main.tsx` mounts: `App.tsx` (person switcher,
+  session/project zoom, console/onboard views), `Timeline.tsx` (lease Gantt: active,
+  pending, revoked, denied, tool-call markers, bounces), `Matrix.tsx` (dot-matrix
+  access grid, one colour per person), `Approvals.tsx` (what the selected person must
+  decide; real votes), `Recorder.tsx` (audit log with chain hashes), `Onboard.tsx`
+  (connect command, NL request, live `tools/list`, evidence), `DemoBar.tsx` (presenter
+  controls that act as the selected person, all through the API), `api.ts` (polling
+  snapshot — swap for SSE here), `aperture.css` (Nothing-style theme).
+- Open the console at `/`, as a given person with `?user=u-manager-1`, the onboarding
+  view with `?view=onboard`.
+
+Older scaffold, still present for the generative path:
+
 - `src/types.ts` — hand-mirrored `UISpec` types from `shared/schemas.py`.
 - `src/registry.tsx` — `COMPONENT_REGISTRY`; unknown names render `UnknownComponent`
   instead of crashing. **Keep this.** It's the safety net once Gemini names components.

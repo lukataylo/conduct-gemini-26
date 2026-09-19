@@ -14,8 +14,15 @@ the approval endpoints, the audit spine, and deploy. Design brief:
 
 ## What's here
 
-- `main.py` — `POST /requests`, `GET /escalations`, `POST /escalations/{id}/vote`,
-  `POST /grants/{id}/revoke`, `GET /audit`, `GET /ui-spec/{requester_id}`.
+- `main.py` — `POST /requests` (structured, or NL `{raw_text, requester_id}`),
+  `GET /escalations`, `POST /escalations/{id}/vote`, `GET /grants`
+  (`?requester_id=&include_revoked=true`), `POST /grants/{id}/revoke`,
+  `POST /projects/{project}/close`, `POST /audit` (runtime ingest), `GET /audit`,
+  `GET /audit/verify`, `GET /ui-spec/{requester_id}`, and — added 19 Sep for the
+  console and the MCP server — `GET /resources`, `GET /people`,
+  `GET /tools?requester_id=` (same derivation as `agent-runtime/mcp_server.tools_for_grants`).
+  Conventions the UI keys on (e.g. `ACTION_EXECUTED.payload.status`):
+  [`docs/console-and-mcp.md`](../docs/console-and-mcp.md).
 - `policy_engine_paths.py` — import shim for the hyphenated sibling folders.
 
 ## Build order

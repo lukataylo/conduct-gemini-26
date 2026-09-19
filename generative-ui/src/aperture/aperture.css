@@ -212,6 +212,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .pol td { padding: 7px 0; border-top: 1px solid var(--line); }
 .pol td:first-child { font-family: var(--mono); font-size: 12px; }
 .pol-note { font-size: 11.5px; color: var(--fg-3); }
+.pol-k { font-family: var(--dot); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); padding-top: 8px; }
 .mgr-plat { display: grid; gap: 6px; padding-bottom: 10px; }
 .mgr-plat-h { font-family: var(--dot); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
 .mgr-plat-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -336,7 +337,8 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 /* users: one card per person */
 .uc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; padding: 24px; }
 .uc { border: 1px solid var(--line-2); border-radius: 18px; padding: 18px 18px 16px; display: grid; gap: 12px; align-content: start; background: var(--s1); border-top: 3px solid var(--u); }
-.uc-head { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; }
+.uc.on { border-color: var(--u); box-shadow: 0 0 0 1px color-mix(in srgb, var(--u) 50%, transparent); }
+.uc-head { appearance: none; font: inherit; color: inherit; width: 100%; background: transparent; border: 0; padding: 0; cursor: pointer; display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; text-align: left; }
 .uc-head i { width: 12px; height: 12px; border-radius: 50%; background: var(--u); box-shadow: 0 0 10px var(--u); }
 .uc-head b { font-weight: 600; font-size: 16px; display: block; } .uc-head small { color: var(--fg-3); font-size: 11px; }
 .uc-n { font-family: var(--dot); font-size: 30px; font-weight: 700; color: var(--u); line-height: 1; }

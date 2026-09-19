@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { AuditEvent, Company, EscalationCase, Grant, PlatformId, PolicyRule, Resource, User } from "./api";
-import { ALL, ATLAS, hasPlatform, post } from "./api";
+import { useEffect, useState } from "react";
+import type { AuditEvent, Company, EscalationCase, Grant, PlatformId, PolicyRouteRow, PolicyRoutes, PolicyRule, Resource, User } from "./api";
+import { ALL, ATLAS, fetchPolicyRoutes, hasPlatform, post } from "./api";
 import { Approvals } from "./Approvals";
 
 interface Props {
@@ -30,12 +30,31 @@ function policyRows(policy: PolicyRule | null) {
   });
 }
 
+function RouteTable({ title, rows, users }: { title: string; rows: PolicyRouteRow[]; users: User[] }) {
+  const nameOf = (id: string) => users.find((u) => u.id === id)?.name.split(" ")[0] ?? id;
+  return (
+    <>
+      <div className="pol-k">{title}</div>
+      <table className="pol">
+        <thead><tr><th>resource</th><th>approvers</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id}><td>{r.name}</td><td>{r.approver_ids.map(nameOf).join(", ") || "—"}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 /** The manager's column: what needs deciding and the live GET /policy table. Gemini lives in the bubble. */
 export function ManagerSide({ grants, cases, events, resources, users, company = ATLAS, policy, online = true }: Props) {
   const rows = policyRows(policy);
   const plats = company.platforms.length ? company.platforms : ATLAS.platforms;
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [routes, setRoutes] = useState<PolicyRoutes>({ gcp: [], sap: [] });
+  useEffect(() => { fetchPolicyRoutes().then(setRoutes).catch(() => setRoutes({ gcp: [], sap: [] })); }, []);
   const setPlatform = async (u: User, platform: PlatformId, action: "grant" | "revoke") => {
     const key = `${u.id}:${platform}:${action}`;
     setBusy(key); setErr(null);
@@ -69,6 +88,9 @@ export function ManagerSide({ grants, cases, events, resources, users, company =
       </section>
       <section className="mgr-settings">
         <div className="apv-h">Policy</div>
+        <RouteTable title="GCP" rows={routes.gcp} users={users} />
+        <RouteTable title="SAP" rows={routes.sap} users={users} />
+        <div className="pol-k">tiers</div>
         <table className="pol">
           <thead><tr><th>tier</th><th>auto up to</th><th>approvals</th></tr></thead>
           <tbody>{rows.map((p) => <tr key={p.tier}><td>{p.tier}</td><td>{p.auto}</td><td>{p.approvals}</td></tr>)}</tbody>

@@ -133,7 +133,7 @@ export function PersonMenu({ role, users, selected, onSelect, grants, cases, onl
       </button>
       {open && (
         <div className="ctl-menu">
-          <div className="ctl-k">{role === "manager" ? "people" : "users"}</div>
+          <div className="ctl-k">{role === "manager" ? "signed in as" : "users"}</div>
           {users.map((u) => (
             <button key={u.id} className="ctl-person" aria-pressed={u.id === selected} onClick={() => { onSelect(u.id); setOpen(false); }} style={{ ["--u" as string]: u.color }}>
               <i /><span>{u.name}</span><small>{u.team}</small>

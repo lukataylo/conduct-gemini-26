@@ -43,3 +43,12 @@ def test_console_has_gcp_chrome_and_product_tabs():
     assert 'data-open-resource="bucket-analytics-raw"' in text
     assert 'data-open-resource="bq-project-x-finance"' in text
     assert 'data-open-resource="sql-prod-primary"' in text
+
+
+def test_console_has_revoke_and_hash_hooks():
+    text = HTML.read_text()
+    assert 'data-action="revoke"' in text
+    assert 'aria-label="Confirm revoke"' in text
+    assert 'data-hash-example="#storage/bucket-analytics-raw/permissions"' in text
+    assert "location.hash" in text
+    assert "Remove" in text

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-hash-example="#storage/bucket-analytics-raw/permissions">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -428,7 +428,8 @@
       place-items: center;
     }
     .backdrop { position: absolute; inset: 0; background: rgba(32, 33, 36, 0.6); }
-    #grant-form {
+    #grant-form,
+    #revoke-form {
       position: relative;
       width: min(560px, calc(100vw - 32px));
       background: #fff;
@@ -436,7 +437,8 @@
       box-shadow: var(--shadow-lg);
       display: none;
     }
-    #grant-form.visible { display: block; }
+    #grant-form.visible,
+    #revoke-form.visible { display: block; }
     .dialog-head {
       display: flex;
       justify-content: space-between;
@@ -1026,6 +1028,23 @@
     </form>
   </div>
 
+  <div class="dialog-root" id="revoke-dialog" hidden>
+    <div class="backdrop" data-close-revoke></div>
+    <div id="revoke-form">
+      <div class="dialog-head">
+        <h2>Remove access</h2>
+        <button type="button" class="icon-btn" data-close-revoke aria-label="Close"><span class="material-icons-outlined">close</span></button>
+      </div>
+      <div class="dialog-body">
+        <p>This principal will lose this role on the resource.</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-text" data-close-revoke>Cancel</button>
+        <button type="button" class="btn-filled" aria-label="Confirm revoke">Confirm revoke</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const ROLES = {
       "bucket-analytics-raw": "Storage Object Viewer",
@@ -1047,9 +1066,20 @@
       "bq-project-x-finance": { view: "dataset" },
       "sql-prod-primary": { view: "instance" },
     };
+    const HASH_PRODUCT = {
+      storage: "storage",
+      bucket: "storage",
+      bigquery: "bigquery",
+      dataset: "bigquery",
+      sql: "sql",
+      instance: "sql",
+      iam: "iam",
+    };
 
     const form = document.getElementById("grant-form");
     const dialog = document.getElementById("grant-dialog");
+    const revokeDialog = document.getElementById("revoke-dialog");
+    const revokeForm = document.getElementById("revoke-form");
     const principalInput = document.getElementById("principal");
     const expiresInput = document.getElementById("expires");
     const roleInput = document.getElementById("role");
@@ -1057,10 +1087,57 @@
     const sidenav = document.getElementById("sidenav");
     let selectedId = null;
     let currentView = "storage";
+    let currentResourceId = null;
+    let pendingRevoke = null;
+
+    function hashFor(view, tab, resourceId) {
+      const product = HASH_PRODUCT[view];
+      if (!product) return "";
+      if (resourceId && (view === "bucket" || view === "dataset" || view === "instance")) {
+        return "#" + product + "/" + resourceId + "/" + (tab || "permissions");
+      }
+      return "#" + product;
+    }
+
+    function syncHash(view, tab) {
+      const next = hashFor(view, tab, currentResourceId);
+      if (!next) return;
+      if (location.hash !== next) history.replaceState(null, "", next);
+    }
+
+    function resolveTab(tab) {
+      if (tab === "query") {
+        const compose = document.querySelector('[data-tab="query"], [data-tab-panel="query"], #query-editor');
+        if (!compose) return "permissions";
+      }
+      return tab;
+    }
+
+    function applyHash() {
+      const raw = (location.hash || "").replace(/^#/, "");
+      if (!raw) {
+        setView("storage");
+        return;
+      }
+      const parts = raw.split("/");
+      const product = parts[0];
+      const id = parts[1];
+      const tab = resolveTab(parts[2]);
+      if (id && RESOURCES[id]) {
+        openResource(id, tab);
+        return;
+      }
+      if (product === "storage" || product === "bigquery" || product === "sql" || product === "iam") {
+        setView(product, tab);
+      }
+    }
 
     function setView(view, tab) {
       currentView = view;
       const meta = VIEWS[view] || VIEWS.storage;
+      if (view === "storage" || view === "bigquery" || view === "sql" || view === "iam" || view === "home") {
+        currentResourceId = null;
+      }
       document.querySelectorAll("[data-view]").forEach((el) => {
         el.hidden = el.dataset.view !== view;
       });
@@ -1069,6 +1146,7 @@
       });
       const nextTab = tab || meta.defaultTab;
       if (nextTab) setTab(view, nextTab);
+      syncHash(view, nextTab);
     }
 
     function setTab(view, tab) {
@@ -1082,11 +1160,13 @@
       root.querySelectorAll("[data-tab-panel]").forEach((el) => {
         el.hidden = el.dataset.tabPanel !== tab;
       });
+      syncHash(view, tab);
     }
 
     function openResource(id, tab) {
       const target = RESOURCES[id];
       if (!target) return;
+      currentResourceId = id;
       setView(target.view, tab);
     }
 
@@ -1094,6 +1174,31 @@
       form.classList.remove("visible");
       dialog.hidden = true;
       document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
+    }
+
+    function closeRevoke() {
+      revokeForm.classList.remove("visible");
+      revokeDialog.hidden = true;
+      pendingRevoke = null;
+    }
+
+    function openRevoke(resource, principal) {
+      pendingRevoke = { resource: resource, principal: principal };
+      revokeDialog.hidden = false;
+      revokeForm.classList.add("visible");
+    }
+
+    function confirmRevoke() {
+      if (!pendingRevoke) return;
+      const resource = pendingRevoke.resource;
+      const principal = pendingRevoke.principal;
+      document.querySelectorAll("#active-grants li").forEach((li) => {
+        if (li.dataset.resource === resource && li.dataset.principal === principal) li.remove();
+      });
+      document.querySelectorAll("tr[data-resource][data-principal]").forEach((row) => {
+        if (row.dataset.resource === resource && row.dataset.principal === principal) row.remove();
+      });
+      closeRevoke();
     }
 
     function openGrant(card) {
@@ -1183,14 +1288,27 @@
         row.setAttribute("data-principal", principal);
         row.innerHTML =
           "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
-          "</td><td>Direct · expires " + expires + "</td>";
+          "</td><td>Direct · expires " + expires +
+          ' <button type="button" class="btn" data-action="revoke" data-resource="' +
+          selectedId + '" data-principal="' + principal + '">Remove</button></td>';
         tbody.appendChild(row);
       }
       form.reset();
       closeGrant();
     });
 
-    setView("storage");
+    document.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-action=revoke]");
+      if (btn) openRevoke(btn.dataset.resource, btn.dataset.principal);
+    });
+
+    document.querySelectorAll("[data-close-revoke]").forEach((el) => {
+      el.addEventListener("click", closeRevoke);
+    });
+    document.querySelector('[aria-label="Confirm revoke"]').addEventListener("click", confirmRevoke);
+
+    window.addEventListener("hashchange", applyHash);
+    applyHash();
   </script>
 </body>
 </html>

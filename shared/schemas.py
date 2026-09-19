@@ -142,6 +142,7 @@ class PolicyEvaluationContext(BaseModel):
     company_calendar: dict = Field(default_factory=dict)
     requester_location: dict = Field(default_factory=dict)
     external_signals: dict = Field(default_factory=dict)
+    hr_system: dict = Field(default_factory=dict)
     current_date: datetime = Field(default_factory=_utcnow)
 
 
@@ -242,11 +243,22 @@ class Grant(BaseModel):
     request_id: str
     resource_id: str
     requester_id: str
+    capability: str | None = None
+    metadata: dict = Field(default_factory=dict)
     granted_at: datetime = Field(default_factory=_utcnow)
     expires_at: datetime
     revoked: bool = False
     revoked_at: datetime | None = None
     revoked_reason: str | None = None
+
+
+class RevocationAction(BaseModel):
+    grant_id: str
+    requester_id: str
+    resource_id: str
+    reason: str
+    metadata: dict = Field(default_factory=dict)
+    decided_at: datetime = Field(default_factory=_utcnow)
 
 
 # --------------------------------------------------------------------------------------

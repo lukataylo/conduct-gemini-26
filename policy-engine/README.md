@@ -29,15 +29,50 @@ longer required.
    `STEP_UP_AUTH_REQUIRED` instead of granting access.
 5. **Blast-radius protection** — requesting more than 5 resources at once, or pushing
    the requester above 20 active resources, escalates to the Engineering VP group.
-6. **Capability-based escalation** — destructive capabilities (`delete`, `shutdown`,
-   `drop`, `terminate`) upgrade the request to CRITICAL and require security-lead
+6. **Capability-based escalation** — destructive capabilities (`delete`, `drop`,
+   `terminate`, `iam_change`) upgrade the request to CRITICAL and require security-led
    approval.
-7. **Tier, duration, and team policy** — same-team low-risk requests can auto-grant;
+7. **Surface-specific policy** — GitHub, PowerBI, payment rails, warehouse IoT, support
+   impersonation, build pipelines, vault secrets, and finance production each get their
+   own deterministic rules.
+8. **Tier, duration, and team policy** — same-team low-risk requests can auto-grant;
    cross-team, over-duration, restricted, or critical requests escalate according to
    `DEFAULT_POLICY`.
 
 The engine returns one deterministic `PolicyDecision` per resource unless a global hard
 deny or blast-radius escalation applies. It performs no I/O and makes no model calls.
+
+### Enterprise Sentinel Surface Rules
+
+The engine now handles more than generic cloud buckets and databases:
+
+- **GitHub repositories** — new hires requesting critical repositories escalate to a
+  Security Lead; admin and main-branch access is hard-denied because those rights are
+  manual-only.
+- **AI agents** — agents get session-bound TTLs and are denied if they already hold too
+  many active grants or request scraper-like bulk access.
+- **PowerBI datasets** — `VIEW` can auto-grant; `EXPORT` and `POWER_QUERY` escalate to
+  the Data Steward; PII datasets include `DISABLE_EXPORT`.
+- **Payment rails** — return `WITNESS_REQUIRED`; access is only valid with two
+  authorized humans.
+- **Warehouse IoT** — access requires the requester to be within the physical geofence.
+- **Support impersonation** — Zendesk ticket requester must match the customer profile
+  being accessed.
+- **Build pipelines** — recent critical Snyk/SonarQube findings escalate to Security
+  Architect.
+- **Vault secrets** — a fourth unique secret within 60 minutes is denied with an
+  anomaly alarm.
+- **Finance production** — write access during an earnings quiet period is downgraded
+  to read-only and escalated to the CFO.
+
+### Adversarial Defense
+
+- **5x rejection circuit breaker** — repeated denied attempts for the same resource
+  trigger a hard lock, then SOC escalation.
+- **Cross-pollination risk** — combinations of grants that could de-anonymize data
+  escalate as potential data-correlation risk.
+- **Peer signal** — policy decisions include peer-comparison metadata for approval
+  cards, e.g. whether only a tiny fraction of the requester’s team has this access.
 
 ### The Escalation Engine: The Smart Dispatcher
 
@@ -50,6 +85,26 @@ decide security policy; it manages the human approval workflow:
 - enforces 30-minute incident SLAs and 4-hour standard-ticket SLAs,
 - applies N-of-M approval rules with any-deny veto,
 - ignores votes from non-required approvers.
+- carries evidence-card metadata: peer signal, risk score, policy violation, suggested
+  downgrade, and original policy metadata.
+
+### The Reaper Loop: Continuous Governance
+
+`review_active_grants(active_grants, resources, context) -> list[RevocationAction]`
+turns Project Atlas from a one-time gatekeeper into a self-cleaning access system. It
+reviews grants against live business and security signals and recommends early
+revocation before TTL expiry.
+
+Reaper triggers:
+
+- **HR purge** — if HR marks a requester as `LEAVER`, `SUSPENDED`, `ON_LEAVE`, or any
+  non-`ACTIVE` status, all grants for that requester are revoked.
+- **Justification sunset** — if the Jira ticket or PagerDuty incident attached to a
+  grant is `DONE`, `RESOLVED`, or `CLOSED`, the grant is revoked immediately.
+- **Finance quiet period** — if finance production enters a quiet period, `write` grants
+  are reclaimed while read-only access can remain.
+- **Geofence breach** — warehouse IoT grants are revoked when the user moves outside the
+  authorized physical range.
 
 ### How They Work Together
 
@@ -116,42 +171,44 @@ technical layers:
   incident. A former employee attempting access months later would lack valid assigned
   work context, triggering hard deny before any infrastructure action could run.
 
-## Ambition ladder
+## Demo Scenarios Covered By Tests
 
-| | What | Done when |
-|---|---|---|
-| **Core** (must demo) | Tiers × duration × team → grant / escalate / deny (in repo). N-of-M with any-veto (in repo). `tests/test_engine.py` for the four cases. Approver resolution from `usecase-demo.APPROVERS`. | Golden path: bucket auto-grants, dataset escalates, both approvers, approved. |
-| **Ambitious** (wins) | **Cross-resource chaining check**: evaluate the requested *set*, not just each id — read on a restricted dataset + write on a public bucket escalates as a pair (the exfil shape). **Peer-comparison risk signal**: "0 of 6 on data-platform hold this" feeds the approval card. **Hot-reloadable policy** via `GET/PATCH /policy` with validation. **Hypothesis property tests** proving invariants: critical never auto-grants; every grant has an expiry ≤ tier max; deny-any-veto. | Second demo scenario: a chaining attempt is denied with a reason a human can read. Tightening a slider flips a decision live. |
-| **Fallback** | `DEFAULT_POLICY` as is. | Already works. |
+`tests/test_engine.py` covers the final presentation beats:
+
+- Cisco/Ramesh inactive-user hard deny.
+- Capital One-style blast-radius escalation.
+- On-call velocity auto-grant.
+- Destructive internal bucket escalation.
+- GitHub new-hire and admin/main-branch rules.
+- PowerBI view vs export separation.
+- Persistent attacker circuit breaker and SOC escalation.
+- Finance quiet-period write downgrade.
+- Warehouse geofence hard deny.
+- Support impersonation mismatch.
+- Payment rail witness requirement.
+- Build pipeline critical vulnerability escalation.
+- Secret harvesting anomaly alarm.
+- Reaper revocation on ticket close, HR termination, finance quiet period, and geofence
+  breach.
 
 ## What's here
 
-- `engine.py` — `evaluate_request(request, resources, policy) -> list[PolicyDecision]`
-  with a working `DEFAULT_POLICY`.
+- `engine.py` — `evaluate_request(...) -> list[PolicyDecision]` and
+  `review_active_grants(...) -> list[RevocationAction]`.
 - `escalation.py` — `open_case()` (snapshots requester + duration), `apply_vote()`;
   votes from non-required approvers are ignored; any deny → denied, all required → approved.
 
-## Build order
+## How To Test
 
-1. **Tests first** — `tests/test_engine.py`: same-team internal auto-grants; cross-team
-   escalates; over-duration escalates; critical always escalates; unknown id denies.
-2. **Approvers** — `_escalate()` takes an `approvers: dict[str, list[str]]` argument
-   (resource id → approver ids) instead of the empty list; backend passes
-   `usecase_demo.APPROVERS`.
-3. **Chaining** — `evaluate_set(request, resources, policy, active_grants)` runs after
-   per-resource decisions over the requester's **effective set** (what they'd hold:
-   active grants plus requested — so splitting into two requests doesn't help): if it
-   contains a `RESTRICTED`+ read and any write-capable resource outside the owning
-   team, escalate every auto-grant in the request with reason
-   `"chained: <a> + <b> forms an export path"`. `Resource.capability` is already in the
-   schema; the bucket in seed data is `write`.
-4. **Peer signal** — `peer_comparison(requester, resource, grants) -> str` over seed
-   history; pure string, no decision impact tonight, but it's on the card.
-5. **Hot reload** — `PolicyRule` is already Pydantic; backend holds one instance; `PATCH`
-   validates and swaps it. Tests must still pass on the swapped policy.
-6. **Property tests** — Hypothesis strategies over `AccessRequest` + `Resource`; assert
-   the three invariants. Run them in the policy-console "propose" flow if contributor 1
-   gets there.
+From the repo root:
+
+```bash
+python3 -m pytest tests/test_engine.py
+```
+
+The suite is intentionally scenario-driven. Each test maps to a demo beat or a security
+invariant, so a passing suite means the presentation story is backed by deterministic
+rules, not frontend mock text.
 
 ## Rules that don't bend
 

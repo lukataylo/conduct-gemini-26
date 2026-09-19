@@ -26,6 +26,7 @@ from shared.schemas import (  # noqa: E402
     RequestHistoryEvent,
     Resource,
     ResourceType,
+    RevocationAction,
     SensitivityTier,
 )
 
@@ -135,6 +136,49 @@ def evaluate_request(
         )
 
     return decisions
+
+
+def review_active_grants(
+    active_grants: Iterable[Grant],
+    resources: dict[str, Resource],
+    context: PolicyEvaluationContext | dict,
+) -> list[RevocationAction]:
+    """Continuously review grants against live business/security signals.
+
+    Pure function: callers pass HR, ticket, incident, calendar, and location state in
+    `context`; this function only returns the revocations that should be executed.
+    """
+    eval_context = _evaluation_context(context, datetime.now(timezone.utc))
+    revocations: list[RevocationAction] = []
+
+    for grant in active_grants:
+        if grant.revoked:
+            continue
+
+        identity_action = _identity_revocation(grant, eval_context)
+        if identity_action is not None:
+            revocations.append(identity_action)
+            continue
+
+        ticket_action = _justification_revocation(grant, eval_context)
+        if ticket_action is not None:
+            revocations.append(ticket_action)
+            continue
+
+        resource = resources.get(grant.resource_id)
+        if resource is None:
+            continue
+
+        finance_action = _finance_reaper_revocation(grant, resource, eval_context)
+        if finance_action is not None:
+            revocations.append(finance_action)
+            continue
+
+        geofence_action = _geofence_reaper_revocation(grant, resource, eval_context)
+        if geofence_action is not None:
+            revocations.append(geofence_action)
+
+    return revocations
 
 
 def _evaluate_single(
@@ -290,6 +334,127 @@ def _evaluate_single(
         reason=f"Unhandled sensitivity tier '{tier.value}'",
         metadata=peer_metadata,
     )
+
+
+def _identity_revocation(
+    grant: Grant, context: PolicyEvaluationContext
+) -> RevocationAction | None:
+    status = _hr_status(context.hr_system.get(grant.requester_id))
+    if status and status != "ACTIVE":
+        return RevocationAction(
+            grant_id=grant.id,
+            requester_id=grant.requester_id,
+            resource_id=grant.resource_id,
+            reason="User identity no longer active in HR heartbeat.",
+            metadata={"hr_status": status, "reaper_trigger": "identity_purge"},
+            decided_at=context.current_date,
+        )
+    return None
+
+
+def _justification_revocation(
+    grant: Grant, context: PolicyEvaluationContext
+) -> RevocationAction | None:
+    ticket_id = grant.metadata.get("ticket_id")
+    incident_id = grant.metadata.get("incident_id")
+
+    if ticket_id:
+        status = _signal_status(context.external_signals.get("jira", {}), ticket_id)
+        if status in {"DONE", "RESOLVED", "CLOSED"}:
+            return RevocationAction(
+                grant_id=grant.id,
+                requester_id=grant.requester_id,
+                resource_id=grant.resource_id,
+                reason=f"Justification ticket {ticket_id} has been closed; work completed.",
+                metadata={
+                    "ticket_id": ticket_id,
+                    "ticket_status": status,
+                    "reaper_trigger": "justification_sunset",
+                },
+                decided_at=context.current_date,
+            )
+
+    if incident_id:
+        status = _signal_status(context.external_signals.get("pagerduty", {}), incident_id)
+        if status in {"DONE", "RESOLVED", "CLOSED"}:
+            return RevocationAction(
+                grant_id=grant.id,
+                requester_id=grant.requester_id,
+                resource_id=grant.resource_id,
+                reason=f"Justification incident {incident_id} has been closed; work completed.",
+                metadata={
+                    "incident_id": incident_id,
+                    "incident_status": status,
+                    "reaper_trigger": "justification_sunset",
+                },
+                decided_at=context.current_date,
+            )
+
+    return None
+
+
+def _finance_reaper_revocation(
+    grant: Grant, resource: Resource, context: PolicyEvaluationContext
+) -> RevocationAction | None:
+    capability = (grant.capability or grant.metadata.get("capability") or resource.capability).lower()
+    if (
+        _resource_value(resource, "surface") == "FINANCE_PROD"
+        and capability == "write"
+        and _is_quiet_period(context)
+        and grant.granted_at <= context.current_date
+    ):
+        return RevocationAction(
+            grant_id=grant.id,
+            requester_id=grant.requester_id,
+            resource_id=grant.resource_id,
+            reason="System entered Finance Quiet Period; Write access reclaimed.",
+            metadata={
+                "capability": capability,
+                "reaper_trigger": "finance_quiet_period",
+                "restriction": "READ_ONLY",
+            },
+            decided_at=context.current_date,
+        )
+    return None
+
+
+def _geofence_reaper_revocation(
+    grant: Grant, resource: Resource, context: PolicyEvaluationContext
+) -> RevocationAction | None:
+    center = resource.metadata.get("geofence_center")
+    if not center:
+        return None
+    if _distance_meters(context.requester_location, center) > 500:
+        return RevocationAction(
+            grant_id=grant.id,
+            requester_id=grant.requester_id,
+            resource_id=grant.resource_id,
+            reason="User moved out of physical authorized range for IoT control.",
+            metadata={"reaper_trigger": "geofence_breach"},
+            decided_at=context.current_date,
+        )
+    return None
+
+
+def _hr_status(value) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.upper()
+    if isinstance(value, dict):
+        status = value.get("status")
+        return status.upper() if isinstance(status, str) else status
+    return None
+
+
+def _signal_status(signals: dict, key: str) -> str | None:
+    value = signals.get(key)
+    if isinstance(value, str):
+        return value.upper()
+    if isinstance(value, dict):
+        status = value.get("status")
+        return status.upper() if isinstance(status, str) else status
+    return None
 
 def _global_hard_deny_reason(request: AccessRequest, now: datetime) -> str | None:
     requester = request.requester

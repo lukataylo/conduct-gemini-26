@@ -478,6 +478,7 @@ def _evaluate_request(request: AccessRequest) -> dict:
                 decision.resource_id,
                 ttl_days=request.requested_duration_days,
                 ttl_hours=decision.ttl_hours,
+                metadata=request.metadata,
             )
             results.append({"resource_id": decision.resource_id, "status": "granted", "grant_id": grant.id})
 
@@ -548,13 +549,17 @@ def _issue_grant(
     resource_id: str,
     ttl_days: int | None = None,
     ttl_hours: int | None = None,
+    metadata: dict | None = None,
 ) -> Grant:
     ttl = timedelta(hours=ttl_hours) if ttl_hours is not None else timedelta(days=ttl_days or 0)
+    resource = usecase_demo.RESOURCES.get(resource_id)
     grant = Grant(
         id=str(uuid.uuid4()),
         request_id=request_id,
         resource_id=resource_id,
         requester_id=requester_id,
+        capability=resource.capability if resource is not None else None,
+        metadata=metadata or {},
         granted_at=now(),
         expires_at=now() + ttl,
     )

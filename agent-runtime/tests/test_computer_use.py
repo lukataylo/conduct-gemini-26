@@ -9,19 +9,26 @@ from computer_use import (
     _normalize_cu_action,
     browse_goal,
     completed_event,
+    console_url_for,
     enact_goal,
     execute_grant,
+    export_goal,
     grant_goal,
     host_allowed,
     prune_old_screenshots,
     query_goal,
     revoke_goal,
     run_computer_use_loop,
+    sap_grant_goal,
     verify_active,
     verify_inactive,
+    verify_sap_bp_visible,
+    verify_sap_export_blocked,
 )
 from gemini_models import DEFAULT_CU_MODEL, DEFAULT_PARSE_MODEL
 from mock_console.server import serve_in_thread
+from mock_sap.server import serve_in_thread as serve_sap
+from shared.schemas import Grant
 
 
 def _serve_console():
@@ -171,7 +178,127 @@ def test_enact_goal_contains_selectors_for_each_action(grant):
 
 def test_enact_goal_rejects_unknown_action(grant):
     with pytest.raises(ValueError):
-        enact_goal(grant, "export")
+        enact_goal(grant, "explode")
+
+
+def _sap_grant(grant: Grant) -> Grant:
+    return Grant(
+        id="g-sap-1",
+        request_id=grant.request_id,
+        resource_id="sap-bp-display",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+
+
+def test_sap_grant_goal_names_fiori_not_gcp(grant):
+    sap = _sap_grant(grant)
+    text = sap_grant_goal(sap)
+    assert "SAP S/4HANA Cloud" in text
+    assert "SAP_SD_CUST_DISPLAY" in text
+    assert "1710001" in text
+    assert "Maintain Business Users" in text
+    assert "Google Cloud" not in text or "not Google Cloud" in text
+    assert "Permissions" not in text
+    assert grant_goal(sap) == text
+
+
+def test_export_goal_is_fiori_bounce():
+    text = export_goal()
+    assert "Export Customer List" in text
+    assert "activity 16" in text
+    assert "visible" in text
+
+
+def test_enact_goal_export_uses_export_goal(grant):
+    assert enact_goal(grant, "export") == export_goal()
+
+
+def test_console_url_for_routes_sap_and_gcp(grant, monkeypatch):
+    monkeypatch.delenv("SAP_CONSOLE_URL", raising=False)
+    monkeypatch.delenv("CONSOLE_URL", raising=False)
+    assert console_url_for(_sap_grant(grant)) == "http://127.0.0.1:8766/"
+    assert console_url_for(grant) == "http://127.0.0.1:8765/"
+    monkeypatch.setenv("SAP_CONSOLE_URL", "http://sap.example/")
+    monkeypatch.setenv("CONSOLE_URL", "http://gcp.example/")
+    assert console_url_for(_sap_grant(grant)) == "http://sap.example/"
+    assert console_url_for(grant) == "http://gcp.example/"
+
+
+def test_host_allowed_includes_sap_console_url_host(monkeypatch):
+    monkeypatch.delenv("CONSOLE_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("CONSOLE_URL", raising=False)
+    monkeypatch.setenv("SAP_CONSOLE_URL", "https://fiori.example:443/")
+    assert host_allowed("https://fiori.example/other") is True
+    assert host_allowed("https://evil.example/") is False
+
+
+def test_verify_sap_export_blocked_requires_visible_class():
+    css_only = (
+        '<style>#sap-auth-error.visible { display: block; }</style>'
+        '<div id="sap-auth-error" role="alert">Authorization missing</div>'
+    )
+    assert verify_sap_export_blocked(css_only) is False
+    shown = '<div id="sap-auth-error" class="visible" role="alert">Authorization missing</div>'
+    assert verify_sap_export_blocked(shown) is True
+
+
+def test_verify_sap_bp_visible_requires_unhidden_object():
+    hidden = '<article id="bp-object" data-bp="1710001" hidden></article>'
+    assert verify_sap_bp_visible(hidden) is False
+    open_page = '<article id="bp-object" data-bp="1710001"></article>'
+    assert verify_sap_bp_visible(open_page) is True
+
+
+def test_completed_export_event_is_bounced_without_grant(grant):
+    event = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="playwright",
+        turn_count=1,
+        action="export",
+    )
+    assert event.grant_id is None
+    assert event.payload["status"] == "bounced"
+    assert event.payload["action"] == "export"
+    assert event.payload["tool"] == "sap_export_customer_list"
+
+
+def _serve_sap():
+    server = serve_sap(port=0)
+    host, port = server.server_address
+    return server, f"http://{host}:{port}/"
+
+
+def test_playwright_sap_grant_marks_active(grant):
+    sap = _sap_grant(grant)
+    server, url = _serve_sap()
+    try:
+        event = execute_grant(sap, url, mode="playwright")
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "grant"
+        assert event.grant_id == sap.id
+    finally:
+        server.shutdown()
+
+
+def test_playwright_sap_export_bounces(grant):
+    sap = _sap_grant(grant)
+    server, url = _serve_sap()
+    try:
+        event = execute_grant(sap, url, mode="playwright", action="export")
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "export"
+        assert event.payload["status"] == "bounced"
+        assert event.grant_id is None
+    finally:
+        server.shutdown()
 
 
 def test_host_allowed_rejects_unknown():
@@ -370,6 +497,60 @@ def test_loop_publishes_turn_frame(grant):
     result = run_computer_use_loop(grant, Page(), Client(), on_frame=on_frame)
     assert result["success"] is True
     assert seen == [(1, b"jpeg-bytes", "image/jpeg", "verify")]
+
+
+def test_loop_export_still_verifies_after_clicks(grant):
+    calls = []
+
+    class Client:
+        def __init__(self):
+            self.n = 0
+
+        def next_action(self, screenshot_png, goal):
+            self.n += 1
+            if self.n == 1:
+                return {"name": "wait", "args": {}, "intent": "look", "safety": "allowed"}
+            return None
+
+    class Page:
+        url = "http://127.0.0.1:8766/"
+
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def wait_for_timeout(self, ms):
+            calls.append(ms)
+
+        def content(self):
+            return '<div id="sap-auth-error" class="visible">blocked</div>'
+
+    result = run_computer_use_loop(grant, Page(), Client(), action="export", max_turns=5)
+    assert result["success"] is True
+    assert result["reason"] is None
+
+
+def test_loop_blocks_navigate_off_host(grant):
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            return {
+                "name": "navigate",
+                "args": {"url": "https://evil.example/"},
+                "intent": "leave",
+                "safety": "allowed",
+            }
+
+    class Page:
+        url = "http://127.0.0.1:8766/"
+
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def goto(self, url):
+            raise AssertionError(f"should not navigate to {url}")
+
+    result = run_computer_use_loop(grant, Page(), Client(), max_turns=3)
+    assert result["success"] is False
+    assert result["reason"] == "blocked"
 
 
 def test_loop_uses_enact_goal_for_action(grant):

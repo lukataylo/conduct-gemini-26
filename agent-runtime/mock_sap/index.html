@@ -342,7 +342,7 @@
         <form id="role-form" autocomplete="off">
           <div class="grid-2">
             <label class="field">Principal
-              <input id="principal" name="principal" aria-label="Principal" required placeholder="u-newhire-1">
+              <input id="principal" name="principal" aria-label="Principal" required placeholder="business user id">
             </label>
             <label class="field">Role
               <select id="role" name="role" aria-label="Role">
@@ -1124,6 +1124,11 @@
     });
 
     window.addEventListener("hashchange", applyHash);
+    if (validToInput && !validToInput.value) {
+      const soon = new Date();
+      soon.setUTCDate(soon.getUTCDate() + 3);
+      validToInput.value = soon.toISOString().slice(0, 10);
+    }
     renderCatalog();
     applyHash();
     hydrateFromBackend();

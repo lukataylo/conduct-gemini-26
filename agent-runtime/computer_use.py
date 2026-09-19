@@ -83,8 +83,51 @@ FAILURE_REASONS = frozenset(
 )
 
 
+def console_url_for(grant: Grant) -> str:
+    """SAP grants enact on the Fiori console; everything else stays on GCP."""
+    if grant.resource_id.startswith("sap-"):
+        return os.environ.get("SAP_CONSOLE_URL") or "http://127.0.0.1:8766/"
+    return os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+
+
+def sap_grant_goal(grant: Grant) -> str:
+    """Instruction for computer-use: assign a stacked Fiori role, not GCP IAM."""
+    expiry = grant.expires_at.date().isoformat()
+    role = _SAP_ROLES.get(grant.resource_id, "SAP_SD_CUST_DISPLAY")
+    return (
+        f"Assign business role {role} for principal {grant.requester_id} "
+        f"on SAP S/4HANA Cloud · Helios Manufacturing, resource {grant.resource_id}. "
+        f"This is a Fiori launchpad, not Google Cloud. "
+        f"1) Click the Maintain Business Users tile. "
+        f"2) The Principal box is empty — grey hint text is a placeholder, not a value. "
+        f"Click Principal and type {grant.requester_id} exactly. "
+        f"3) Leave Role as {role}, Company code 1000, Customer 1710001. "
+        f"Valid to can stay {expiry}. "
+        f"4) Click the blue Save role button. "
+        f"Stop when Assigned business roles lists {grant.requester_id}. "
+        f"Stay on this Fiori page. Do not navigate to any other host or search the web. "
+        f"Do not open Export Customer List. Do not open Employee Payroll. "
+        f"Do not grant any other resource."
+    )
+
+
+def export_goal() -> str:
+    """Instruction for computer-use: bounce a customer-directory dump."""
+    return (
+        "Attempt Export Customer List (activity 16 Export) on SAP S/4HANA Cloud · Helios. "
+        "This is a Fiori launchpad, not Google Cloud. "
+        "Open the Export Customer List tile and click Export. "
+        "The dump must bounce. Stop immediately when the red authorization "
+        "banner is visible. Do not click Home or any other tile after that. "
+        "Stay on this Fiori page. Do not navigate to any other host or search the web. "
+        "Do not assign a business role. Do not open Employee Payroll."
+    )
+
+
 def grant_goal(grant: Grant) -> str:
     """Instruction for computer-use: enact this grant and no other."""
+    if grant.resource_id.startswith("sap-"):
+        return sap_grant_goal(grant)
     expiry = grant.expires_at.date().isoformat()
     visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
     return (
@@ -100,6 +143,15 @@ def grant_goal(grant: Grant) -> str:
 
 def revoke_goal(grant: Grant) -> str:
     """Instruction for computer-use: remove this grant and no other."""
+    if grant.resource_id.startswith("sap-"):
+        return (
+            f"Remove the scoped business role for principal {grant.requester_id} "
+            f"on SAP S/4HANA Cloud resource {grant.resource_id}. "
+            f"This is a Fiori launchpad, not Google Cloud. "
+            f"Open Maintain Business Users, click Remove for {grant.requester_id}, "
+            f"then click Confirm revoke. "
+            f"Do not grant any other resource."
+        )
     visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
     return (
         f"Revoke access to {grant.resource_id} ({visible}) for principal "
@@ -134,7 +186,7 @@ def query_goal(grant: Grant) -> str:
 
 
 def enact_goal(grant: Grant, action: str) -> str:
-    """Dispatch the computer-use goal for grant|revoke|browse|query."""
+    """Dispatch the computer-use goal for grant|revoke|browse|query|export."""
     if action == "grant":
         return grant_goal(grant)
     if action == "revoke":
@@ -143,19 +195,22 @@ def enact_goal(grant: Grant, action: str) -> str:
         return browse_goal(grant)
     if action == "query":
         return query_goal(grant)
+    if action == "export":
+        return export_goal()
     raise ValueError(f"unknown enact action: {action}")
 
 
 def extra_console_hosts() -> list[str]:
-    """Hosts from CONSOLE_ALLOWED_HOSTS plus the hostname of CONSOLE_URL."""
+    """Hosts from CONSOLE_ALLOWED_HOSTS plus CONSOLE_URL and SAP_CONSOLE_URL."""
     hosts: list[str] = []
     raw = os.environ.get("CONSOLE_ALLOWED_HOSTS", "")
     hosts.extend(part.strip() for part in raw.split(",") if part.strip())
-    console = os.environ.get("CONSOLE_URL")
-    if console:
-        hostname = urlparse(console).hostname
-        if hostname:
-            hosts.append(hostname)
+    for key in ("CONSOLE_URL", "SAP_CONSOLE_URL"):
+        console = os.environ.get(key)
+        if console:
+            hostname = urlparse(console).hostname
+            if hostname:
+                hosts.append(hostname)
     return hosts
 
 
@@ -212,6 +267,46 @@ def verify_inactive(html: str, grant: Grant) -> bool:
         resource == grant.resource_id and principal == grant.requester_id
         for resource, principal in scanner.entries
     )
+
+
+class _SapAuthErrorScanner(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.visible = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = dict(attrs)
+        if data.get("id") != "sap-auth-error":
+            return
+        classes = (data.get("class") or "").split()
+        self.visible = "visible" in classes
+
+
+class _SapBpScanner(HTMLParser):
+    def __init__(self, bp: str) -> None:
+        super().__init__()
+        self.bp = bp
+        self.visible = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = dict(attrs)
+        if data.get("data-bp") != self.bp:
+            return
+        self.visible = "hidden" not in data
+
+
+def verify_sap_export_blocked(html: str) -> bool:
+    """True when #sap-auth-error has class visible — not merely the CSS selector text."""
+    scanner = _SapAuthErrorScanner()
+    scanner.feed(html)
+    return scanner.visible
+
+
+def verify_sap_bp_visible(html: str, bp: str = "1710001") -> bool:
+    """True when the Northwind object page is in the DOM without hidden."""
+    scanner = _SapBpScanner(bp)
+    scanner.feed(html)
+    return scanner.visible
 
 
 def recording_dir() -> Path | None:
@@ -338,6 +433,34 @@ def completed_event(
             f"reason must be one of {sorted(FAILURE_REASONS)} or None when success=True"
         )
 
+    if action == "export":
+        detail = (
+            "sap_export_customer_list · bounced · no active grant"
+            if success
+            else f"{action} execution failed: {reason}"
+        )
+        payload = {
+            "phase": "completed",
+            "success": success,
+            "reason": reason,
+            "actions": actions,
+            "watch_url": watch_url,
+            "mode": mode,
+            "turn_count": turn_count,
+            "video_path": video_path,
+            "action": action,
+            "tool": "sap_export_customer_list",
+            "status": "bounced" if success else "failed",
+            "requester_id": grant.requester_id,
+        }
+        return audit_logger.log(
+            AuditEventType.ACTION_EXECUTED,
+            actor="agent",
+            detail=detail,
+            request_id=grant.request_id,
+            grant_id=None,
+            payload=payload,
+        )
     detail = (
         f"completed {action} {grant.resource_id}"
         if success
@@ -367,6 +490,12 @@ _VISIBLE_NAMES = {
     "bucket-analytics-raw": "analytics-raw",
     "bq-project-x-finance": "project-x-finance",
     "sql-prod-primary": "prod-primary",
+}
+
+_SAP_ROLES = {
+    "sap-bp-display": "SAP_SD_CUST_DISPLAY",
+    "sap-billing-display": "SAP_SD_BILL_DISPLAY",
+    "sap-sales-order-display": "SAP_SD_SO_DISPLAY",
 }
 
 _RESOURCE_NAV = {
@@ -608,7 +737,7 @@ def _apply_page_action(page, action: dict) -> None:
         return
 
 
-def _verify_page(page, grant: Grant) -> bool:
+def _verify_page(page, grant: Grant, action: str = "grant") -> bool:
     html = ""
     if hasattr(page, "content"):
         try:
@@ -620,6 +749,10 @@ def _verify_page(page, grant: Grant) -> bool:
             html = page.locator("#active-grants").evaluate("el => el.outerHTML")
         except Exception:
             html = ""
+    if action == "export":
+        return verify_sap_export_blocked(html)
+    if action == "revoke":
+        return verify_inactive(html, grant)
     return verify_active(html, grant)
 
 
@@ -680,7 +813,7 @@ def run_computer_use_loop(
     page,
     client,
     *,
-    max_turns: int = 20,
+    max_turns: int = 200,
     record_dir: Path | None = None,
     record_stem: str = "cu",
     on_frame=None,
@@ -716,19 +849,19 @@ def run_computer_use_loop(
                 mode=mode,
                 on_frame=on_frame,
             )
-            ok = _verify_page(page, grant)
+            ok = _verify_page(page, grant, action)
             return {
                 "success": ok,
                 "reason": None if ok else "verify_failed",
                 "actions": actions,
                 "turn_count": turn,
             }
-        for action in batch:
+        for step in batch:
             recorded = {
-                "name": action.get("name"),
-                "args": action.get("args") or {},
-                "intent": action.get("intent"),
-                "safety": action.get("safety"),
+                "name": step.get("name"),
+                "args": step.get("args") or {},
+                "intent": step.get("intent"),
+                "safety": step.get("safety"),
             }
             if _effective_safety(recorded["safety"], page) == "blocked":
                 return {
@@ -737,7 +870,24 @@ def run_computer_use_loop(
                     "actions": actions,
                     "turn_count": turn,
                 }
+            if recorded["name"] == "navigate":
+                dest = (recorded["args"] or {}).get("url") or (recorded["args"] or {}).get("url_full")
+                if dest and not host_allowed(dest):
+                    return {
+                        "success": False,
+                        "reason": "blocked",
+                        "actions": actions,
+                        "turn_count": turn,
+                    }
             _apply_page_action(page, recorded)
+            here = _page_url(page)
+            if here and not host_allowed(here):
+                return {
+                    "success": False,
+                    "reason": "blocked",
+                    "actions": actions,
+                    "turn_count": turn,
+                }
             actions.append(recorded)
         after, after_mime = capture_screenshot(page)
         last = actions[-1] if actions else {}
@@ -1000,7 +1150,7 @@ def _execute_computer_use(
 
         client = GeminiComputerUseClient(api_key=key)
         rec = recording_dir()
-        stem = f"computer_use-{grant.resource_id}-{grant.id[:8]}"
+        stem = f"computer_use-{action}-{grant.resource_id}-{grant.id[:8]}"
         video_path = None
         with sync_playwright() as playwright:
             browser, context, page, rec, stem = _open_recorded_page(playwright, stem=stem)
@@ -1010,6 +1160,7 @@ def _execute_computer_use(
                     grant,
                     page,
                     client,
+                    max_turns=int(os.environ.get("CU_MAX_TURNS") or "200"),
                     record_dir=rec,
                     record_stem=stem,
                     on_frame=on_frame,
@@ -1085,6 +1236,49 @@ def _enact_revoke_on_page(page, grant: Grant) -> None:
     confirm.click()
 
 
+def _enact_sap_grant_on_page(page, grant: Grant) -> None:
+    expiry = grant.expires_at.date().isoformat()
+    role = _SAP_ROLES.get(grant.resource_id, "SAP_SD_CUST_DISPLAY")
+    nav = page.locator('[data-tile="users"]')
+    _highlight_locator(page, nav)
+    nav.click()
+    principal = page.locator("#principal")
+    _highlight_locator(page, principal)
+    principal.fill(grant.requester_id)
+    page.locator("#role").select_option(role)
+    page.locator("#company-code").fill("1000")
+    page.locator("#customer-id").fill("1710001")
+    valid_to = page.locator("#valid-to")
+    _highlight_locator(page, valid_to)
+    valid_to.fill(expiry)
+    save = page.get_by_role("button", name="Save role")
+    _highlight_locator(page, save)
+    save.click()
+
+
+def _enact_sap_revoke_on_page(page, grant: Grant) -> None:
+    nav = page.locator('[data-tile="users"]')
+    _highlight_locator(page, nav)
+    nav.click()
+    revoke_btn = page.locator(
+        f'[data-action="revoke"][data-principal="{grant.requester_id}"]'
+    )
+    _highlight_locator(page, revoke_btn)
+    revoke_btn.click()
+    confirm = page.get_by_role("button", name="Confirm revoke")
+    _highlight_locator(page, confirm)
+    confirm.click()
+
+
+def _enact_sap_export_on_page(page) -> None:
+    nav = page.locator('[data-tile="export"]')
+    _highlight_locator(page, nav)
+    nav.click()
+    run = page.locator("#export-run")
+    _highlight_locator(page, run)
+    run.click()
+
+
 def _execute_playwright(
     grant: Grant,
     console_url: str,
@@ -1115,9 +1309,28 @@ def _execute_playwright(
 
     from playwright.sync_api import sync_playwright
 
+    sap = action == "export" or grant.resource_id.startswith("sap-")
     visible_name = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
     expiry = grant.expires_at.date().isoformat()
-    if action == "revoke":
+    if action == "export":
+        actions = [
+            {"intent": "open Export Customer List", "name": "click", "args": {}},
+            {"intent": "click Export", "name": "click", "args": {}},
+        ]
+    elif sap and action == "revoke":
+        actions = [
+            {"intent": "open Maintain Business Users", "name": "click", "args": {}},
+            {"intent": f"click Remove for {grant.requester_id}", "name": "click", "args": {}},
+            {"intent": "click Confirm revoke", "name": "click", "args": {}},
+        ]
+    elif sap:
+        actions = [
+            {"intent": "open Maintain Business Users", "name": "click", "args": {}},
+            {"intent": "fill Principal", "name": "type", "args": {"value": grant.requester_id}},
+            {"intent": "fill Valid to", "name": "type", "args": {"value": expiry}},
+            {"intent": "click Save role", "name": "click", "args": {}},
+        ]
+    elif action == "revoke":
         actions = [
             {"intent": f"open {visible_name}", "name": "click", "args": {}},
             {"intent": "open Permissions tab", "name": "click", "args": {}},
@@ -1156,15 +1369,29 @@ def _execute_playwright(
                 mode="playwright",
                 on_frame=on_frame,
             )
-            if action == "revoke":
+            if action == "export":
+                _enact_sap_export_on_page(page)
+                html = page.content()
+                frame_action = "export bounce"
+            elif sap and action == "revoke":
+                _enact_sap_grant_on_page(page, grant)
+                _enact_sap_revoke_on_page(page, grant)
+                html = page.locator("#active-grants").evaluate("el => el.outerHTML")
+                frame_action = "confirm revoke"
+            elif sap:
+                _enact_sap_grant_on_page(page, grant)
+                html = page.locator("#active-grants").evaluate("el => el.outerHTML")
+                frame_action = "save role"
+            elif action == "revoke":
                 # Mock console state is in-page only; grant first so Remove exists.
                 _enact_grant_on_page(page, grant)
                 _enact_revoke_on_page(page, grant)
+                html = page.locator("#active-grants").evaluate("el => el.outerHTML")
                 frame_action = "confirm revoke"
             else:
                 _enact_grant_on_page(page, grant)
+                html = page.locator("#active-grants").evaluate("el => el.outerHTML")
                 frame_action = "confirm grant"
-            html = page.locator("#active-grants").evaluate("el => el.outerHTML")
             last, last_mime = capture_screenshot(page)
             emit_turn_frame(
                 grant,
@@ -1178,7 +1405,12 @@ def _execute_playwright(
         finally:
             video_path = _close_recorded_page(browser, context, page, rec, stem)
 
-    ok = verify_inactive(html, grant) if action == "revoke" else verify_active(html, grant)
+    if action == "export":
+        ok = verify_sap_export_blocked(html)
+    elif action == "revoke":
+        ok = verify_inactive(html, grant)
+    else:
+        ok = verify_active(html, grant)
     return completed_event(
         grant,
         success=ok,

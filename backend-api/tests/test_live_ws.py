@@ -169,6 +169,29 @@ def test_mock_audio_comes_back_as_ws_binary():
         assert _recv_bytes(ws) == pcm
 
 
+def test_speech_button_starts_live_conversation():
+    """Mic press in the UI: hello, then PCM — Gemini Live session is running."""
+    session = _install(MockSession())
+    chunk = b"\x00\x00" * 160
+    with _client().websocket_connect("/agent/live/ws") as ws:
+        ws.send_json(
+            {
+                "type": "hello",
+                "viewer_id": ALEX_ID,
+                "page": "overview",
+                "conversation_id": "c-mic",
+            }
+        )
+        ready = _recv_json(ws, "ready")
+        assert ready["conversation_id"] == "c-mic"
+        listening = _recv_json(ws, "mode")
+        assert listening["mode"] == "listening"
+        ws.send_bytes(chunk)
+        assert _recv_json(ws, "mode")["mode"] == "listening"
+        assert session.audios == [chunk]
+        assert "api_key" not in json.dumps(ready)
+
+
 def test_mock_transcript_comes_back_as_type_transcript():
     _install(MockSession(outgoing=[{"kind": "text", "text": "hi from gemini"}]))
     with _client().websocket_connect("/agent/live/ws") as ws:

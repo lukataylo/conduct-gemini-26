@@ -257,6 +257,36 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
 
   const liveOpen = () => wsRef.current?.readyState === WebSocket.OPEN;
 
+  const waitForLiveOpen = (ms = 8000) =>
+    new Promise<void>((resolve, reject) => {
+      const t0 = Date.now();
+      const tick = () => {
+        if (liveOpen()) return resolve();
+        if (Date.now() - t0 > ms) return reject(new Error("live timeout"));
+        window.setTimeout(tick, 40);
+      };
+      tick();
+    });
+
+  const startLiveConversation = async () => {
+    if (!viewer) throw new Error("no viewer");
+    if (liveOpen()) return;
+    const session = await postLiveSession({
+      viewer_id: viewer.id,
+      focus_id: focus?.id ?? "all",
+      page,
+      conversation_id: cidRef.current,
+    });
+    setCid((current) => current ?? session.conversation_id);
+    if (!session.ok) {
+      setVoiceOffline(true);
+      throw new Error("live offline");
+    }
+    setVoiceOffline(false);
+    openLiveWs(session.conversation_id);
+    await waitForLiveOpen();
+  };
+
   const applyTurn = (turn: AgentTurnOut, skipReply = false) => {
     setCid(turn.conversation_id);
     for (const name of turn.tools_used) appendRow({ kind: "tool", text: name });
@@ -313,9 +343,11 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       setMode((m) => (m === "listening" ? "idle" : m));
       return;
     }
-    if (voiceOffline || !liveOpen()) return;
+    setOpen(true);
     kickPlayer();
+    setMode("thinking");
     try {
+      await startLiveConversation();
       const handle = await startMic(
         (buf) => { if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(buf); },
         (n) => { level.current = n; },
@@ -323,8 +355,10 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
       micRef.current = handle;
       setMicOn(true);
       setMode("listening");
-    } catch {
-      appendRow({ kind: "gemini", text: "Mic blocked — type instead." });
+    } catch (err) {
+      const blocked = String(err).toLowerCase().includes("notallowed") || String(err).toLowerCase().includes("permission");
+      appendRow({ kind: "gemini", text: blocked ? "Mic blocked — type instead." : "Live did not start — type instead." });
+      setMode("idle");
     }
   };
 
@@ -354,7 +388,7 @@ export function Live({ viewer, focus, page, onNavigateTimeline }: Props) {
             )}
           </div>
           <div className="live-in">
-            <button className={`nb mic ${micOn ? "on" : ""}`} title={micOn ? "Stop" : "Talk"} onClick={toggleMic}>●</button>
+            <button className={`nb mic ${micOn ? "on" : ""}`} title={micOn ? "Stop" : "Talk"} aria-label={micOn ? "Stop live conversation" : "Start live conversation"} aria-pressed={micOn} onClick={toggleMic}>●</button>
             <input id="live-text" autoFocus value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send(msg)} placeholder={micOn ? "Listening…" : "Who is waiting on me?"} />
             <button className="nb" onClick={() => send(msg)} disabled={mode === "thinking" || !msg.trim()}>Send</button>
           </div>

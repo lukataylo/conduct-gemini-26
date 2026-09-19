@@ -15,11 +15,12 @@ sys.path.append(str(Path(__file__).resolve().parent))
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import modal
+from a2ui import compose_ui
 from audit_logger import set_emitter
 from computer_use import execute_grant
 from gemini_parser import parse_request
 from http_emitter import make_emitter
-from shared.schemas import Grant, Requester
+from shared.schemas import EscalationCase, Grant, Requester
 
 app = modal.App("access-scope-agent-runtime")
 
@@ -80,6 +81,26 @@ def handle_execute(payload: dict, *, execute=execute_grant) -> dict:
     }
 
 
+def handle_compose(payload: dict, *, compose=compose_ui) -> dict:
+    """Turn a Modal compose payload into UISpec JSON."""
+    try:
+        grants_data = payload["grants"]
+        cases_data = payload["cases"]
+        role = payload["role"]
+        viewer_id = payload["viewer_id"]
+    except KeyError as exc:
+        raise ValueError(f"missing field: {exc.args[0]}") from exc
+    grants = [
+        g if isinstance(g, Grant) else Grant.model_validate(g) for g in grants_data
+    ]
+    cases = [
+        c if isinstance(c, EscalationCase) else EscalationCase.model_validate(c)
+        for c in cases_data
+    ]
+    spec = compose(grants, cases, role, viewer_id=viewer_id)
+    return spec.model_dump(mode="json")
+
+
 @app.function(image=image, secrets=secrets)
 @modal.fastapi_endpoint(method="POST")
 def parse_request_endpoint(payload: dict) -> dict:
@@ -92,3 +113,10 @@ def parse_request_endpoint(payload: dict) -> dict:
 def execute_grant_endpoint(payload: dict) -> dict:
     """POST { grant, console_url, callback_base_url? } -> execute result."""
     return handle_execute(payload)
+
+
+@app.function(image=image, secrets=secrets)
+@modal.fastapi_endpoint(method="POST")
+def compose_ui_endpoint(payload: dict) -> dict:
+    """POST { grants, cases, role, viewer_id } -> UISpec (as dict)."""
+    return handle_compose(payload)

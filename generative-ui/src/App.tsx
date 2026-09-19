@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { COMPONENT_REGISTRY, UnknownComponent } from "./registry";
+import { PanelBoundary, resolveComponent } from "./registry";
 import type { UISpec } from "./types";
 
 // Matches usecase-demo/seed_data.py's REQUESTER.id — swap for real auth/selection later.
@@ -34,9 +34,13 @@ export default function App() {
       {!error && !spec && <div className="loading">Loading…</div>}
 
       <div className="panels">
-        {spec?.panels.map((panel, i) => {
-          const Component = COMPONENT_REGISTRY[panel.component] ?? UnknownComponent;
-          return <Component key={i} {...panel.props} />;
+        {spec?.panels.map((panel) => {
+          const Panel = resolveComponent(panel.component);
+          return (
+            <PanelBoundary key={panel.id}>
+              <Panel {...panel.props} />
+            </PanelBoundary>
+          );
         })}
       </div>
 

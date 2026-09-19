@@ -46,6 +46,7 @@ RESOURCES: dict[str, Resource] = {
             owning_team="data-platform",
             sensitivity=SensitivityTier.INTERNAL,
             project="atlas-migration",
+            capability="write",
         ),
         Resource(
             id="bq-project-x-finance",

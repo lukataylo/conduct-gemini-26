@@ -43,6 +43,7 @@ class Resource(BaseModel):
     owning_team: str
     sensitivity: SensitivityTier
     project: str
+    capability: Literal["read", "write"] = "read"  # used by the cross-resource chaining check
 
 
 class Requester(BaseModel):
@@ -123,6 +124,10 @@ class EscalationCase(BaseModel):
     request_id: str
     resource_id: str
     required_approver_ids: list[str]
+    # Snapshot at open time so a later re-POST of the request can't change who gets
+    # the grant or for how long once approvers have voted.
+    requester_id: str
+    requested_duration_days: int
     votes: list[ApprovalVote] = Field(default_factory=list)
     status: Literal["pending", "approved", "denied"] = "pending"
 
@@ -152,9 +157,11 @@ class AuditEventType(str, Enum):
     POLICY_EVALUATED = "policy_evaluated"
     ESCALATED = "escalated"
     APPROVAL_VOTE_CAST = "approval_vote_cast"
+    REQUEST_DENIED = "request_denied"
     GRANT_ISSUED = "grant_issued"
     GRANT_REVOKED = "grant_revoked"
-    ACTION_EXECUTED = "action_executed"  # e.g. computer-use action against the console
+    PROJECT_CLOSED = "project_closed"
+    ACTION_EXECUTED = "action_executed"  # e.g. an MCP tool call or a computer-use action
 
 
 class AuditEvent(BaseModel):
@@ -166,6 +173,8 @@ class AuditEvent(BaseModel):
     grant_id: str | None = None
     escalation_id: str | None = None
     payload: dict = Field(default_factory=dict)
+    trace_id: str | None = None  # Logfire span for model-produced events
+    prev_hash: str | None = None  # sha256 of the previous event; server-assigned
     timestamp: datetime = Field(default_factory=_utcnow)
 
 
@@ -174,6 +183,7 @@ class AuditEvent(BaseModel):
 # --------------------------------------------------------------------------------------
 
 class UIComponentSpec(BaseModel):
+    id: str  # stable across regenerations so the client can diff instead of replace
     component: str  # must match a key in generative-ui's component registry
     props: dict = Field(default_factory=dict)
 

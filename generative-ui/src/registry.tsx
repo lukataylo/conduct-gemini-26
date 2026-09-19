@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { Component, type ComponentType, type ReactNode } from "react";
 import { GrantCard } from "./components/GrantCard";
 import { PendingApprovalCard } from "./components/PendingApprovalCard";
 import { AuditTimeline } from "./components/AuditTimeline";
@@ -23,4 +23,28 @@ export function UnknownComponent(props: Record<string, unknown>) {
       <pre>{JSON.stringify(props, null, 2)}</pre>
     </div>
   );
+}
+
+/** Look up a component without walking the prototype chain — a generated name like
+ *  "constructor" or "toString" must fall back, not resolve to Object.prototype. */
+export function resolveComponent(name: string): ComponentType<Record<string, unknown>> {
+  return Object.hasOwn(COMPONENT_REGISTRY, name) ? COMPONENT_REGISTRY[name] : UnknownComponent;
+}
+
+/** One bad panel must not blank the dashboard. */
+export class PanelBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="card card-unknown">
+          <div className="card-title">Panel failed to render</div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }

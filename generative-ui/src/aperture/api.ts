@@ -102,12 +102,21 @@ export interface CuPreview {
   sessions?: CuSession[];
 }
 
+export interface PolicyRule {
+  id: string;
+  description: string;
+  max_auto_grant_duration_days: Record<string, number>;
+  always_escalate_tiers?: string[];
+  required_approvals?: Record<string, number>;
+}
+
 export interface Snapshot {
   grants: Grant[];
   cases: EscalationCase[];
   events: AuditEvent[];
   resources: Resource[];
   people: Person[];
+  policy: PolicyRule | null;
   verify: { ok: boolean; length?: number; broken_at?: number } | null;
   preview: CuPreview;
   online: boolean;
@@ -151,19 +160,20 @@ export function mediaUrl(path: string): string {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot> {
-  const [grants, cases, events, resources, people, verify, preview] = await Promise.all([
+  const [grants, cases, events, resources, people, policy, verify, preview] = await Promise.all([
     get<Grant[]>(`/grants?include_revoked=true`),
     get<EscalationCase[]>(`/escalations`),
     get<AuditEvent[]>(`/audit`),
     get<Resource[]>(`/resources`),
     get<Person[]>(`/people`),
+    get<PolicyRule>(`/policy`).catch(() => null),
     get<Snapshot["verify"]>(`/audit/verify`),
     get<CuPreview>(`/cu/preview`).catch(() => IDLE_PREVIEW),
   ]);
-  return { grants, cases, events, resources, people, verify, preview, online: true };
+  return { grants, cases, events, resources, people, policy, verify, preview, online: true };
 }
 
-const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], verify: null, preview: IDLE_PREVIEW, online: false };
+const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], policy: null, verify: null, preview: IDLE_PREVIEW, online: false };
 
 export function useSnapshot(intervalMs = 1500): Snapshot {
   const [snap, setSnap] = useState<Snapshot>(EMPTY);

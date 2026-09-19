@@ -27,6 +27,12 @@ def set_emitter(fn: Callable[[AuditEvent], None]) -> None:
     _emit = fn
 
 
+def reset() -> None:
+    global _emit
+    _sink.clear()
+    _emit = None
+
+
 def log(
     type: AuditEventType,
     actor: str,
@@ -36,6 +42,7 @@ def log(
     grant_id: str | None = None,
     escalation_id: str | None = None,
     payload: dict | None = None,
+    trace_id: str | None = None,
 ) -> AuditEvent:
     event = AuditEvent(
         id=str(uuid.uuid4()),
@@ -46,6 +53,7 @@ def log(
         grant_id=grant_id,
         escalation_id=escalation_id,
         payload=payload or {},
+        trace_id=trace_id,
     )
     _sink.append(event)
     print(f"[audit] {event.type.value} actor={event.actor} detail={event.detail}")

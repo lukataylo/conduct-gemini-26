@@ -258,6 +258,24 @@ def _console_list_scope(viewer: Requester) -> dict:
     return {"grants": grants, "cases": cases}
 
 
+def _policy_event_for_viewer(event: AuditEvent, viewer: Requester) -> bool:
+    if event.request_id:
+        owned = REQUESTS.get(event.request_id)
+        if owned is not None:
+            return owned.requester.id == viewer.id
+    payload = event.payload or {}
+    if payload.get("requester_id") == viewer.id:
+        return True
+    nested = payload.get("request")
+    if isinstance(nested, dict):
+        requester = nested.get("requester")
+        if isinstance(requester, dict) and requester.get("id") == viewer.id:
+            return True
+        if nested.get("requester_id") == viewer.id:
+            return True
+    return False
+
+
 def _console_explain_decision(
     viewer: Requester,
     request_id: str | None = None,
@@ -270,6 +288,8 @@ def _console_explain_decision(
             continue
         payload_rid = (event.payload or {}).get("resource_id")
         if resource_id and payload_rid != resource_id:
+            continue
+        if not _policy_event_for_viewer(event, viewer):
             continue
         return {
             "explanation": event.detail,
@@ -290,6 +310,8 @@ def agent_turn(body: AgentTurnIn) -> AgentTurnOut:
         pending = slot.get("pending_request")
         if pending is None:
             raise HTTPException(400, "nothing to confirm")
+        if pending.requester.id != viewer.id:
+            raise HTTPException(400, "this confirm is not for this viewer; nothing to confirm")
         evaluated = _evaluate_request(pending)
         slot["pending_request"] = None
         slot["pending_raw"] = None

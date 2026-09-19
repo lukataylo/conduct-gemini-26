@@ -135,7 +135,7 @@ export default function ApertureApp() {
             </main>
             <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
           </div>
-          <Composer selected={selected} users={users} online={snap.online} />
+          <Composer key={selected} selected={selected} users={users} online={snap.online} />
         </div>
       )}
 

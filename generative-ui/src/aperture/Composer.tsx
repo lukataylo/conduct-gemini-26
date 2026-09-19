@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AgentTurnOut, User } from "./api";
 import { ALL, postAgentTurn } from "./api";
 
@@ -21,6 +21,13 @@ export function Composer({ selected, users, online }: Props) {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<AgentTurnOut | null>(null);
   const locked = !online || busy || selected === ALL || !me;
+
+  useEffect(() => {
+    setText("");
+    setRows([]);
+    setCid(null);
+    setPending(null);
+  }, [selected]);
 
   const applyTurn = (turn: AgentTurnOut) => {
     setCid(turn.conversation_id);

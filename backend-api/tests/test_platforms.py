@@ -100,14 +100,16 @@ def test_maya_analytics_bucket_denied_without_gcp():
 
 
 def test_platform_grants_are_not_enqueued():
-    seen: list[str] = []
-    main.EXECUTE_ENQUEUE_IMPL = lambda grant, action="grant": seen.append(grant.resource_id)
+    seen: list[tuple[str, str]] = []
+    main.EXECUTE_ENQUEUE_IMPL = lambda grant, action="grant", ask=None: seen.append((grant.resource_id, action))
 
     client = TestClient(main.app)
     granted = client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "grant"})
     assert granted.status_code == 200
-    assert seen == []
+    assert all(resource_id != "platform-sap" for resource_id, _ in seen)
+    assert ("sap-bp-display", "inspect") in seen
 
+    seen.clear()
     client.post("/people/u-newhire-1/platforms", json={"platform": "sap", "action": "revoke"})
     assert seen == []
 

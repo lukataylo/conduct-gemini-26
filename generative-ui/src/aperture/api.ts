@@ -314,6 +314,26 @@ export function liveWsUrl(): string {
   return `${proto}//${location.host}/api/agent/live/ws`;
 }
 
+export interface EnactOut {
+  status: string;
+  action: string;
+  resource_id: string | null;
+  grant_id?: string | null;
+  person_id?: string;
+  platform?: PlatformId;
+  ask?: string | null;
+}
+
+export function postEnact(body: {
+  viewer_id: string;
+  person_id: string;
+  platform: PlatformId;
+  action?: "browse" | "query" | "inspect" | "export";
+  ask?: string;
+}): Promise<EnactOut> {
+  return post<EnactOut>("/enact", body);
+}
+
 export function postAgentTurn(body: {
   viewer_id: string;
   message: string;

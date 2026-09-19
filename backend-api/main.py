@@ -119,6 +119,13 @@ NEVER_ENACT_IDS = frozenset({"sql-prod-primary", "sap-customer-directory", "sap-
 _CHAT_ENACT_ACTIONS = frozenset({"browse", "query", "inspect", "export"})
 _REFUSE_ENACT_IDS = frozenset({"sql-prod-primary", "sap-hr-payroll"})
 _DIRECTORY_EXPORT_ID = "sap-customer-directory"
+_DEFAULT_PLATFORM_ACTION = {"gcp": "browse", "sap": "inspect"}
+_ENACT_BY_ACTION = {
+    "browse": ("gcp", "bucket-analytics-raw"),
+    "query": ("gcp", "bq-project-x-finance"),
+    "inspect": ("sap", "sap-bp-display"),
+    "export": ("sap", "sap-customer-directory"),
+}
 
 
 def _has_business_context(request: AccessRequest) -> bool:
@@ -542,6 +549,69 @@ def _resolve_enact_resource(
     if not ids:
         return None
     return ids[0]
+
+
+def _scenario_grant(subject_id: str, resource_id: str) -> Grant:
+    matches = [grant for grant in active_grants(subject_id) if grant.resource_id == resource_id]
+    if matches:
+        return matches[0]
+    return Grant(
+        id=str(uuid.uuid4()),
+        request_id="",
+        resource_id=resource_id,
+        requester_id=subject_id,
+        granted_at=now(),
+        expires_at=now() + timedelta(hours=1),
+    )
+
+
+def _enqueue_scenario(
+    subject_id: str,
+    action: str,
+    resource_id: str,
+    ask: str | None = None,
+) -> dict:
+    """Start browse/query/inspect/export. Uses a held lease when one exists; otherwise a throwaway grant."""
+    verb = (action or "").strip().lower()
+    if verb not in _CHAT_ENACT_ACTIONS or resource_id in _REFUSE_ENACT_IDS:
+        return {
+            "status": "refused",
+            "action": verb,
+            "resource_id": resource_id,
+            "grant_id": None,
+            "person_id": subject_id,
+            "ask": ask,
+        }
+    grant = _scenario_grant(subject_id, resource_id)
+    held = grant.id in GRANTS
+    if held and grant.id in ENACT_RUNNING:
+        return {
+            "status": "running",
+            "action": verb,
+            "grant_id": grant.id,
+            "resource_id": resource_id,
+            "person_id": subject_id,
+            "ask": ask,
+        }
+    if held:
+        ENACT_RUNNING.add(grant.id)
+    _enqueue_execute(grant, action=verb, ask=ask)
+    return {
+        "status": "enqueued",
+        "action": verb,
+        "grant_id": grant.id if held else None,
+        "resource_id": resource_id,
+        "person_id": subject_id,
+        "ask": ask,
+    }
+
+
+def _auto_enact_platform(person_id: str, platform: str, ask: str | None = None) -> dict | None:
+    action = _DEFAULT_PLATFORM_ACTION.get(platform)
+    mapped = _ENACT_BY_ACTION.get(action or "")
+    if action is None or mapped is None:
+        return None
+    return _enqueue_scenario(person_id, action, mapped[1], ask=ask)
 
 
 def _console_enact(
@@ -1088,6 +1158,8 @@ def add_person(body: NewPerson) -> Requester:
     )
     KNOWN_REQUESTERS[pid] = person
     _audit(AuditEventType.REQUEST_RECEIVED, actor=pid, detail=f"onboarded {person.name} · {person.team}", payload={"onboarded": True})
+    for platform in platforms or ["gcp"]:
+        _auto_enact_platform(pid, platform, ask=f"onboard {person.name} on {platform}")
     return person
 
 
@@ -1101,12 +1173,42 @@ def change_person_platform(person_id: str, body: PlatformChange) -> Requester:
         _set_requester_platform(person_id, body.platform, True)
         if not any(grant.resource_id == resource_id for grant in active_grants(person_id)):
             _issue_grant(str(uuid.uuid4()), person_id, resource_id, ttl_days=90)
+        _auto_enact_platform(person_id, body.platform, ask=f"grant {body.platform} to {person.name}")
     else:
         for grant in list(active_grants(person_id)):
             if grant.resource_id == resource_id:
                 revoke_grant(grant.id, reason=f"{body.platform} platform revoked")
         _set_requester_platform(person_id, body.platform, False)
     return KNOWN_REQUESTERS[person_id]
+
+
+class EnactIn(BaseModel):
+    viewer_id: str
+    person_id: str
+    platform: Literal["gcp", "sap"]
+    action: Literal["browse", "query", "inspect", "export"] | None = None
+    ask: str | None = None
+
+
+@app.post("/enact")
+def post_enact(body: EnactIn) -> dict:
+    """Manager-only: start a browse/query/inspect/export run on the matching console."""
+    viewer = KNOWN_REQUESTERS.get(body.viewer_id)
+    if viewer is None:
+        raise HTTPException(400, f"unknown requester '{body.viewer_id}'")
+    if _viewer_console_role(viewer) != "manager":
+        raise HTTPException(403, "only a manager can start a scenario")
+    person = KNOWN_REQUESTERS.get(body.person_id)
+    if person is None:
+        raise HTTPException(400, f"unknown person '{body.person_id}'")
+    action = (body.action or _DEFAULT_PLATFORM_ACTION[body.platform]).strip().lower()
+    mapped = _ENACT_BY_ACTION.get(action)
+    if mapped is None or mapped[0] != body.platform:
+        raise HTTPException(400, f"action '{action}' is not valid for {body.platform}")
+    ask = body.ask or f"{action} {mapped[1]} for {person.name}"
+    result = _enqueue_scenario(body.person_id, action, mapped[1], ask=ask)
+    result["platform"] = body.platform
+    return result
 
 
 @app.get("/tools")

@@ -94,7 +94,7 @@ export default function ApertureApp() {
       {role === "manager" && current === "overview" && (
         <div className="mgr">
           <Users grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} now={now} online={snap.online} onOpen={goTimeline} onOpenAccess={goAccess} focusId={scope} onFocus={setScope} />
-          <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} policy={snap.policy} online={snap.online} />
+          <ManagerSide grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} company={snap.company} policy={snap.policy} online={snap.online} viewer={actor} focusId={scope} onEnacted={goTimeline} />
         </div>
       )}
 

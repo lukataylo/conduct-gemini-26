@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AuditEvent, Company, EscalationCase, Grant, PlatformId, PolicyRouteRow, PolicyRoutes, PolicyRule, Resource, User } from "./api";
-import { ALL, ATLAS, fetchPolicyRoutes, hasPlatform, post } from "./api";
+import { ALL, ATLAS, fetchPolicyRoutes, hasPlatform, post, postEnact } from "./api";
+import { roleOf } from "./Menu";
 import { Approvals } from "./Approvals";
 
 interface Props {
@@ -12,6 +13,9 @@ interface Props {
   company?: Company;
   policy: PolicyRule | null;
   online?: boolean;
+  viewer?: User;
+  focusId?: string;
+  onEnacted?: (personId: string) => void;
 }
 
 const TIERS = ["public", "internal", "restricted", "critical"] as const;
@@ -48,13 +52,37 @@ function RouteTable({ title, rows, users }: { title: string; rows: PolicyRouteRo
 }
 
 /** The manager's column: what needs deciding and the live GET /policy table. Gemini lives in the bubble. */
-export function ManagerSide({ grants, cases, events, resources, users, company = ATLAS, policy, online = true }: Props) {
+type EnactAction = "browse" | "query" | "inspect" | "export";
+
+export function ManagerSide({ grants, cases, events, resources, users, company = ATLAS, policy, online = true, viewer, focusId, onEnacted }: Props) {
   const rows = policyRows(policy);
   const plats = company.platforms.length ? company.platforms : ATLAS.platforms;
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [routes, setRoutes] = useState<PolicyRoutes>({ gcp: [], sap: [] });
+  const subjects = users.filter((u) => roleOf(u) !== "manager");
+  const fallbackId = subjects[0]?.id ?? users[0]?.id ?? "";
+  const focused = focusId && focusId !== ALL && users.some((u) => u.id === focusId) ? focusId : fallbackId;
+  const [personId, setPersonId] = useState(focused);
+  const [scenarioPlatform, setScenarioPlatform] = useState<PlatformId>("gcp");
+  const [action, setAction] = useState<EnactAction>("browse");
   useEffect(() => { fetchPolicyRoutes().then(setRoutes).catch(() => setRoutes({ gcp: [], sap: [] })); }, []);
+  useEffect(() => { if (focused) setPersonId(focused); }, [focused]);
+  useEffect(() => { setAction(scenarioPlatform === "sap" ? "inspect" : "browse"); }, [scenarioPlatform]);
+  const verbs: EnactAction[] = scenarioPlatform === "sap" ? ["inspect", "export"] : ["browse", "query"];
+  const runScenario = async () => {
+    if (!viewer || !personId) return;
+    setBusy("enact"); setErr(null);
+    try {
+      await postEnact({ viewer_id: viewer.id, person_id: personId, platform: scenarioPlatform, action });
+      onEnacted?.(personId);
+    } catch (e) {
+      console.error(e);
+      setErr("scenario failed");
+    } finally {
+      setBusy(null);
+    }
+  };
   const setPlatform = async (u: User, platform: PlatformId, action: "grant" | "revoke") => {
     const key = `${u.id}:${platform}:${action}`;
     setBusy(key); setErr(null);
@@ -65,6 +93,26 @@ export function ManagerSide({ grants, cases, events, resources, users, company =
   return (
     <aside className="mgr-side">
       <Approvals cases={cases} grants={grants} events={events} resources={resources} users={users} selected={ALL} />
+      <section className="mgr-settings">
+        <div className="apv-h">Scenarios</div>
+        <select className="mgr-select" aria-label="Person" value={personId} onChange={(e) => setPersonId(e.target.value)}>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <div className="uc-checks">
+          {plats.map((p) => (
+            <button key={p.id} type="button" className="nb" aria-pressed={scenarioPlatform === p.id} onClick={() => setScenarioPlatform(p.id)}>{p.short}</button>
+          ))}
+        </div>
+        <div className="uc-checks">
+          {verbs.map((verb) => (
+            <button key={verb} type="button" className="nb" aria-pressed={action === verb} onClick={() => setAction(verb)}>{verb}</button>
+          ))}
+        </div>
+        <button className="nb go" disabled={!online || busy !== null || !viewer || !personId} onClick={runScenario}>
+          {busy === "enact" ? "…" : "Run"}
+        </button>
+        {err && <div className="uc-err">{err}</div>}
+      </section>
       <section className="mgr-settings">
         <div className="apv-h">Platforms</div>
         {plats.map((p) => (

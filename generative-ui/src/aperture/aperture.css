@@ -207,6 +207,11 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 @media (max-width: 1000px) { .mgr-side { border-left: 0; } }
 .mgr-side .apv { border-left: 0; }
 .mgr-settings { padding: 18px 24px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.mgr-select { font: inherit; font-size: 13px; color: var(--fg); background: var(--s1); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 12px; }
+.mgr-select:focus { outline: none; border-color: var(--fg-2); }
+.mgr-settings .nb[aria-pressed="true"] { color: var(--fg); border-color: var(--fg); }
+.mgr-settings .nb.go { background: var(--fg); border-color: var(--fg); color: var(--bg); font-weight: 600; justify-self: start; }
+.mgr-settings .nb.go:disabled { background: transparent; color: var(--fg-3); border-color: var(--line); }
 .pol { width: 100%; border-collapse: collapse; font-size: 13px; }
 .pol th { font-family: var(--dot); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); text-align: left; padding: 4px 0; font-weight: 700; }
 .pol td { padding: 7px 0; border-top: 1px solid var(--line); }

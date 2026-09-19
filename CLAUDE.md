@@ -20,6 +20,11 @@ resources so grants/revocations become real IAM changes on stage. Rules:
   (Cloud SQL) stays mocked — it's the auto-deny example and never gets granted.
 - Only fake data lives in the demo project. No real customer/company data.
 
+### Live project
+
+Project `lon-agentic26lon-9202`, region `europe-west2` (London). Resources were created by
+`infra/gcp_setup.sh` (idempotent). Pass `--location=europe-west2` to `bq` commands.
+
 ### Real names differ from the mock names
 
 GCS bucket names are globally unique and BigQuery dataset IDs can't contain hyphens, so

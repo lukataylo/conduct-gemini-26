@@ -212,8 +212,11 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
 
 
 @app.get("/grants")
-def list_grants(requester_id: str | None = None) -> list[Grant]:
-    """Active, unexpired grants — what the scoped MCP server derives its tool list from."""
+def list_grants(requester_id: str | None = None, include_revoked: bool = False) -> list[Grant]:
+    """Active, unexpired grants — what the scoped MCP server derives its tool list from.
+    include_revoked=true adds revoked/expired ones for the lease timeline."""
+    if include_revoked:
+        return [g for g in GRANTS.values() if requester_id is None or g.requester_id == requester_id]
     return active_grants(requester_id)
 
 

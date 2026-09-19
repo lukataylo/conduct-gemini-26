@@ -28,3 +28,8 @@ dist/
 
 # build info
 *.tsbuildinfo
+
+# GCP credentials (use impersonation, never key files)
+*-key.json
+*credentials*.json
+sa-*.json

@@ -60,6 +60,8 @@ def test_system_prompt_still_refuses_illegal_verbs():
     for name in ILLEGAL_TOOLS:
         assert name in lowered
     assert "never grant" in lowered or "must not grant" in lowered
+    assert "assistant" in lowered
+    assert "not a person" in lowered or "not priya" in lowered
     built = build_system_prompt(
         ConsoleContext(actor_id="u-manager-1", focus_id="u-finance-owner-1", page="overview", role="manager"),
         actor=Requester(id="u-manager-1", name="Priya Nair", role="Engineering Manager", team="data-platform"),

@@ -17,6 +17,7 @@ manager; everyone else → user). `?role=user|manager&user=<id>` opens a state.
   Timeline (Everyone or one person via chips). The manager dropdown lists everyone;
   picking a person scopes the Timeline.
 - **User tabs:** Onboard (landing) · Access (generated summary) · Timeline (that person).
+- **Both roles:** Policy (the scenario-driven policy demo, see the table below).
 - **Person cards** are Nothing-style widget tiles: a white hero count (open leases), a
   ring dial in the person's colour (time left on the soonest lease), *until*, *waiting*
   (amber only when > 0, naming who), *refused* (red only when > 0), and dot-tick call
@@ -47,6 +48,7 @@ the grid, leases and recorder have shape on first load.
 | **Overview** | left: one card per person — leases with time left, what's waiting and on whom, ended leases struck through, the agent's live tools, **Ask** / **Access →** / **Timeline →** — plus an **Add a person** card (`POST /people`); right: every open approval with **Approve · <next approver>** / **Deny** casting a real vote, the policy table, the Gemini dock | `Users.tsx`, `Manager.tsx` (`ManagerSide`), `Approvals.tsx` |
 | **Onboard** | the new hire's landing page: dot-matrix greeting and thesis, a live dot-matrix *iris* that opens with their active leases, open/waiting/calls/until, then 1 connect (the `claude mcp add` line) · 2 ask · 3 use (status rows and the agent's tools), and the three findings | `User.tsx` |
 | **My access** | the generated summary — headline, a guide card per grant (what it is, a real command, the docs link), waiting and refused cards, the agent's tools; `/ui-spec` when a composer produced rich panels, else the deterministic fallback | `Summary.tsx` |
+| **Policy** | the Friday Finance Freeze, beat by beat: requester / resource / capability / context, the engine's exact reason, compliance breadcrumbs, the approver's evidence card, and the Reaper toggle for ATLAS-101 — all from `GET /demo/policy/final-story`, which runs the real engine on fixed inputs (no store, no model) and reports the doc's success criteria | `Policy.tsx`, `backend-api/policy_demo.py` |
 | **Timeline** | deep-dive, Everyone or one person: stats, dot-matrix grid, approvals, lease Gantt, recorder, the Enact pane, the chat composer | `App.tsx` (console branch) |
 
 ## What exists
@@ -203,6 +205,47 @@ trail). The decisions that matter to other tracks:
   layout, leave the decision controls to the static shell (`Approvals.tsx`).
 - **Don't fake state in the UI**. Presenter controls go through the API so the audit
   chain shows them.
+
+## Adversarial review (19 Sep, 15:40) — what was found and what changed
+
+Three reviewers ran against their own hub instances: policy decisions, hub API + audit
+chain, and the five demo beats + Gemini chat.
+
+Fixed in the hub the same hour:
+- approve-replay minted unlimited grants → decided cases take no more votes;
+- blast-radius escalation (`resource_id="multiple"`) had no approvers → routed via `APPROVERS`;
+- approval after `close_project` still issued a grant → closing a project closes its pending cases;
+- approvals granted the requested duration verbatim (3650d) → capped at `MAX_APPROVED_DAYS=30`;
+- `POST /audit` accepted any event type/actor (forged `grant_issued` passed verify) → only
+  `action_executed`, never reserved actors;
+- duplicate resource ids → N grants; repeat asks → duplicate grants and duplicate MCP tools
+  → de-duplicated, repeat ask returns the lease already held;
+- `requested_duration_days` ≤ 0 accepted → 400;
+- Gemini chat: `list_scope` ignored cases awaiting the viewer's vote (Priya was told
+  nothing was waiting) → includes `awaiting_my_vote`; chat-driven `request_access` 500'd
+  (`run_sync` inside a sync tool) → runs on a fresh thread; Gemini writing the ticket id
+  into `project` → pinned to a known project;
+- `POST /demo/seed`, `close`, `vote`, `revoke` were open to anyone → `X-Demo-Key` guard
+  when `DEMO_KEY` is set.
+
+Still open (say "time-bound", not "continuously reviewed", on stage):
+- the engine's `review_active_grants` reaper is never called by the hub; the circuit
+  breaker never fires because request history isn't passed; peer percentile is always
+  "unavailable" because team sizes aren't passed;
+- the vote endpoint trusts `approver_id` in the body (the demo key gates the room, not
+  the person);
+- REST reads are unscoped (`/audit`, `/escalations`, `/grants?include_revoked=true`
+  return everyone's data); the MCP `APERTURE_TOKEN` is only the demo key, not a
+  per-person identity;
+- `list_scope` has no `person_id`, so a manager asking "what does Alex have?" is answered
+  about themselves;
+- `backend-api/tests/test_agent_turn.py` (6 tests) has failed since the policy expansion
+  — they build requests without a ticket, so the engine now returns `resource_id="all"`.
+
+Confirmed strong: requester spoofing is dead (server-side record wins); gate ordering is
+right and every deny has a specific reason; N-of-M voting with sticky veto and snapshot
+holds; audit ids/hashes/timestamps are server-assigned; the MCP re-check at call time
+works and records the bounce.
 
 ## Open items, by owner
 

@@ -92,6 +92,7 @@ APPROVERS: dict[str, list[str]] = {
     "sql-prod-primary": [MANAGER.id, FINANCE_OWNER.id],
     "repo-atlas-ingestion": [MANAGER.id],
     "repo-finance-ledger": [FINANCE_OWNER.id, MANAGER.id],
+    "multiple": [MANAGER.id, FINANCE_OWNER.id],  # blast-radius escalations (engine emits resource_id="multiple")
 }
 
 # The natural-language request agent-runtime parses at the start of the demo

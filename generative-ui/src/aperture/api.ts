@@ -133,10 +133,13 @@ async function get<T>(path: string): Promise<T> {
   return r.json();
 }
 
+// Sent on every write when the hub runs with DEMO_KEY set (see backend-api demo_key_guard).
+const DEMO_KEY: string = (import.meta as any).env?.VITE_DEMO_KEY ?? "";
+
 export async function post<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(`/api${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(DEMO_KEY ? { "x-demo-key": DEMO_KEY } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status} ${path}`);

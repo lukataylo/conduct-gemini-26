@@ -569,3 +569,111 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .composer textarea { font: inherit; font-size: 13px; color: var(--fg); background: var(--s1); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; resize: vertical; width: 100%; }
 .composer textarea:focus { outline: none; border-color: var(--fg-2); }
 .composer .nb { justify-self: end; }
+
+/* policy tab — the Friday Finance Freeze (Policy.tsx) */
+.pol { display: grid; align-content: start; }
+.pol .k { display: block; font-family: var(--dot); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-3); font-weight: 700; }
+.pol .mono { font-family: var(--mono); font-weight: 500; }
+.pol .mono em { font-style: normal; color: var(--fg-2); font-weight: 400; }
+.pol-hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); gap: 32px; padding: 36px 24px 28px; border-bottom: 1px solid var(--line); }
+.pol-hero h1 { margin: 10px 0 12px; font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 600; }
+.pol-hero h1 span { color: var(--fg-2); }
+.pol-hero p { margin: 0; max-width: 560px; color: var(--fg-2); font-size: 15px; }
+.pol-checks { display: grid; gap: 6px; align-content: start; }
+.pol-checks-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.pol-checks-h b { font-family: var(--dot); font-size: 26px; font-weight: 700; }
+.pol-checks-h b.ok { color: var(--green); } .pol-checks-h b.no { color: var(--red); }
+.pol-checks-h span { font-size: 12px; color: var(--fg-3); }
+.pol-check { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--fg-2); }
+.pol-check i { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--fg-3); }
+.pol-check.ok i { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.pol-check.no i { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.pol-check.no span { color: var(--red); }
+
+.pol-body { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: 60vh; }
+.pol-list { border-right: 1px solid var(--line); display: grid; align-content: start; }
+.pol-item { font: inherit; text-align: left; background: transparent; color: var(--fg-2); border: 0; border-bottom: 1px solid var(--line); padding: 14px 20px; display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; cursor: pointer; }
+.pol-item:hover { color: var(--fg); background: var(--s1); }
+.pol-item[aria-pressed="true"] { color: var(--fg); background: var(--s2); }
+.pol-item b { font-family: var(--dot); font-size: 13px; font-weight: 700; color: var(--fg-3); }
+.pol-item[aria-pressed="true"] b { color: var(--fg); }
+.pol-item-t { font-size: 13.5px; font-weight: 500; }
+.pol-pill { font-family: var(--dot); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--fg-2); white-space: nowrap; }
+.pol-pill.ok { color: var(--green); border-color: var(--green); }
+.pol-pill.wait { color: var(--amber); border-color: var(--amber); border-style: dashed; }
+.pol-pill.no { color: var(--red); border-color: #4a1d1d; }
+.pol-pill.mix { color: var(--fg); border-color: var(--line-2); }
+.pol-engine { padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: baseline; }
+.pol-engine code { font-family: var(--mono); font-size: 11.5px; color: var(--fg-2); }
+
+.pol-main { padding: 28px 28px 32px; display: grid; gap: 22px; align-content: start; max-width: 1080px; animation: polin 0.25s ease-out; }
+@keyframes polin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.pol-head h2 { margin: 6px 0 8px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.pol-head p { margin: 0; color: var(--fg-2); font-size: 14.5px; max-width: 780px; }
+.pol-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pol-fact { border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; background: var(--s1); min-width: 0; }
+.pol-fact b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.pol-fact small { color: var(--fg-3); font-size: 11.5px; line-height: 1.35; }
+.pol-sec { display: grid; gap: 10px; }
+.pol-decisions, .pol-leases { display: grid; gap: 8px; }
+.pol-dec { border: 1px solid var(--line-2); border-radius: 14px; padding: 12px 16px 14px; display: grid; gap: 10px; }
+.pol-dec.ok { border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, transparent); }
+.pol-dec.wait { border-color: var(--amber); border-style: dashed; background: color-mix(in srgb, var(--amber) 6%, transparent); }
+.pol-dec.no { border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
+.pol-dec-top { display: grid; grid-template-columns: 110px auto 1fr; gap: 14px; align-items: baseline; }
+.pol-dec-st { font-family: var(--dot); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.pol-dec.ok .pol-dec-st { color: var(--green); } .pol-dec.wait .pol-dec-st { color: var(--amber); } .pol-dec.no .pol-dec-st { color: var(--red); }
+.pol-dec-meta { color: var(--fg-2); font-size: 12.5px; text-align: right; }
+.pol-reason { display: grid; gap: 4px; }
+.pol-reason code { font-family: var(--mono); font-size: 12.5px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: block; white-space: pre-wrap; }
+
+.pol-card { border: 1px solid var(--amber); border-radius: 16px; padding: 16px 18px; display: grid; gap: 14px; background: color-mix(in srgb, var(--amber) 5%, transparent); box-shadow: 0 0 40px color-mix(in srgb, var(--amber) 10%, transparent); }
+.pol-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.pol-risk { font-family: var(--dot); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-2); }
+.pol-risk.high { color: var(--red); } .pol-risk.medium { color: var(--amber); } .pol-risk.low { color: var(--green); }
+.pol-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.pol-card-grid > div { display: grid; gap: 3px; min-width: 0; }
+.pol-card-grid b { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.pol-card-grid b em { font-style: normal; color: var(--fg-3); font-size: 12px; }
+.pol-summary { font-size: 13px; color: var(--fg-2); line-height: 1.45; border-top: 1px solid var(--line); padding-top: 12px; }
+.pol-route { font-family: var(--mono); font-size: 11px; color: var(--fg-3); }
+.pol-card-btns { display: flex; align-items: center; gap: 8px; }
+.pol-card-btns .nb { opacity: 0.7; cursor: default; }
+.pol-card-btns .nb.deny { border-color: #4a1d1d; color: #f3a3a3; }
+.pol-card-btns .nb.go { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.pol-card-btns small { color: var(--fg-3); font-size: 11px; margin-left: 4px; }
+
+.pol-reaper-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pol-reaper-bar .ob-eyebrow { flex: 1; }
+.pol-reaper-bar .nb.go { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.pol-toast { display: flex; align-items: center; gap: 10px; border: 1px solid var(--red); border-radius: 12px; padding: 12px 16px; font-size: 15px; font-weight: 600; color: var(--fg); background: color-mix(in srgb, var(--red) 12%, transparent); animation: polin 0.25s ease-out; }
+.pol-toast i { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); flex: none; }
+.pol-lease { display: grid; grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1.4fr) 140px; gap: 14px; align-items: center; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line-2); transition: border-color 0.25s, background 0.25s; }
+.pol-lease.held { border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, transparent); }
+.pol-lease.reclaimed { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
+.pol-lease.reclaimed .mono { text-decoration: line-through; color: var(--fg-2); }
+.pol-lease-st { font-family: var(--dot); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.pol-lease.held .pol-lease-st { color: var(--green); } .pol-lease.reclaimed .pol-lease-st { color: var(--red); }
+.pol-lease-why { color: var(--fg-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.pol-lease-track { height: 6px; border-radius: 3px; background: var(--s2); overflow: hidden; }
+.pol-lease-track i { display: block; height: 100%; background: var(--green); border-radius: 3px; transition: width 0.4s; }
+.pol-lease.reclaimed .pol-lease-track i { width: 0 !important; }
+.pol-hint { margin: 0; color: var(--fg-3); font-size: 12.5px; }
+
+.pol-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.pol-crumbs, .pol-snap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pol-crumbs .k, .pol-snap .k { width: 100%; }
+.pol-crumbs code { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line-2); border-radius: 8px; padding: 4px 9px; color: var(--fg); }
+.pol-crumbs em { color: var(--fg-3); margin: 0 6px; font-style: normal; }
+.pol-snap-kv { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line-2); border-radius: 8px; padding: 4px 9px; color: var(--fg-2); display: inline-flex; gap: 8px; }
+.pol-snap-kv b { font-weight: 500; color: var(--fg-3); }
+.pol-snap-kv.on { border-color: var(--amber); color: var(--fg); }
+
+@media (max-width: 1000px) {
+  .pol-hero, .pol-body, .pol-foot { grid-template-columns: 1fr; }
+  .pol-list { border-right: 0; border-bottom: 1px solid var(--line); }
+  .pol-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pol-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pol-lease { grid-template-columns: 90px 1fr; }
+  .pol-reaper-bar .ob-eyebrow { flex: 1 1 100%; }
+}

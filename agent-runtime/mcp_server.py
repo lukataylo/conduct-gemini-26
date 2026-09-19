@@ -57,12 +57,14 @@ def _is_active(grant: Grant, *, now: datetime | None = None) -> bool:
 def tools_for_grants(grants: list[Grant], *, now: datetime | None = None) -> list[dict]:
     """Return MCP-shaped tools for active, allowlisted grants only."""
     tools: list[dict] = []
+    seen: set[str] = set()
     for grant in grants:
         if not _is_active(grant, now=now):
             continue
         spec = TOOL_SPECS.get(grant.resource_id)
-        if spec is None:
+        if spec is None or spec["name"] in seen:
             continue
+        seen.add(spec["name"])
         tools.append(
             {
                 "name": spec["name"],

@@ -89,6 +89,19 @@ returns `RevocationAction` objects when access should be reclaimed early:
    Access reclaimed: Jira ATLAS-101 is complete.
    ```
 
+## Where it lives (built 19 Sep)
+
+- **Backend:** `GET /demo/policy/final-story` (`backend-api/policy_demo.py`) runs all
+  eight beats through the real engine on a fixed clock (2026-09-19 15:00 UTC) and
+  returns the request, `PolicyDecision`s, `EscalationCase`s, the Reaper's before/after
+  `RevocationAction`s, and the success criteria below evaluated against that output.
+  Read-only: no store writes, no audit events, no model calls.
+- **Frontend:** the **Policy** tab in the console (`generative-ui/src/aperture/Policy.tsx`),
+  reachable from either role. Beat 8 has a *Mark ATLAS-101 DONE* toggle that swaps the
+  server-computed before/after states; the toast text comes from the payload.
+- **Test:** `python3 -m pytest tests/test_policy_demo.py` fails if any criterion stops
+  holding on the engine's output.
+
 ## Backend Test Prompt
 
 ```text

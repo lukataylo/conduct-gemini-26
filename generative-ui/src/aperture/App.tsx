@@ -7,16 +7,17 @@ import { Live } from "./Live";
 import { ManagerSide } from "./Manager";
 import { Matrix } from "./Matrix";
 import { PersonMenu, roleOf, seedDemo, type Role } from "./Menu";
+import { Policy } from "./Policy";
 import { Recorder } from "./Recorder";
 import { Summary } from "./Summary";
 import { Timeline } from "./Timeline";
 import { UserScreen } from "./User";
 import { Users } from "./Users";
 
-type Tab = "overview" | "timeline" | "onboard" | "access";
+type Tab = "overview" | "timeline" | "onboard" | "access" | "policy";
 const TABS: Record<Role, { id: Tab; name: string }[]> = {
-  manager: [{ id: "overview", name: "Overview" }, { id: "timeline", name: "Timeline" }],
-  user: [{ id: "onboard", name: "Onboard" }, { id: "access", name: "Access" }, { id: "timeline", name: "Timeline" }],
+  manager: [{ id: "overview", name: "Overview" }, { id: "timeline", name: "Timeline" }, { id: "policy", name: "Policy" }],
+  user: [{ id: "onboard", name: "Onboard" }, { id: "access", name: "Access" }, { id: "timeline", name: "Timeline" }, { id: "policy", name: "Policy" }],
 };
 
 function param(k: string): string | null {
@@ -94,6 +95,8 @@ export default function ApertureApp() {
       {role === "user" && current === "access" && me && (
         <Summary grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={me.id} now={now} />
       )}
+
+      {current === "policy" && <Policy />}
 
       {current === "timeline" && (
         <div className="console-body">

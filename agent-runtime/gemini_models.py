@@ -17,7 +17,7 @@ import os
 
 DEFAULT_PARSE_MODEL = "google:gemini-3.8-flash"
 DEFAULT_CU_MODEL = "gemini-3.5-flash-lite"
-DEFAULT_LIVE_MODEL = "gemini-2.5-flash-native-audio"
+DEFAULT_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 # 3.8 Flash supports low/medium/high (``minimal`` errors). Lite supports
 # ``minimal``. Official loop uses include_thoughts; we skip thoughts.
 DEFAULT_CU_THINKING = "low"

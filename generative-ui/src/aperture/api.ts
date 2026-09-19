@@ -309,6 +309,11 @@ export function postLiveSession(body: {
   return post<LiveSessionOut>("/agent/live/session", body);
 }
 
+export function liveWsUrl(): string {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${location.host}/api/agent/live/ws`;
+}
+
 export function postAgentTurn(body: {
   viewer_id: string;
   message: string;

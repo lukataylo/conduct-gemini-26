@@ -1,16 +1,20 @@
 from pathlib import Path
 
+import pytest
 from computer_use import (
     GEMINI_CU_MODEL,
     MAX_RECENT_TURN_WITH_SCREENSHOTS,
     _apply_page_action,
     _denorm_coord,
     _normalize_cu_action,
+    browse_goal,
     completed_event,
+    enact_goal,
     execute_grant,
     grant_goal,
     host_allowed,
     prune_old_screenshots,
+    query_goal,
     revoke_goal,
     run_computer_use_loop,
     verify_active,
@@ -140,6 +144,36 @@ def test_revoke_goal_names_resource_principal_and_remove(grant):
     assert "Do not grant any other resource" in text
 
 
+def test_browse_goal_names_object_and_preview(grant):
+    text = browse_goal(grant)
+    assert "events/2026-09-18.parquet" in text
+    assert "#object-preview" in text
+
+
+def test_query_goal_names_dataset_and_results(grant):
+    text = query_goal(grant)
+    assert "project-x-finance" in text
+    assert "#query-results" in text
+
+
+def test_enact_goal_contains_selectors_for_each_action(grant):
+    assert enact_goal(grant, "grant") == grant_goal(grant)
+    assert enact_goal(grant, "revoke") == revoke_goal(grant)
+    browse = enact_goal(grant, "browse")
+    assert browse == browse_goal(grant)
+    assert "events/2026-09-18.parquet" in browse
+    assert "#object-preview" in browse
+    query = enact_goal(grant, "query")
+    assert query == query_goal(grant)
+    assert "project-x-finance" in query
+    assert "#query-results" in query
+
+
+def test_enact_goal_rejects_unknown_action(grant):
+    with pytest.raises(ValueError):
+        enact_goal(grant, "export")
+
+
 def test_host_allowed_rejects_unknown():
     assert host_allowed("http://127.0.0.1:8765/", allowlist=["127.0.0.1", "localhost"]) is True
     assert host_allowed("https://evil.example/", allowlist=["127.0.0.1"]) is False
@@ -210,6 +244,31 @@ def test_completed_event_includes_revoke_action(grant):
     )
     assert event.payload["action"] == "revoke"
     assert event.payload["success"] is True
+
+
+def test_completed_event_detail_uses_action_name(grant):
+    ok = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="computer_use",
+        turn_count=1,
+        action="browse",
+    )
+    assert ok.detail == "completed browse bucket-analytics-raw"
+    failed = completed_event(
+        grant,
+        success=False,
+        reason="verify_failed",
+        actions=[],
+        watch_url=None,
+        mode="computer_use",
+        turn_count=1,
+        action="query",
+    )
+    assert failed.detail == "query execution failed: verify_failed"
 
 
 def test_playwright_execute_grant_marks_active(grant):
@@ -311,6 +370,27 @@ def test_loop_publishes_turn_frame(grant):
     result = run_computer_use_loop(grant, Page(), Client(), on_frame=on_frame)
     assert result["success"] is True
     assert seen == [(1, b"jpeg-bytes", "image/jpeg", "verify")]
+
+
+def test_loop_uses_enact_goal_for_action(grant):
+    seen: list[str] = []
+
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            seen.append(goal)
+            return None
+
+    class Page:
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def content(self):
+            return "<ul id='active-grants'></ul>"
+
+    run_computer_use_loop(grant, Page(), Client(), action="browse")
+    assert seen
+    assert "events/2026-09-18.parquet" in seen[0]
+    assert "#object-preview" in seen[0]
 
 
 def test_loop_none_verifies_then_succeeds(grant):

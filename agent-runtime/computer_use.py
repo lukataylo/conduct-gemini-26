@@ -111,6 +111,41 @@ def revoke_goal(grant: Grant) -> str:
     )
 
 
+def browse_goal(grant: Grant) -> str:
+    """Instruction for computer-use: open the seeded object and show its preview."""
+    visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
+    return (
+        f"Browse objects in {grant.resource_id} ({visible}). This is a Google Cloud Console. "
+        f"Open Storage in the left nav, open the {visible} bucket, open the Objects tab, "
+        f"and open events/2026-09-18.parquet. Confirm #object-preview shows that object. "
+        f"Do not grant any other resource."
+    )
+
+
+def query_goal(grant: Grant) -> str:
+    """Instruction for computer-use: run a read-only query on project-x-finance."""
+    visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
+    return (
+        f"Compose a query on {grant.resource_id} ({visible}). This is a Google Cloud Console. "
+        f"Open BigQuery in the left nav, open the project-x-finance dataset, open the Query tab, "
+        f"run a read-only SELECT, and confirm results appear in #query-results. "
+        f"Do not grant any other resource."
+    )
+
+
+def enact_goal(grant: Grant, action: str) -> str:
+    """Dispatch the computer-use goal for grant|revoke|browse|query."""
+    if action == "grant":
+        return grant_goal(grant)
+    if action == "revoke":
+        return revoke_goal(grant)
+    if action == "browse":
+        return browse_goal(grant)
+    if action == "query":
+        return query_goal(grant)
+    raise ValueError(f"unknown enact action: {action}")
+
+
 def extra_console_hosts() -> list[str]:
     """Hosts from CONSOLE_ALLOWED_HOSTS plus the hostname of CONSOLE_URL."""
     hosts: list[str] = []
@@ -304,9 +339,9 @@ def completed_event(
         )
 
     detail = (
-        f"completed grant {grant.resource_id}"
+        f"completed {action} {grant.resource_id}"
         if success
-        else f"grant execution failed: {reason}"
+        else f"{action} execution failed: {reason}"
     )
     return audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -650,9 +685,10 @@ def run_computer_use_loop(
     record_stem: str = "cu",
     on_frame=None,
     mode: str = "computer_use",
+    action: str = "grant",
 ) -> dict:
     """Drive `page` with an injectable Computer Use client. Never calls Gemini itself."""
-    goal = grant_goal(grant)
+    goal = enact_goal(grant, action)
     actions: list[dict] = []
     for turn in range(1, max_turns + 1):
         screenshot, mime_type = capture_screenshot(page)
@@ -978,6 +1014,7 @@ def _execute_computer_use(
                     record_stem=stem,
                     on_frame=on_frame,
                     mode="computer_use",
+                    action=action,
                 )
             finally:
                 video_path = _close_recorded_page(browser, context, page, rec, stem)

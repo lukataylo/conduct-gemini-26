@@ -243,7 +243,7 @@ def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
             _agent_runtime_on_path()
             from computer_use import execute_grant
 
-            execute_grant(grant, console, watch_url=watch, callback_base_url=callback)
+            execute_grant(grant, console, watch_url=watch, callback_base_url=callback, action=action)
         except Exception as exc:
             _audit(
                 AuditEventType.ACTION_EXECUTED,

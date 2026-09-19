@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mock GCP Console — IAM</title>
+  <style>
+    :root {
+      --ground: #f3f5f8;
+      --surface: #ffffff;
+      --surface-2: #e9edf2;
+      --ink: #17212b;
+      --ink-2: #4f5f70;
+      --ink-3: #8593a2;
+      --line: #d3dae2;
+      --accent: #1d5cc2;
+      --accent-ink: #ffffff;
+      --accent-soft: #e4edfb;
+      --good: #14663d;
+      --good-soft: #e0f3e9;
+      --warn: #8a4f00;
+      --warn-soft: #fbeedb;
+      --crit: #b83a3a;
+      --crit-soft: #f9e3e3;
+      --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+    }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    header p { margin: 0; color: var(--ink-2); font-size: 13px; }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 24px;
+    }
+    h2 { margin: 0 0 12px; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+    .cards { display: grid; gap: 12px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+    .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .card-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .name { margin: 0; font-size: 18px; font-family: var(--mono); }
+    .meta { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; }
+    .tier {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+    .tier.internal { background: var(--accent-soft); color: var(--accent); }
+    .tier.restricted { background: var(--warn-soft); color: var(--warn); }
+    .tier.critical { background: var(--crit-soft); color: var(--crit); }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      padding: 8px 12px;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #grant-form {
+      display: none;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    #grant-form.visible { display: grid; }
+    label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+    input {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+    #active-grants { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    #active-grants:empty::after {
+      content: "None yet.";
+      color: var(--ink-3);
+      font-size: 13px;
+    }
+    #active-grants li {
+      background: var(--good-soft);
+      color: var(--good);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Google Cloud — IAM bindings</h1>
+    <p>Mock console · project lon-agentic26lon-9202</p>
+  </header>
+  <main>
+    <section>
+      <h2>Resources</h2>
+      <div class="cards">
+        <article class="card" data-resource-id="bucket-analytics-raw">
+          <div class="card-top">
+            <div>
+              <p class="name">analytics-raw</p>
+              <p class="meta">GCS bucket · data-platform · <span class="tier internal">internal</span></p>
+            </div>
+            <button type="button" class="grant-access">Grant access</button>
+          </div>
+        </article>
+        <article class="card" data-resource-id="bq-project-x-finance">
+          <div class="card-top">
+            <div>
+              <p class="name">project-x-finance</p>
+              <p class="meta">BigQuery dataset · finance · <span class="tier restricted">restricted</span></p>
+            </div>
+            <button type="button" class="grant-access">Grant access</button>
+          </div>
+        </article>
+        <article class="card" data-resource-id="sql-prod-primary">
+          <div class="card-top">
+            <div>
+              <p class="name">prod-primary</p>
+              <p class="meta">Cloud SQL instance · data-platform · <span class="tier critical">critical</span></p>
+            </div>
+            <button type="button" class="grant-access">Grant access</button>
+          </div>
+        </article>
+      </div>
+      <form id="grant-form" autocomplete="off">
+        <label>Principal <input id="principal" name="principal" required></label>
+        <label>Expires <input id="expires" name="expires" type="date" required></label>
+        <button type="submit" class="primary">Confirm</button>
+      </form>
+    </section>
+    <section>
+      <h2>Active grants</h2>
+      <ul id="active-grants"></ul>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById("grant-form");
+    const principalInput = document.getElementById("principal");
+    const expiresInput = document.getElementById("expires");
+    const activeGrants = document.getElementById("active-grants");
+    let selectedId = null;
+
+    document.querySelectorAll(".card").forEach((card) => {
+      card.querySelector(".grant-access").addEventListener("click", () => {
+        document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
+        card.classList.add("selected");
+        selectedId = card.getAttribute("data-resource-id");
+        form.classList.add("visible");
+        principalInput.focus();
+      });
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!selectedId) return;
+      const principal = principalInput.value.trim();
+      const expires = expiresInput.value;
+      if (!principal || !expires) return;
+      const item = document.createElement("li");
+      item.setAttribute("data-resource", selectedId);
+      item.setAttribute("data-principal", principal);
+      item.textContent = selectedId + " → " + principal + " (expires " + expires + ")";
+      activeGrants.appendChild(item);
+      form.reset();
+    });
+  </script>
+</body>
+</html>

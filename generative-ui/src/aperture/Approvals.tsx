@@ -41,7 +41,7 @@ export function Approvals({ cases, grants, events, resources, users, selected }:
     return (
       <div className="apv">
         <div className="apv-h">Approvals</div>
-        <div className="apv-empty">{me ? `Nothing needs ${me.name.split(" ")[0]}` : "Nothing pending"}</div>
+        <div className="apv-empty">Nothing to decide</div>
       </div>
     );
   }

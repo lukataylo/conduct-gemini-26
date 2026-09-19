@@ -16,7 +16,7 @@ interface Props {
 
 const MIN = 60e3;
 
-// Mirrors policy-engine DEFAULT_POLICY. Read-only until backend ships GET/PATCH /policy.
+// Mirrors policy-engine DEFAULT_POLICY. Read-only until GET/PATCH /policy exists.
 const POLICY = [
   { tier: "public", auto: "90d", approvals: 0 },
   { tier: "internal", auto: "30d", approvals: 1 },
@@ -37,7 +37,7 @@ function MiniTimeline({ grants, cases, user, t0, span, now }: { grants: Grant[];
   return (
     <div className="mini" style={{ ["--u" as string]: user.color }}>
       <div className="mini-now" style={{ left: `${x(now)}%` }} />
-      {bars.length === 0 && <span className="mini-empty">no leases</span>}
+      {bars.length === 0 && <span className="mini-empty">none</span>}
       {bars.map((b, i) => (
         <div key={b.key} className={`mini-bar ${b.kind}`} style={{ left: `${x(b.s)}%`, width: `${Math.max(x(b.e) - x(b.s), 1.5)}%`, top: `${6 + i * 12}px` }} title={b.name} />
       ))}
@@ -47,7 +47,7 @@ function MiniTimeline({ grants, cases, user, t0, span, now }: { grants: Grant[];
 
 export function Manager({ grants, cases, events, resources, users, selected, now, onDeepDive }: Props) {
   const me = users.find((u) => u.id === selected);
-  const [msg, setMsg] = useState("Who is waiting on me, and is anything risky?");
+  const [msg, setMsg] = useState("");
   const [chat, setChat] = useState<{ who: "you" | "gemini"; text: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [conv, setConv] = useState<string | null>(null);
@@ -68,8 +68,8 @@ export function Manager({ grants, cases, events, resources, users, selected, now
       const r = await post<{ reply: string; conversation_id: string }>("/agent/turn", { viewer_id: me.id, message: text, conversation_id: conv });
       setConv(r.conversation_id);
       setChat((c) => [...c, { who: "gemini", text: r.reply }]);
-    } catch (e) {
-      setChat((c) => [...c, { who: "gemini", text: `Not available here (${String(e).slice(0, 60)}). Track 2 hosts this turn; it answers from typed state only.` }]);
+    } catch {
+      setChat((c) => [...c, { who: "gemini", text: "Offline." }]);
     } finally {
       setBusy(false);
     }
@@ -78,18 +78,17 @@ export function Manager({ grants, cases, events, resources, users, selected, now
   return (
     <div className="mgr">
       <section className="mgr-people">
-        <div className="sec-h"><h2>People · {users.length}</h2><span className="mgr-hint">click a row to open the full timeline</span></div>
+        <div className="sec-h"><h2>People</h2></div>
         {users.map((u) => {
           const active = grants.filter((g) => g.requester_id === u.id && !g.revoked && Date.parse(g.expires_at) > now);
           const pending = cases.filter((c) => c.requester_id === u.id && c.status === "pending");
-          const revoked = grants.filter((g) => g.requester_id === u.id && g.revoked);
           return (
             <button className="mgr-row" key={u.id} onClick={() => onDeepDive(u.id)} style={{ ["--u" as string]: u.color }}>
-              <span className="mgr-who"><i /><b>{u.name}</b><small>{u.team} · {u.role}</small></span>
-              <span className="mgr-counts"><b>{active.length}</b> active <em>·</em> <b className="amber">{pending.length}</b> pending <em>·</em> <b>{revoked.length}</b> revoked</span>
+              <span className="mgr-who"><i /><b>{u.name}</b><small>{u.team}</small></span>
+              <span className="mgr-counts"><b>{active.length}</b> active <em>·</em> <b className="amber">{pending.length}</b> pending</span>
               <MiniTimeline grants={grants} cases={cases} user={u} t0={t0} span={span} now={now} />
               <span className="mgr-res">{active.map((g) => label(g.resource_id, resources)).join(", ") || "—"}</span>
-              <span className="mgr-go">Open →</span>
+              <span className="mgr-go">→</span>
             </button>
           );
         })}
@@ -99,24 +98,23 @@ export function Manager({ grants, cases, events, resources, users, selected, now
         <Approvals cases={cases} grants={grants} events={events} resources={resources} users={users} selected={selected} />
 
         <section className="mgr-settings">
-          <div className="apv-h">Settings · policy</div>
+          <div className="apv-h">Policy</div>
           <table className="pol">
-            <thead><tr><th>tier</th><th>auto-grant up to</th><th>approvals</th></tr></thead>
+            <thead><tr><th>tier</th><th>auto up to</th><th>approvals</th></tr></thead>
             <tbody>{POLICY.map((p) => <tr key={p.tier}><td>{p.tier}</td><td>{p.auto}</td><td>{p.approvals}</td></tr>)}</tbody>
           </table>
-          <div className="pol-note">Cross-team requests always escalate to the owning team. Read-only until <code>PATCH /policy</code> ships.</div>
         </section>
 
         <section className="mgr-live">
-          <div className="apv-h">Gemini <span className="live-dot" /> discuss a permission</div>
+          <div className="apv-h">Gemini <span className="live-dot" /></div>
           <div className="live-log">
-            {chat.length === 0 && <div className="live-empty">Ask about anything on this screen. Gemini answers from typed state — it can explain and draft a request; it cannot vote or grant.</div>}
+            {chat.length === 0 && <div className="live-empty">Ask about anyone here.</div>}
             {chat.map((m, i) => <div key={i} className={`live-msg ${m.who}`}><b>{m.who === "you" ? me?.short ?? "you" : "G"}</b><span>{m.text}</span></div>)}
             {busy && <div className="live-msg gemini"><b>G</b><span>…</span></div>}
           </div>
           <div className="live-in">
-            <button className="nb mic" title="Voice via Gemini Live — hosted by track 2" disabled>●</button>
-            <input id="live-text" value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ask()} placeholder="Ask Gemini…" />
+            <button className="nb mic" title="Voice — soon" disabled>●</button>
+            <input id="live-text" value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ask()} placeholder="Who is waiting on me?" />
             <button className="nb" onClick={ask} disabled={busy || !msg.trim()}>Send</button>
           </div>
         </section>

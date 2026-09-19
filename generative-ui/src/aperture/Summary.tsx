@@ -81,7 +81,7 @@ export function Summary({ grants, cases, events, resources, users, selected, now
 
   return (
     <div className="sm" style={{ ["--u" as string]: me.color }}>
-      <div className="sm-prov"><span>composed for <b>{me.id}</b> · {spec.panels.length} panels · {source} · {new Date(spec.generated_at ?? now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span><button className="nb" onClick={() => setTick((t) => t + 1)}>Regenerate</button></div>
+      <div className="sm-prov"><span>composed for <b>{me.id}</b> · {source} · {new Date(spec.generated_at ?? now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span><button className="nb" onClick={() => setTick((t) => t + 1)}>Refresh</button></div>
       <div className="sm-grid">
         {spec.panels.map((p) => {
           const pr = p.props as Record<string, any>;
@@ -90,7 +90,7 @@ export function Summary({ grants, cases, events, resources, users, selected, now
               return (
                 <div className="sm-head" key={p.id}>
                   <h1>{pr.name}, you can use <b>{pr.count}</b> thing{pr.count === 1 ? "" : "s"}{pr.until ? <> until <b>{pr.until}</b></> : null}.</h1>
-                  <p>{pr.pending ? `${pr.pending} request${pr.pending === 1 ? " is" : "s are"} waiting on a human. ` : ""}Everything here expires on its own or when the project closes. Your agent sees exactly this list as tools.</p>
+                  <p>{pr.pending ? `${pr.pending} waiting on a human. ` : ""}All of it expires on its own.</p>
                 </div>
               );
             case "ResourceGuide":
@@ -129,12 +129,11 @@ export function Summary({ grants, cases, events, resources, users, selected, now
           }
         })}
         <div className="sm-card tools">
-          <div className="sm-top"><span className="sm-name">what your agent sees</span><span className="sm-exp">tools/list</span></div>
+          <div className="sm-top"><span className="sm-name">your agent's tools</span><span className="sm-exp">live</span></div>
           <div className="sm-tools">
             <span>request_access</span><span>my_access</span>
             {tools.map((t) => <span className="live" key={t.name}>{t.name}</span>)}
           </div>
-          <div className="sm-meta">Connect: <code>claude mcp add aperture -e APERTURE_REQUESTER={me.id} -- python agent-runtime/mcp_serve.py</code></div>
         </div>
       </div>
     </div>

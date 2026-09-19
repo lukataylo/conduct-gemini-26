@@ -22,6 +22,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import gcp_iam  # noqa: E402
 from policy_engine_paths import escalation, policy_engine, usecase_demo  # noqa: E402
 from shared.schemas import (  # noqa: E402
     AccessRequest,
@@ -200,7 +201,21 @@ def _issue_grant(
     GRANTS[grant.id] = grant
     ttl_label = f"{ttl_hours}h" if ttl_hours is not None else f"{ttl_days}d"
     _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_label}", request_id=request_id, grant_id=grant.id)
+    _mirror_to_gcp(grant, add=True)
     return grant
+
+
+def _mirror_to_gcp(grant: Grant, add: bool) -> None:
+    """REAL_GCP=true only: apply the grant/revoke to real IAM and log Google's read-back."""
+    if not gcp_iam.is_real(grant.resource_id, grant.requester_id):
+        return
+    result = (gcp_iam.grant if add else gcp_iam.revoke)(grant.resource_id, grant.requester_id)
+    if result["verified"]:
+        state = "has read access to" if add else "no longer has access to"
+        detail = f"Verified in GCP: {result['principal']} {state} {result['resource']}"
+    else:
+        detail = f"GCP {result['action']} on {result['resource'] or grant.resource_id} not verified: {result.get('error', 'read-back mismatch')}"
+    _audit(AuditEventType.ACTION_EXECUTED, actor="gcp-iam", detail=detail, request_id=grant.request_id, grant_id=grant.id, payload=result)
 
 
 def active_grants(requester_id: str | None = None) -> list[Grant]:
@@ -230,6 +245,9 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
     grant = grant.model_copy(update={"revoked": True, "revoked_at": now(), "revoked_reason": reason})
     GRANTS[grant_id] = grant
     _audit(AuditEventType.GRANT_REVOKED, actor="policy-engine", detail=reason, grant_id=grant_id, request_id=grant.request_id)
+    # keep real access if another active grant still covers the same requester + resource
+    if not any(g.resource_id == grant.resource_id for g in active_grants(grant.requester_id)):
+        _mirror_to_gcp(grant, add=False)
     return grant
 
 

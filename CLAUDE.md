@@ -11,9 +11,12 @@ resources so grants/revocations become real IAM changes on stage. Rules:
 - **The mock is the default and must always keep working.** Real IAM calls only happen
   when `REAL_GCP=true`. If GCP misbehaves during the demo, set `REAL_GCP=false` and the
   demo runs exactly as before. Never make any workstream *require* GCP to run.
-- The only integration point is a small module exposing `grant(resource_id, principal)`
-  and `revoke(resource_id, principal)`. `backend-api` calls it from `_issue_grant()` and
-  `revoke_grant()` behind the flag. Don't scatter `google-cloud-*` calls elsewhere.
+- The only integration point is `backend-api/gcp_iam.py` (`grant` / `revoke`, with an IAM
+  read-back). `main.py` calls it via `_mirror_to_gcp()` from `_issue_grant()` and
+  `revoke_grant()`. Don't scatter `google-cloud-*` calls elsewhere.
+- Run with real GCP (demo laptop): `cd backend-api && uvicorn main:app --env-file ../.env`
+  with `REAL_GCP=true` in `.env`. Pre-demo check: `.venv/bin/python infra/gcp_smoke_test.py`
+  (runs the golden path against real GCP, grants then revokes, prints PASS/FAIL).
 - Failures in real IAM calls must be caught and logged as an `AuditEvent`, never crash
   the request — the mock state is still the source of truth for the UI.
 - Only `bucket-analytics-raw` and `bq-project-x-finance` are real. `sql-prod-primary`

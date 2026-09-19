@@ -1,45 +1,56 @@
 # agent-runtime
 
-**Owner: contributor 2.** Everything that touches an LLM or drives the mock console
-directly, plus the audit-logging helper and the Modal deployment for all of it.
+**Owner: contributor 2.** Everything that touches a model or drives the console, on
+**Modal**, instrumented with **Pydantic AI + Logfire**. Both are hackathon partners;
+use them for what they're actually for. Design brief: [`docs/ui-surfaces.html`](../docs/ui-surfaces.html)
+(surfaces 1, 3, 7).
+
+## Ambition ladder
+
+| | What | Done when |
+|---|---|---|
+| **Core** (must demo) | Gemini structured-output parse with resource ids as an **enum** (no hallucinated buckets). Pydantic AI agent wrapping it, `logfire.instrument_pydantic_ai()` on, every call traced. Gemini writes the approver-facing summary *from the structured `PolicyDecision`*, never from the requester's raw text. | Parse event in the audit trail links to its Logfire span. |
+| **Ambitious** (wins) | **Computer use in a Modal Sandbox** driving the mock console — one recorded run in the afternoon, every screenshot + action stored as `ACTION_EXECUTED` events. **Scoped MCP server**: `tools/list` derived from the requester's active grants; `tools/list_changed` on revoke; Claude Code as the on-stage client. Gemini composes the A2UI spec for contributor 1. | Claude Code lists tools, calls one against the mock GCS, and loses it when the project closes. |
+| **Fallback** | Recorded replay (already the default). Action log without images. | — |
 
 ## What's here
 
-- `gemini_parser.py` — `parse_request(raw_text, requester, known_resource_ids) ->
-  AccessRequest`. The only place free text becomes structured data. Use Gemini's
-  structured-output / `response_schema` mode, constrained to `known_resource_ids`, so it
-  can't hallucinate a resource. Skeleton has the prompt and the exact spot to drop in the
-  `google-genai` call — see the `TODO` in the file.
-- `computer_use.py` — `execute_grant(grant, console_url) -> AuditEvent`. Drives Claude's
-  computer-use tool against the mock GCP console from `usecase-demo`/`backend-api` to
-  *visibly perform* an already-decided grant. This is the on-stage wow moment — make
-  sure it never makes a decision, only executes one policy-engine already approved.
-- `audit_logger.py` — `log(type, actor, detail, ...)`. Use this instead of ad-hoc
-  logging; call `set_emitter()` once backend-api exposes a real `/audit` endpoint so
-  events land in the shared trail instead of just local memory.
-- `modal_app.py` — exposes `parse_request` and `execute_grant` as Modal endpoints
-  backend-api calls, so slow/computer-use-heavy work doesn't block the API.
+- `gemini_parser.py` — `parse_request()`; the `TODO` marks the `google-genai` call.
+  Use `response_schema` with `resource_ids: list[Literal[...known ids...]]` built at
+  call time from `known_resource_ids`.
+- `computer_use.py` — `execute_grant()`; the `TODO` marks the computer-use loop.
+  Start from Modal's official example: https://modal.com/docs/examples/anthropic_computer_use
+- `audit_logger.py` — `log(...)`; call `set_emitter()` to POST to `backend-api /audit`.
+- `modal_app.py` — endpoints for parse and execute.
 
-## Setup
+## Build order
+
+1. **Parse** — real Gemini call, enum-constrained. Return `AccessRequest`. Wrap in a
+   Pydantic AI `Agent` with `output_type=AccessRequest`; `logfire.configure()` +
+   `logfire.instrument_pydantic_ai()`. Put `trace_id` in `AuditEvent.payload`.
+2. **Summaries** — `summarize_decision(decision, resource, requester) -> str` for the
+   approval card. Input is the typed decision only. Fallback: the reason string.
+3. **A2UI spec** — `compose_ui(grants, cases, role) -> UISpec` with a fixed catalog in
+   the prompt and `response_schema=UISpec`. Contributor 1 renders it.
+4. **Computer use** — Modal Sandbox + headless Chromium against the mock console URL
+   (contributor 4). Goal derived from a `Grant`. Save each screenshot to a Modal Volume;
+   emit `ACTION_EXECUTED` with `{"screenshot_url", "action"}`. Record once at ~16:30.
+5. **Scoped MCP** — `mcp_server.py`: FastMCP; on `tools/list` query
+   `GET /grants?requester_id=` and expose `gcs_list_objects`, `gcs_read_object`,
+   `bq_query`, plus `request_access`. Tool descriptions written by Gemini from the grant
+   (task, expiry). Subscribe to `/stream`; on `grant_revoked` send `tools/list_changed`.
+6. **Live gate** — `execute_grant_endpoint` streams screenshots over SSE only if the
+   18:30 rehearsal passed twice. Otherwise replay.
+
+## Rules that don't bend
+
+- No model output ever becomes a grant. Parse → engine → grant. Summaries are prose.
+- Resource ids are an enum in the schema. The task description is a string the engine
+  never reads as instructions.
+- Computer use *executes* an already-decided grant. It never decides.
 
 ```bash
-cd agent-runtime
-pip install -r requirements.txt
-modal token new                 # first time only, links your Modal account
-modal secret create access-scope-agent-secrets GEMINI_API_KEY=... ANTHROPIC_API_KEY=...
-modal serve modal_app.py        # local dev with hot reload
+cd agent-runtime && pip install -r requirements.txt
+modal token new && modal secret create access-scope-agent-secrets GEMINI_API_KEY=... ANTHROPIC_API_KEY=... LOGFIRE_TOKEN=...
+modal serve modal_app.py
 ```
-
-## Next steps for contributor 2
-
-1. `gemini_parser.py`: fill in the real `google-genai` structured-output call — the
-   prompt and schema shape are already sketched, follow the `TODO`.
-2. `computer_use.py`: get one computer-use loop working end to end against *any* web
-   page first (even a static mockup), then point it at whatever `usecase-demo` builds as
-   the mock console.
-3. Decide with contributor 5 (backend-api) whether `execute_grant` should be
-   synchronous (backend-api waits) or fire-and-callback (Modal function posts an
-   `AuditEvent` back to backend-api when done) — computer-use loops can run long, so
-   fire-and-callback is probably safer for the live demo.
-4. Wire `audit_logger.set_emitter()` to POST to backend-api's `/audit` endpoint once it
-   exists.

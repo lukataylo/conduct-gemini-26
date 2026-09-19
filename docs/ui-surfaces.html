@@ -1,0 +1,935 @@
+<title>Aperture UI Surfaces</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f3f5f8;
+    --surface: #ffffff;
+    --surface-2: #e9edf2;
+    --ink: #17212b;
+    --ink-2: #4f5f70;
+    --ink-3: #8593a2;
+    --line: #d3dae2;
+    --line-2: #b9c3cf;
+    --accent: #1d5cc2;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4edfb;
+    --good: #1c7f52;
+    --good-soft: #e0f3e9;
+    --warn: #b56a0a;
+    --warn-soft: #fbeedb;
+    --crit: #b83a3a;
+    --crit-soft: #f9e3e3;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1318;
+      --surface: #161c23;
+      --surface-2: #1e262f;
+      --ink: #e4eaf1;
+      --ink-2: #a3b0be;
+      --ink-3: #6f7d8c;
+      --line: #2a343f;
+      --line-2: #3a4653;
+      --accent: #6ea3f5;
+      --accent-ink: #0b1524;
+      --accent-soft: #172a45;
+      --good: #4cc48a;
+      --good-soft: #143224;
+      --warn: #e2a24a;
+      --warn-soft: #3a2a12;
+      --crit: #ef7b7b;
+      --crit-soft: #3d1d1d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1318;
+    --surface: #161c23;
+    --surface-2: #1e262f;
+    --ink: #e4eaf1;
+    --ink-2: #a3b0be;
+    --ink-3: #6f7d8c;
+    --line: #2a343f;
+    --line-2: #3a4653;
+    --accent: #6ea3f5;
+    --accent-ink: #0b1524;
+    --accent-soft: #172a45;
+    --good: #4cc48a;
+    --good-soft: #143224;
+    --warn: #e2a24a;
+    --warn-soft: #3a2a12;
+    --crit: #ef7b7b;
+    --crit-soft: #3d1d1d;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-block: 0 4rem;
+    padding-inline: 20px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 3px; }
+  h1, h2, h3, h4 { text-wrap: balance; margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
+  h1 { font-size: 2.2rem; font-weight: 600; }
+  h2 { font-size: 1.45rem; font-weight: 600; }
+  h3 { font-size: 1.08rem; font-weight: 600; }
+  h4 { font-size: 0.95rem; font-weight: 600; }
+  p { margin: 0; }
+  ul { margin: 0; padding-left: 1.1rem; }
+  li + li { margin-top: 0.25rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .layout {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 3rem;
+  }
+  .rail {
+    position: sticky;
+    top: 1.5rem;
+    align-self: start;
+    padding-top: 3.2rem;
+    font-size: 0.82rem;
+  }
+  .rail ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+  .rail a { color: var(--ink-2); display: block; padding: 0.15rem 0; border-left: 2px solid transparent; padding-left: 0.6rem; }
+  .rail a:hover { color: var(--ink); border-left-color: var(--line-2); text-decoration: none; }
+  .rail .group { margin-top: 0.9rem; }
+  .rail .group:first-child { margin-top: 0; }
+  main { max-width: 860px; min-width: 0; }
+
+  header.masthead { padding-block: 3rem 2.5rem; border-bottom: 1px solid var(--line); display: grid; gap: 0.9rem; }
+  .lede { font-size: 1.08rem; color: var(--ink-2); max-width: 62ch; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; font-size: 0.82rem; color: var(--ink-2); }
+  .meta b { color: var(--ink); font-weight: 500; }
+
+  section { padding-block: 2.6rem; border-bottom: 1px solid var(--line); display: grid; gap: 1.2rem; }
+  section > p, section > ul { max-width: 66ch; }
+  .sec-head { display: grid; gap: 0.35rem; }
+  .sec-head .sub { color: var(--ink-2); max-width: 66ch; }
+
+  .findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+  .finding-col h3 { padding-bottom: 0.5rem; border-bottom: 1px solid var(--line-2); margin-bottom: 0.8rem; }
+  .finding { display: grid; gap: 0.2rem; padding-block: 0.7rem; border-bottom: 1px dashed var(--line); }
+  .finding:last-child { border-bottom: 0; }
+  .finding .so { color: var(--accent); font-size: 0.9rem; }
+  .finding .so::before { content: "→ "; }
+
+  .rule { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0; border: 1px solid var(--line-2); background: var(--surface); }
+  .rule > div { padding: 1rem 1.1rem; display: grid; gap: 0.3rem; align-content: start; }
+  .rule > div + div { border-left: 1px solid var(--line); }
+  .rule .who { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .rule .what { font-weight: 600; }
+  .rule .how { color: var(--ink-2); font-size: 0.9rem; }
+  @media (max-width: 640px) { .rule > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+
+  .surface-head { display: grid; gap: 0.4rem; }
+  .surface-head .num { font-family: var(--mono); color: var(--ink-3); font-size: 0.8rem; }
+  .surface-head .job { color: var(--ink-2); max-width: 66ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip { font-family: var(--mono); font-size: 0.72rem; padding: 0.15rem 0.5rem; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink-2); background: var(--surface); white-space: nowrap; }
+
+  .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+  .opt { background: var(--surface); border: 1px solid var(--line); padding: 1rem 1.1rem 0.9rem; display: grid; gap: 0.7rem; align-content: start; }
+  .opt.rec { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .opt.avoid { background: transparent; }
+  .opt.avoid .opt-title, .opt.avoid ul, .opt.avoid .desc { color: var(--ink-2); }
+  .opt-top { display: flex; justify-content: space-between; align-items: start; gap: 0.6rem; }
+  .opt-title { display: grid; gap: 0.1rem; }
+  .opt-title .letter { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-3); }
+  .tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.5rem; white-space: nowrap; border-radius: 3px; }
+  .tag.rec { background: var(--accent); color: var(--accent-ink); }
+  .tag.stretch { background: var(--warn-soft); color: var(--warn); }
+  .tag.fallback { background: var(--surface-2); color: var(--ink-2); }
+  .tag.avoid { background: var(--crit-soft); color: var(--crit); }
+  .tag.base { background: var(--good-soft); color: var(--good); }
+  .desc { color: var(--ink-2); font-size: 0.93rem; }
+  .pc { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.88rem; }
+  .pc h5 { margin: 0 0 0.25rem; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; }
+  .pc .pro h5 { color: var(--good); }
+  .pc .con h5 { color: var(--crit); }
+  .pc ul { padding-left: 1rem; }
+  @media (max-width: 420px) { .pc { grid-template-columns: 1fr; } }
+  .opt-foot { display: flex; gap: 1rem; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 0.55rem; }
+  .opt-foot b { color: var(--ink-2); font-weight: 500; }
+
+  .legend { font-size: 0.82rem; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+
+  .timeline { display: grid; gap: 0; border-left: 2px solid var(--line-2); margin-left: 0.4rem; }
+  .slot { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 0.8rem; padding: 0.7rem 0 0.7rem 1rem; position: relative; }
+  .slot::before { content: ""; position: absolute; left: -7px; top: 1.05rem; width: 12px; height: 12px; border-radius: 50%; background: var(--ground); border: 2px solid var(--line-2); }
+  .slot.gate::before { background: var(--warn); border-color: var(--warn); }
+  .slot.demo::before { background: var(--accent); border-color: var(--accent); }
+  .slot .t { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-2); padding-top: 0.15rem; font-variant-numeric: tabular-nums; }
+  .slot .b { display: grid; gap: 0.25rem; }
+  .slot .b b { font-weight: 600; }
+  .slot .b .chk { color: var(--ink-2); font-size: 0.9rem; }
+  .slot .b .chk::before { content: "checkpoint · "; font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; }
+  @media (max-width: 480px) { .slot { grid-template-columns: 1fr; } }
+
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; min-width: 640px; }
+  th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  .qa { display: grid; gap: 0.9rem; }
+  .qa div { display: grid; gap: 0.25rem; padding: 0.8rem 1rem; background: var(--surface); border: 1px solid var(--line); }
+  .qa .q { font-weight: 600; }
+  .qa .q::before { content: "Judge: "; color: var(--ink-3); font-weight: 400; }
+  .qa .a { color: var(--ink-2); font-size: 0.93rem; }
+  .qa .a::before { content: "Us: "; color: var(--accent); }
+
+  .sources { font-size: 0.82rem; color: var(--ink-2); columns: 2; column-gap: 2rem; }
+  .sources li { break-inside: avoid; }
+  @media (max-width: 640px) { .sources { columns: 1; } }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; gap: 0; }
+    .rail { position: static; padding-top: 2rem; }
+    .rail ol { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+    .rail .group { margin-top: 0; }
+    .rail a { border-left: 0; padding-left: 0; }
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="layout">
+  <nav class="rail" aria-label="Sections">
+    <ol>
+      <li class="group"><a href="#research">Research</a></li>
+      <li><a href="#rule">The one rule</a></li>
+      <li class="group"><a href="#s1">1 · Request intake</a></li>
+      <li><a href="#s2">2 · Requester dashboard</a></li>
+      <li><a href="#s3">3 · Agent tool manifest</a></li>
+      <li><a href="#s4">4 · Approval queue</a></li>
+      <li><a href="#s5">5 · Multi-approver</a></li>
+      <li><a href="#s6">6 · Audit trail</a></li>
+      <li><a href="#s7">7 · Agent in action</a></li>
+      <li><a href="#s8">8 · Policy console</a></li>
+      <li><a href="#s9">9 · Expiry &amp; revocation</a></li>
+      <li><a href="#s10">10 · Where approvals land</a></li>
+      <li class="group"><a href="#tonight">Build order</a></li>
+      <li><a href="#tracks">Track ambitions</a></li>
+      <li><a href="#judges">Judge questions</a></li>
+      <li><a href="#sources">Sources</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">{Tech: Europe} Agentic AI Hack · London · design brief · 19 Sep 2026</div>
+      <h1>Aperture UI Surfaces</h1>
+      <p class="lede">Every screen the access-scope agent needs, with three or four ways to build each one, what each costs on a one-day clock, and which to pick for a demo at 20:00. <em>Aperture</em> is a working codename — an opening sized to what you're allowed to see.</p>
+      <div class="meta">
+        <span><b>Co-hosts</b> Google DeepMind · Conduct</span>
+        <span><b>Partners</b> Modal · Pydantic</span>
+        <span><b>Live demos</b> 20:00 · opt-in 19:00</span>
+        <span><b>Repo</b> <a href="https://github.com/lukataylo/conduct-gemini-26">lukataylo/conduct-gemini-26</a></span>
+      </div>
+    </header>
+
+    <section id="research">
+      <div class="sec-head">
+        <h2>What the research says, and what we do about it</h2>
+        <p class="sub">Two threads: how the industry builds generative UI, and how access-governance products fail their users. Each finding ends with the design consequence.</p>
+      </div>
+      <div class="findings">
+        <div class="finding-col">
+          <h3>Generative UI</h3>
+          <div class="finding">
+            <p>The field converged on <b>JSON spec + fixed component catalog</b>, not model-written code. Vercel's AI SDK abandoned streaming React Server Components for schema-validated JSON; OpenAI's Apps SDK sandboxes components in an iframe; Google's <b>A2UI</b> protocol (co-built with the Gemini Enterprise team) calls it "least-privilege UI": the agent sends data, never code.</p>
+            <p class="so">Our registry pattern is the right one. Make Gemini speak A2UI on a DeepMind-hosted stage.</p>
+          </div>
+          <div class="finding">
+            <p>The sharpest named risk is a generated element triggering a privileged action because the UI showed it. The fix is a <b>constraint validator</b>: every action re-checked server-side at execution time.</p>
+            <p class="so">Buttons carry action ids, never parameters the server trusts. Policy runs twice: at proposal and at execution.</p>
+          </div>
+          <div class="finding">
+            <p><b>Full regeneration flickers</b> and loses scroll, open panels and typed input. Incremental patching of a panel list is the documented remedy. Hallucinated component names are universal; the mitigation is a visible non-crashing fallback.</p>
+            <p class="so">Diff panel ids, animate add/remove, stream data separately from layout. Keep <code>UnknownComponent</code>.</p>
+          </div>
+          <div class="finding">
+            <p>Generated UI can't be evaluated like text; teams snapshot-test the catalog instead. Unsupervised generation has produced accessibility failures and buried "deny" buttons.</p>
+            <p class="so">Test the registry, not the generation. The approver's deny control is never model-positioned.</p>
+          </div>
+          <div class="finding">
+            <p>Almost every generative-UI case study is chat-first. Admin and dashboard surfaces are thin.</p>
+            <p class="so">Say so on stage: this is generative UI for an access-control console, not a chatbot.</p>
+          </div>
+        </div>
+        <div class="finding-col">
+          <h3>Access governance</h3>
+          <div class="finding">
+            <p><b>Approval fatigue</b> is the dominant failure: reviewers approve over 95% of entitlements in under ten seconds because the card shows <code>CN=Finance_RW_102</code> and a deadline, and nothing else.</p>
+            <p class="so">The approval card carries the agent's reasoning, tier, who else holds it, and a proposed expiry — inline, not a click away.</p>
+          </div>
+          <div class="finding">
+            <p>Uniform approval paths <em>cause</em> fatigue by training people to click through everything the same way. The fix is tiering: auto-approve the routine, escalate only the ambiguous, add friction only at the top.</p>
+            <p class="so">Our tiered engine is the industry pattern. Critical-tier approvals require a typed justification.</p>
+          </div>
+          <div class="finding">
+            <p><b>Standing privilege</b> — access nobody revoked when the project ended — is the top finding in access audits and a leading breach vector, distinct from orphaned access after offboarding.</p>
+            <p class="so">Every grant has an expiry by construction. "Close project" revokes in bulk. Both are demo beats.</p>
+          </div>
+          <div class="finding">
+            <p>No vendor's flagship surface is a portal any more: ConductorOne, Opal, P0, Britive, Apono and Entitle all put approve/deny inside Slack or the terminal because that's where approvers are.</p>
+            <p class="so">The in-app queue stays (decided), styled as the chat-card pattern people already trust.</p>
+          </div>
+          <div class="finding">
+            <p>Audit logs are judged on how usable they are during an incident, not on completeness. <b>Agent-as-requester</b> is a barely-served category — only P0 targets it.</p>
+            <p class="so">Per-request story timelines. And the differentiator: the requester in our demo is a coding agent.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rule">
+      <div class="sec-head">
+        <h2>The one rule every surface obeys</h2>
+        <p class="sub">Models propose and explain. A deterministic engine decides. A fixed catalog constrains what can render. This is the security answer, the demo narrative, and the reason five people can build in parallel.</p>
+      </div>
+      <div class="rule">
+        <div>
+          <span class="who">Gemini</span>
+          <span class="what">Proposes</span>
+          <span class="how">Parses the task into an <code>AccessRequest</code> with resource ids constrained to a known enum. Composes the A2UI layout. Writes the reasoning an approver reads.</span>
+        </div>
+        <div>
+          <span class="who">Policy engine</span>
+          <span class="what">Decides</span>
+          <span class="how">Pure functions over typed input: tier × duration × team → grant, escalate, deny. Re-run at execution time for every action id a generated button carries.</span>
+        </div>
+        <div>
+          <span class="who">Renderer</span>
+          <span class="what">Constrains</span>
+          <span class="how">Only catalog components render. Unknown names fall back visibly. The deny control is fixed in place, never model-positioned.</span>
+        </div>
+        <div>
+          <span class="who">Audit</span>
+          <span class="what">Remembers</span>
+          <span class="how">Every transition is a typed <code>AuditEvent</code>, hash-chained, with the Logfire trace of the model call it came from.</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="legend" style="padding-top:2rem">
+      <span><b>Cost</b> S ≈ 1h · M ≈ 2–3h · L ≈ 4h+</span>
+      <span><b>Demo risk</b> what can go wrong on stage, not in code</span>
+      <span><b>Track</b> which contributor owns it</span>
+    </div>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="surface-head">
+        <span class="num">Surface 1</span>
+        <h2>Request intake</h2>
+        <p class="job">Turn "here's what I'm trying to do" into a typed <code>AccessRequest</code> the engine can judge. The first thing the audience sees.</p>
+        <div class="chips"><span class="chip">track 2 · parse</span><span class="chip">track 1 · UI</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Chat, then a confirmation card</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Free text goes to Gemini structured output; the parsed request comes back as an editable "Here's what I understood" card — resources, duration, project — that the requester submits.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Shows the model doing real work, visibly</li><li>A bad parse is caught on screen, not inside the engine</li><li>The card is the first generated component of the night</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>One more step than a raw chat</li><li>Needs the resource enum in the schema so Gemini can't invent a bucket</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Raw chat, straight to the engine</h3></div><span class="tag stretch">If time is short</span></div>
+          <p class="desc">Same parse, no confirmation. The decision appears directly.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Fastest to build</li><li>Feels most agentic</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>A mis-parse on stage cascades into a wrong decision with no visible cause</li><li>Nothing for the presenter to point at between input and output</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Structured form</h3></div><span class="tag fallback">Fallback</span></div>
+          <p class="desc">Resource picker, duration, task field. No model in the loop.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Zero parse risk</li><li>Thirty minutes</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Judges see a form</li><li>Hides the Gemini contribution entirely</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>No human: the coding agent asks</h3></div><span class="tag stretch">Stretch · second request</span></div>
+          <p class="desc">Claude Code, running live, calls a <code>request_access</code> tool on the scoped MCP server (surface 3). The intern plugged in their agent and it asked for what the task needed.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The truest form of the pitch</li><li>The endpoint already exists; the tool is a wrapper</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Nothing to watch unless the live event feed is on screen</li><li>Depends on a second live model on stage</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="surface-head">
+        <span class="num">Surface 2</span>
+        <h2>Requester dashboard — the generative UI itself</h2>
+        <p class="job">Show exactly the tools this person's grants cover, right now, and nothing else. The question is how much of the layout the model composes and how changes arrive.</p>
+        <div class="chips"><span class="chip">track 1</span><span class="chip">A2UI</span><span class="chip">SSE</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>A2UI generation with incremental patching</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">On each scope change Gemini emits an A2UI message — a component tree against our catalog plus a separate data model. The client diffs panel ids, animates adds and removes, and streams data-model updates over SSE without regenerating layout.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Google's own protocol, in front of DeepMind</li><li>No flicker: layout is generated once per scope change, data streams continuously</li><li>Schema validation rejects anything off-catalog before render</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Catalog and renderer work on top of the scaffold</li><li>Prompt needs tuning so the layout is stable across calls</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M–L</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Role-adaptive composition</h3></div><span class="tag stretch">Stretch · second wow</span></div>
+          <p class="desc">Same data, different composition per viewer: an intern with two grants gets a focused two-panel view; an approver gets queue-first; an auditor gets timeline-first. The model chooses grouping, order and density from scope size and role.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The strongest visual proof that the UI is generated from scope — "your version is specific to you"</li><li>Builds on A, no new plumbing</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Three prompt variants to tune and QA</li><li>If layouts differ too much, the audience loses orientation</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b> on top of A</span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Static shell, state-driven panels</h3></div><span class="tag fallback">Fallback · already built</span></div>
+          <p class="desc">What's in the repo now: <code>/ui-spec</code> maps grants and cases to panels deterministically; the client polls and renders through the registry.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Works today; no flicker by construction</li><li>Deterministic, easy to test</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Generative in name only — a judge will ask where the model is</li><li>Polling looks laggy next to a stream</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>done</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Full regeneration every change</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">Gemini re-emits the entire spec on every event; the client replaces the tree wholesale.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Simplest possible loop</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>The documented flicker-and-lost-state failure</li><li>One model round-trip per event, on stage, over venue wifi</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>high</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="surface-head">
+        <span class="num">Surface 3</span>
+        <h2>The agent's surface — a scoped tool manifest</h2>
+        <p class="job">For a coding agent, the UI is its tool list. The requester's agent should see exactly and only the tools its current grants allow, and lose them the moment a grant is revoked. This is the surface no competitor has, and the one that makes the closing beat land.</p>
+        <div class="chips"><span class="chip">track 2</span><span class="chip">track 5</span><span class="chip">MCP</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Per-requester MCP server derived from grants</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc"><code>tools/list</code> is computed from active <code>Grant</code>s: a bucket grant yields <code>gcs_list_objects</code> and <code>gcs_read_object</code>; a dataset grant yields <code>bq_query</code>. Revocation emits <code>tools/list_changed</code> and the tool is gone mid-session. Claude Code on the presenter's laptop is the client.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Least-privilege UI in the literal sense</li><li>Revocation becomes visible to the agent instantly — the strongest possible "access removed when the project is over"</li><li>A category only P0 is chasing</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>An MCP server plus a live client on stage</li><li>Tools need mock implementations against the fake GCP layer</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Task-scoped tool descriptions</h3></div><span class="tag rec">Add to A</span></div>
+          <p class="desc">Gemini writes each exposed tool's description from the grant: "read raw analytics events for the Atlas ingestion pipeline — expires 3 Oct". The manifest reads as task-bounded, not generic.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Cheap; one prompt per grant</li><li>Makes the scope legible to the agent and to the audience</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Cosmetic without A</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>The agent requests through the same server</h3></div><span class="tag stretch">Stretch · closes the loop</span></div>
+          <p class="desc">A <code>request_access</code> tool on the manifest. Claude Code asks, the engine decides, the approver approves, the tools appear, Claude Code uses them, the project closes, the tools vanish. No human touches the requester side.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Turns the demo into one continuous loop</li><li>Small increment on A</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Two live models in sequence on stage</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b> on top of A</span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Static server, check at call time</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">Expose every tool; reject unauthorised calls with an error.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Trivial</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>The agent sees tools it can't use and wastes turns on them</li><li>Not least privilege; nothing changes on revocation</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="surface-head">
+        <span class="num">Surface 4</span>
+        <h2>Approval queue</h2>
+        <p class="job">Get a manager to make a real decision in the time they'd otherwise spend rubber-stamping. The card is the product.</p>
+        <div class="chips"><span class="chip">track 1</span><span class="chip">track 5</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Context-rich card</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Why the engine escalated (the reason string), the agent's plain-English summary, sensitivity tier, requester with team and manager, what they already hold, a peer comparison ("0 of 6 on data-platform have this"), the proposed expiry, and the task it's for. Approve and deny in a fixed position.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The single most-cited fix for approval fatigue</li><li>The agent explaining itself is the demo's credibility moment</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Peer comparison needs seed history</li><li>Generated summary must fall back to the policy reason if Gemini stalls</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Tiered friction</h3></div><span class="tag rec">Recommended with A</span></div>
+          <p class="desc">Internal and restricted tiers: one click. Critical tier: the approve control stays disabled until the approver types a justification, which lands in the audit trail beside the vote.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Friction as a feature, only where it earns its keep</li><li>Nearly free — tiers already exist in the engine</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>One more form state to get right</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Counter-offer</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">The approver grants something narrower — read-only, three days instead of fourteen — and the agent explains the difference back to the requester.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>What real approvers do by hand in Slack threads today</li><li>Shows negotiation, not a binary gate</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Touches the shared schema (grant scope)</li><li>More card states</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Resource name, two buttons</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">A list of pending ids with approve and deny.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Thirty minutes</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Exactly the ten-second rubber-stamp the research describes</li><li>Anyone from Conduct or DeepMind who has used an IAM console will notice</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="surface-head">
+        <span class="num">Surface 5</span>
+        <h2>Multi-approver escalation</h2>
+        <p class="job">A restricted, cross-team dataset needs Finance and the requester's manager. Show where the request is, who's holding it up, and what happens in the meantime.</p>
+        <div class="chips"><span class="chip">track 3</span><span class="chip">track 1</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Visible progress, any-veto</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">"1 of 2 · waiting on Finance" on every view of the case. Any single deny closes it; all required approvals open it. This is what <code>escalation.py</code> already computes.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Matches the built logic exactly</li><li>Transparency is what makes people trust a queue</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Names who is slow</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Partial go-live and agent nudges</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">Approved resources go live immediately while escalated ones wait (per-resource decisions already allow this). After a set time the agent re-sends the context card to the missing approver.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The requester isn't blocked on the slowest approver</li><li>The agent is seen driving the process</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Timers on stage need the fast-forward clock</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Sequential chain</h3></div><span class="tag fallback">Skip tonight</span></div>
+          <p class="desc">Finance first, then the manager, one at a time.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Mirrors some org policies</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Slower; replaces N-of-M rather than building on it</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Opaque parallel</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">Each approver sees the card and nothing about the others.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Nothing to build</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>One person approves and nothing happens — looks broken on stage</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="surface-head">
+        <span class="num">Surface 6</span>
+        <h2>Audit trail</h2>
+        <p class="job">Let a judge read the whole life of one request in ten seconds, and let a security engineer believe it. The Pydantic partner story lives here.</p>
+        <div class="chips"><span class="chip">track 5</span><span class="chip">track 1</span><span class="chip">Logfire</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Per-request story timeline</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Received → evaluated (with the reason string) → escalated → each vote with its comment → granted → executed → revoked. One request, one column, read top to bottom.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Matches demo step 7 exactly</li><li>Usable during an incident, which is how audit UI is judged</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Grouping and ordering logic</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Hash-chained, event-sourced store</h3></div><span class="tag rec">Recommended · ambitious</span></div>
+          <p class="desc">Every <code>AuditEvent</code> carries the SHA-256 of the previous one. Grants and cases are a fold over the log, not separate tables. A "verify chain" control re-hashes the log on screen.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Turns "we log things" into "the log is the system"</li><li>Tamper-evidence is a real security property, cheap to add</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Backend store refactor, around two hours</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Logfire trace on every model event</h3></div><span class="tag rec">Recommended · partner</span></div>
+          <p class="desc">Each event produced by a Gemini or Claude call links to its Pydantic Logfire span: the exact prompt, the structured response, latency, cost. Click the parse event, see what the model actually said.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Partner tech used for its real purpose, not name-dropped</li><li>Judges can inspect model output instead of trusting a summary</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Account setup; links open outside the app</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Flat chronological log</h3></div><span class="tag avoid">Avoid as final</span></div>
+          <p class="desc">Timestamp, actor, detail, newest first.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>It's what <code>/audit</code> returns today</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Unreadable once three requests interleave</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>done</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <div class="surface-head">
+        <span class="num">Surface 7</span>
+        <h2>Agent in action — computer use</h2>
+        <p class="job">The moment the room leans in: an agent operating the console to perform a grant that was already decided. Never deciding, only executing. The Modal partner story lives here.</p>
+        <div class="chips"><span class="chip">track 2</span><span class="chip">Modal Sandbox</span><span class="chip">Claude computer use</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Recorded replay from a real run</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Run computer use once in the afternoon inside a Modal Sandbox against the mock console. Store every screenshot and action as <code>ACTION_EXECUTED</code> events. Play them back as a filmstrip inside the audit timeline, stamped with the time they were captured.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Nine tenths of the visual payoff, none of the live risk</li><li>Still real — the trace proves it</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>A judge may ask whether it's live; answer honestly and show the timestamp</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Live stream from the sandbox</h3></div><span class="tag stretch">Stretch · rehearsal-gated</span></div>
+          <p class="desc">Screenshots pushed over SSE after every action, rendered in a live panel. Modal ships an official computer-use-in-Sandbox example to start from.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Maximum effect</li><li>The partner stack doing exactly what it's for</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Venue wifi plus model latency plus a browser loop</li><li>A stuck loop kills the best moment of the demo</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>L</b></span><span>demo risk <b>high</b></span></div>
+        </div>
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Replay by default, "run live" behind a gate</h3></div><span class="tag rec">If B gets built</span></div>
+          <p class="desc">The presenter presses "run live" only if the 18:30 rehearsal passed twice. Otherwise the replay plays. The decision is made on evidence, at 18:30, not on hope at 20:00.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Best of both, with a rule for choosing</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Two code paths to keep working</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>A + B</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Action log only</h3></div><span class="tag fallback">Fallback</span></div>
+          <p class="desc">"Clicked Grant access", "typed project-x-finance" — text, no images.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Trivial</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Loses the moment entirely</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="surface-head">
+        <span class="num">Surface 8</span>
+        <h2>Policy console</h2>
+        <p class="job">Prove the deterministic engine is real, inspectable, and not a hard-coded if-statement. Answers "where do the rules come from?" before it's asked.</p>
+        <div class="chips"><span class="chip">track 3</span><span class="chip">track 1</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>Policy table with hot-reload sliders</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Tier → max auto-grant days → approvals required, editable. Tighten restricted to three days, re-submit the same request, watch the bucket that auto-granted now escalate.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Cheapest high-impact moment after the golden path</li><li>Proves determinism live</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Reload must validate before applying</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Natural-language policy proposals with property tests</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">"Restricted resources always need two approvers" → Gemini proposes a <code>PolicyRule</code> diff → Hypothesis property tests run (critical never auto-grants; every grant expires) → a human applies it.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The propose/decide split at the policy layer too</li><li>Tests as guardrail is a strong technical story</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>The most complex surface; a bad generation live is awkward</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M–L</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Read-only policy table</h3></div><span class="tag base">Baseline</span></div>
+          <p class="desc">Render <code>DEFAULT_POLICY</code> as a table. No editing.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Twenty minutes; still proves the engine exists</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>No live change to show</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>What-if simulation over history</h3></div><span class="tag fallback">Skip tonight</span></div>
+          <p class="desc">Evaluate a proposed policy against every past request; show how many decisions would flip.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>A real governance feature</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Needs history we don't have tonight</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="surface-head">
+        <span class="num">Surface 9</span>
+        <h2>Expiry and revocation</h2>
+        <p class="job">The original pitch in one sentence: permission removed when the project is over. Make it visible in the dashboard, in the audit trail, and in the agent's tool list at the same instant.</p>
+        <div class="chips"><span class="chip">track 5</span><span class="chip">track 3</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>TTL countdown and a demo clock</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">Each grant card shows time remaining. A sweeper revokes anything past <code>expires_at</code>. A visible "advance clock 14 days" control moves the demo forward honestly.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Auto-expiry shown live, not described</li><li>The fast-forward is on screen, so nobody thinks it's faked</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>All time reads must go through the demo clock</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S–M</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>"Close project" bulk revoke</h3></div><span class="tag rec">Recommended · closing beat</span></div>
+          <p class="desc">One action revokes every grant tagged <code>atlas-migration</code>. Panels leave the dashboard, events land in the trail, and the agent's MCP tools disappear from its list — all in the same second.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Exactly what was asked for at the start</li><li>With surface 3, the strongest ending available</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Grants need a project tag (they have one via the request)</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b> on top of A</span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>Pre-expiry nudge</h3></div><span class="tag stretch">Stretch</span></div>
+          <p class="desc">Two days before expiry the agent asks "still need this?" with extend or let lapse. Silence means lapse.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Proactive; the birthright-plus-JIT thinking the vendors have moved to</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Another timer and another card state</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>M</b></span><span>demo risk <b>medium</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Manual revoke button only</h3></div><span class="tag avoid">Avoid</span></div>
+          <p class="desc">A revoke control per grant, nothing automatic.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The endpoint exists</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Standing privilege is the number-one audit finding; a manual button is how it happens</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>done</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="surface-head">
+        <span class="num">Surface 10</span>
+        <h2>Where approvals land</h2>
+        <p class="job">The in-app queue is decided. The question is how much of the chat-native pattern every vendor has moved to we borrow without taking on an integration tonight.</p>
+        <div class="chips"><span class="chip">track 5</span></div>
+      </div>
+      <div class="options">
+        <div class="opt rec">
+          <div class="opt-top"><div class="opt-title"><span class="letter">A</span><h3>In-app, styled as a chat card</h3></div><span class="tag rec">Recommended</span></div>
+          <p class="desc">The queue item takes the shape people already trust from Slack and Teams approvals — sender, summary, inline controls — with an honestly-labelled "Open in Slack — next" affordance.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Signals we know where this pattern is going</li><li>Zero integration risk</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>It's a visual, not a channel</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">B</span><h3>Email notification to the approver</h3></div><span class="tag stretch">Optional</span></div>
+          <p class="desc">A real message linking back to the queue. Gmail tooling is already wired in this environment.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>Cheap and real</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>Still routes to the portal; adds nothing visible on stage</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt">
+          <div class="opt-top"><div class="opt-title"><span class="letter">C</span><h3>In-app, plain</h3></div><span class="tag base">Baseline · decided</span></div>
+          <p class="desc">The queue as a page in our app.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>No external dependencies</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>The pattern the industry now calls legacy</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>S</b></span><span>demo risk <b>low</b></span></div>
+        </div>
+        <div class="opt avoid">
+          <div class="opt-top"><div class="opt-title"><span class="letter">D</span><h3>Real Slack interactive message</h3></div><span class="tag avoid">Not tonight</span></div>
+          <p class="desc">A Slack app with approve and deny buttons that post back.</p>
+          <div class="pc">
+            <div class="pro"><h5>For</h5><ul><li>The industry-standard surface</li></ul></div>
+            <div class="con"><h5>Against</h5><ul><li>App, OAuth, interactivity endpoint and a workspace, on a one-day clock</li></ul></div>
+          </div>
+          <div class="opt-foot"><span>cost <b>L</b></span><span>demo risk <b>high</b></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tonight">
+      <div class="sec-head">
+        <h2>Build order for tonight</h2>
+        <p class="sub">Assumes work starts around noon and the room sees it at 20:00. Each slot ends in something that can be shown; ambitious layers only start once the checkpoint before them passes.</p>
+      </div>
+      <div class="timeline">
+        <div class="slot">
+          <span class="t">12:00–14:00</span>
+          <div class="b">
+            <b>Spine</b>
+            <span>Event-sourced, hash-chained store with SSE stream and seed loader (5). Gemini structured parse with the resource enum (2). Dashboard renders the scaffold spec over SSE instead of polling (1). Engine tests for the four decision cases (3). Interactive mock console page (4).</span>
+            <span class="chk">the golden path runs from the browser, end to end, with no curl</span>
+          </div>
+        </div>
+        <div class="slot">
+          <span class="t">14:00–16:00</span>
+          <div class="b">
+            <b>Surfaces that win on their own</b>
+            <span>Context-rich approval card with tiered justification (1, 5). Per-request timeline (1). Policy table with hot-reload (3, 1). Demo clock, TTL sweeper, close-project (5). Chaining check and peer-comparison signal in the engine (3). Pydantic AI agent with Logfire instrumentation (2).</span>
+            <span class="chk">a full run-through with bucket auto-grant, dataset escalation, two approvals, expiry</span>
+          </div>
+        </div>
+        <div class="slot">
+          <span class="t">16:00–17:30</span>
+          <div class="b">
+            <b>Ambitious layer</b>
+            <span>Gemini emits A2UI; client patches incrementally (1). Scoped MCP server whose tool list is derived from grants (2, 5). Computer use in a Modal Sandbox, one recorded run, screenshots into the trail (2). Adversarial second scenario: a chaining attempt denied with an explanation (4).</span>
+            <span class="chk">Claude Code lists tools, uses one, loses it on close-project</span>
+          </div>
+        </div>
+        <div class="slot">
+          <span class="t">17:30–18:30</span>
+          <div class="b">
+            <b>Polish and rehearse</b>
+            <span>Role-adaptive layouts if A2UI is stable (1). Agent-driven request from Claude Code (2). Logfire links on events (5). Two timed run-throughs, one by someone who didn't build it.</span>
+            <span class="chk">the demo fits in four minutes twice in a row</span>
+          </div>
+        </div>
+        <div class="slot gate">
+          <span class="t">18:30</span>
+          <div class="b">
+            <b>Gate</b>
+            <span>Live computer use only if both rehearsals passed. Otherwise the replay. Freeze everything at 18:45 except copy.</span>
+          </div>
+        </div>
+        <div class="slot">
+          <span class="t">19:00</span>
+          <div class="b"><b>Opt in</b><span>Register for the competition. Pizza.</span></div>
+        </div>
+        <div class="slot demo">
+          <span class="t">20:00</span>
+          <div class="b"><b>Demo</b><span>Request → decide → approve → agent acts → project closes → tools vanish → the trail verifies.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tracks">
+      <div class="sec-head">
+        <h2>Track ambitions</h2>
+        <p class="sub">Each track has a core that must demo, an ambitious layer that wins, and a fallback that's already in the repo or one hour away. Full detail lives in each track's README.</p>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Track</th><th>Core — must demo</th><th>Ambitious — wins</th><th>Fallback</th></tr></thead>
+          <tbody>
+            <tr><td>1 · Generative UI</td><td>Registry renderer over SSE; approval card; per-request timeline</td><td>Gemini emits A2UI against our catalog with incremental patching; role-adaptive composition</td><td>Static shell, state-driven panels (in repo)</td></tr>
+            <tr><td>2 · Agent runtime</td><td>Gemini structured parse with resource enum; Pydantic AI agent instrumented with Logfire</td><td>Computer use in a Modal Sandbox with screenshots into the trail; scoped MCP server derived from grants</td><td>Recorded replay; action log</td></tr>
+            <tr><td>3 · Policy engine</td><td>Tiers and N-of-M (in repo) with tests for the four cases</td><td>Cross-resource chaining check; peer-comparison risk signal; hot-reloadable policy; Hypothesis property tests</td><td><code>DEFAULT_POLICY</code> as is</td></tr>
+            <tr><td>4 · Use case</td><td>Atlas scenario; interactive mock console; four-minute script</td><td>Adversarial second scenario (chaining attempt denied); close-project beat; rehearsal ownership</td><td>Static console page</td></tr>
+            <tr><td>5 · Backend</td><td>FastAPI hub (in repo); SSE; seed loader; demo clock</td><td>Hash-chained event-sourced store with verify; MCP endpoint; Railway deploy</td><td>In-memory dicts (in repo)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="judges">
+      <div class="sec-head">
+        <h2>What a judge will poke at</h2>
+        <p class="sub">Pre-empted answers. Each one points at something on screen.</p>
+      </div>
+      <div class="qa">
+        <div><p class="q">Where is the model actually deciding?</p><p class="a">It isn't. Gemini parses and composes; the engine decides with pure functions you can read. Here's the reason string, here's the Logfire span with the model's raw output next to it.</p></div>
+        <div><p class="q">What stops a generated button from doing something it shouldn't?</p><p class="a">Buttons carry action ids, not parameters. The server re-runs policy at execution. Here's an off-catalog component name rendering as a visible fallback instead of a control.</p></div>
+        <div><p class="q">Isn't this an approval workflow with a chatbot on top?</p><p class="a">Watch the coding agent's tool list. Close the project — the tools are gone from its session in the same second the panel leaves the dashboard. Standing privilege is the number-one audit finding; here it can't exist.</p></div>
+        <div><p class="q">Prompt injection through the task description?</p><p class="a">Resource ids are an enum in the response schema; the description is a string field the engine never reads as instructions. The approver's summary is generated from the structured decision, not from the requester's text.</p></div>
+        <div><p class="q">Two individually-fine grants that combine into an exfiltration path?</p><p class="a">The engine evaluates the requested set, not just each resource: read on a restricted dataset plus write on a public bucket escalates as a pair. That's the second scenario.</p></div>
+        <div><p class="q">Is the computer-use live?</p><p class="a">Whichever is true. If replay: "recorded at 16:40 in a Modal Sandbox, here's the trace." If live: it passed rehearsal twice at 18:30.</p></div>
+      </div>
+    </section>
+
+    <section id="sources">
+      <div class="sec-head"><h2>Sources</h2></div>
+      <ul class="sources">
+        <li><a href="https://developers.googleblog.com/introducing-a2ui-an-open-project-for-agent-driven-interfaces/">Google — Introducing A2UI</a></li>
+        <li><a href="https://a2ui.org/">A2UI protocol (v0.9 stable, v1.0 RC)</a></li>
+        <li><a href="https://cloud.google.com/blog/topics/developers-practitioners/guide-to-gemini-enterprise-and-a2ui-integration">Google Cloud — Gemini Enterprise and A2UI</a></li>
+        <li><a href="https://vercel.com/blog/ai-sdk-3-generative-ui">Vercel — AI SDK generative UI</a></li>
+        <li><a href="https://developers.openai.com/apps-sdk/plan/components">OpenAI Apps SDK — components</a></li>
+        <li><a href="https://www.kzsoftworks.com/blog/generative-ui-under-control">Generative UI under control (constraint validator)</a></li>
+        <li><a href="https://arxiv.org/pdf/2504.19956">Securing agentic AI — threat model</a></li>
+        <li><a href="https://modal.com/docs/examples/anthropic_computer_use">Modal — computer use in a Sandbox</a></li>
+        <li><a href="https://pydantic.dev/docs/logfire/integrations/llms/pydanticai/">Pydantic — instrument Pydantic AI with Logfire</a></li>
+        <li><a href="https://www.conductorone.com/solutions/jit-access/">ConductorOne — JIT access</a></li>
+        <li><a href="https://www.opal.dev/blog/just-in-time-and-birthright-access">Opal — JIT and birthright</a></li>
+        <li><a href="https://p0.dev/blog/more-than-visibility-p0-introduces-privileged-access-control-for-agents/">P0 — privileged access control for agents</a></li>
+        <li><a href="https://www.britive.com/company/britive-advantages">Britive — in the terminal, not a portal</a></li>
+        <li><a href="https://nhimg.org/glossary/approver-fatigue/">Approver fatigue</a></li>
+        <li><a href="https://anugal.ai/access-review-rubber-stamping/">Access-review rubber-stamping</a></li>
+        <li><a href="https://nhimg.org/faq/why-do-universal-approval-policies-often-fail-for-privileged-access-requests/">Why universal approval policies fail</a></li>
+        <li><a href="https://www.strongdm.com/blog/how-to-audit-privileged-access-management">StrongDM — auditing PAM</a></li>
+        <li><a href="https://conduct.ai/">Conduct — AI operating system for enterprise software</a></li>
+      </ul>
+    </section>
+  </main>
+</div>

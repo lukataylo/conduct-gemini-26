@@ -1,60 +1,46 @@
 # backend-api
 
-**Owner: contributor 5.** The FastAPI hub — the only piece that talks to all four other
-workstreams. Owns persistence (in-memory for the hackathon), the approval queue
-endpoints, the audit trail, and deployment.
+**Owner: contributor 5.** The hub every other track talks to. Owns state, the stream,
+the approval endpoints, the audit spine, and deploy. Design brief:
+[`docs/ui-surfaces.html`](../docs/ui-surfaces.html) (surfaces 6, 9, 10).
 
-## Verified working (see below)
+## Ambition ladder
 
-`main.py` already runs the full golden path end to end: submit a request → policy-engine
-auto-grants the bucket + escalates the dataset → both owning-team approvers vote →
-escalation resolves to `approved` → second grant issues → `/ui-spec` reflects both
-grants. This was smoke-tested directly (not just import-checked) while scaffolding —
-see the repo's commit history / ask contributor for the test snippet if useful as a
-starting point for `tests/test_golden_path.py`.
+| | What | Done when |
+|---|---|---|
+| **Core** (must demo) | FastAPI hub (in repo, golden path verified). **SSE stream** `/stream` emitting `ui_spec`, `audit_event`, `grant_revoked`. Seed loader on startup. **Demo clock** — every time read goes through `clock.now()`, with `POST /clock/advance`. TTL sweeper. `POST /projects/{id}/close` bulk revoke. `GET/PATCH /policy`. | Front end never polls. Advancing the clock revokes on screen. |
+| **Ambitious** (wins) | **Hash-chained, event-sourced store**: `AuditEvent.prev_hash`; grants and cases are a fold over the log; `GET /audit/verify` re-hashes and reports. Approver resolution and peer-comparison plumbing for the card. `trace_id` on model-produced events linking to Logfire. Railway deploy with a public URL for the mock console (computer use needs it). | "Verify chain" returns OK on stage; tamper with one event in a shell, it returns the index that broke. |
+| **Fallback** | In-memory dicts (in repo). | Already works. |
 
 ## What's here
 
-- `policy_engine_paths.py` — import shim. `policy-engine/` and `usecase-demo/` have
-  hyphens in their folder names, so they can't be `import`ed normally; this loads their
-  modules by file path. Use `from policy_engine_paths import policy_engine, escalation,
-  usecase_demo` rather than reaching into those folders directly.
-- `main.py` — endpoints:
-  - `POST /requests` — submit a structured `AccessRequest`, get back per-resource
-    grant/escalate/deny results.
-  - `GET /escalations` / `POST /escalations/{id}/vote` — the approval queue.
-  - `POST /grants/{id}/revoke` — manual or TTL-triggered revocation.
-  - `GET /audit` — the full typed audit trail.
-  - `GET /ui-spec/{requester_id}` — current `UISpec` for `generative-ui` to render.
-    Currently a static mapping from grants/escalations to panels — **this is the seam
-    to hand to Gemini** (contributor 1/2), see its docstring TODO.
+- `main.py` — `POST /requests`, `GET /escalations`, `POST /escalations/{id}/vote`,
+  `POST /grants/{id}/revoke`, `GET /audit`, `GET /ui-spec/{requester_id}`.
+- `policy_engine_paths.py` — import shim for the hyphenated sibling folders.
 
-## Known gaps / next steps for contributor 5
+## Build order
 
-1. `POST /requests` currently accepts an already-structured `AccessRequest` — wire it up
-   to call `agent-runtime`'s `parse_request` (via Modal endpoint or direct import) so it
-   can also accept raw text, once contributor 2's Gemini call is live.
-2. `_issue_grant()` has a `TODO` to call `agent-runtime`'s `execute_grant` (computer-use)
-   — currently grants are issued silently. Decide sync vs. callback with contributor 2.
-3. No TTL sweeper yet — add a background task (APScheduler, or a simple loop) that calls
-   `revoke_grant()` on anything past `expires_at`, and/or a manual "close project"
-   endpoint for the demo's step 8.
-4. In-memory store resets on restart — fine for a demo, but add a `/seed` endpoint (or
-   startup hook) that loads `usecase_demo.REQUESTER` / `RESOURCES` so the scenario is
-   ready without manual setup before each run-through.
-5. CORS is wide open (`allow_origins=["*"]`) — fine for a hackathon demo, tighten if
-   this goes anywhere past that.
+1. **SSE** — `/stream` via `sse-starlette`; an in-process broadcast; publish after every
+   state change. Contributor 1 switches to it immediately.
+2. **Clock + sweeper** — `clock.py` with an offset; background task every 2s revokes
+   expired grants and publishes `grant_revoked`.
+3. **Close project** — revoke all grants whose request's `project` matches; one event
+   per grant plus a `PROJECT_CLOSED` event (add to `AuditEventType`, additive).
+4. **Policy endpoints** — hold one `PolicyRule`; `PATCH` validates via Pydantic and swaps.
+5. **Event sourcing** — `store.py`: `append(event)` sets `prev_hash = sha256(prev)`;
+   `state()` folds the log into grants/cases; `/audit/verify`. Do this before 16:00 or
+   not at all — it's a two-hour refactor and everything else depends on the store.
+6. **Wire contributor 2** — `POST /requests` accepts `{"raw_text": ...}` and calls the
+   Modal parse endpoint; `_issue_grant` enqueues `execute_grant`; `/grants` for the MCP
+   server; `/grants/execute` for the mock console form.
+7. **Deploy** — Railway service for this + the console; env from `.env`.
 
-## Setup
+## Rules that don't bend
+
+- The engine decides; this service records and executes. Never grant outside
+  `_issue_grant`, never revoke outside `revoke_grant`, both always emit an event.
+- Every generated action id is re-validated here before anything happens.
 
 ```bash
-cd backend-api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-# then: open http://localhost:8000/docs
+cd backend-api && pip install -r requirements.txt sse-starlette && uvicorn main:app --reload --port 8000
 ```
-
-## Deploy (Railway)
-
-This project already has the Railway MCP/skill available — once `main.py` is stable,
-provision a service, set env vars from `.env`, and point it at this folder.

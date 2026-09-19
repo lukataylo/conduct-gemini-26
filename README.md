@@ -12,19 +12,29 @@ Core principle: **Gemini/Claude propose and explain — a deterministic policy e
 LLMs never directly grant access; they parse requests into structured data and generate
 UI/explanations. This keeps the security-critical path auditable, not vibes-based.
 
+**Event:** {Tech: Europe} Agentic AI Hack, London, 19 Sep 2026 — co-hosted by Google
+DeepMind and Conduct; partners Modal and Pydantic. Live demos 20:00, opt-in 19:00.
+
+**Design brief:** [`docs/ui-surfaces.html`](docs/ui-surfaces.html) — every UI surface
+with 3–4 options and trade-offs, the build order for tonight, track ambitions, and the
+judge questions we pre-empt. Each track README has a **core / ambitious / fallback**
+ladder; build the core, then climb.
+
+**Working codename:** Aperture — an opening sized to what you're allowed to see.
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U[Requester\n(NL request)] --> AR[agent-runtime\nGemini parse + Claude computer-use]
-    AR -->|AccessRequest| API[backend-api\nFastAPI hub]
-    API --> PE[policy-engine\nauto-grant / escalate / deny]
+    U["Requester<br/>(NL request)"] --> AR["agent-runtime<br/>Gemini parse + Claude computer-use"]
+    AR -->|AccessRequest| API["backend-api<br/>FastAPI hub"]
+    API --> PE["policy-engine<br/>auto-grant / escalate / deny"]
     PE -->|EscalationCase| API
-    API --> Q[In-app approval queue]
+    API --> Q["In-app approval queue"]
     Q -->|ApprovalVote| API
-    API -->|Grant / AuditEvent| DB[(store)]
-    API -->|UISpec| GUI[generative-ui\nreact + component registry]
-    UC[usecase-demo\nseed data + demo script] --> API
+    API -->|"Grant / AuditEvent"| DB[("store")]
+    API -->|UISpec| GUI["generative-ui<br/>react + component registry"]
+    UC["usecase-demo<br/>seed data + demo script"] --> API
 ```
 
 ## Workstreams (5 contributors)

@@ -1,44 +1,48 @@
 # policy-engine
 
-**Owner: contributor 3.** The deterministic decision core — no LLM calls happen in this
-folder, on purpose. Gemini/Claude explain and parse elsewhere; this is the part that has
-to be boringly predictable and easy to audit.
+**Owner: contributor 3.** The deterministic core. No model calls in this folder, ever —
+that's the security answer to every judge question. Design brief:
+[`docs/ui-surfaces.html`](../docs/ui-surfaces.html) (surfaces 5, 8, 9 and "the one rule").
+
+## Ambition ladder
+
+| | What | Done when |
+|---|---|---|
+| **Core** (must demo) | Tiers × duration × team → grant / escalate / deny (in repo). N-of-M with any-veto (in repo). `tests/test_engine.py` for the four cases. Approver resolution from `usecase-demo.APPROVERS`. | Golden path: bucket auto-grants, dataset escalates, both approvers, approved. |
+| **Ambitious** (wins) | **Cross-resource chaining check**: evaluate the requested *set*, not just each id — read on a restricted dataset + write on a public bucket escalates as a pair (the exfil shape). **Peer-comparison risk signal**: "0 of 6 on data-platform hold this" feeds the approval card. **Hot-reloadable policy** via `GET/PATCH /policy` with validation. **Hypothesis property tests** proving invariants: critical never auto-grants; every grant has an expiry ≤ tier max; deny-any-veto. | Second demo scenario: a chaining attempt is denied with a reason a human can read. Tightening a slider flips a decision live. |
+| **Fallback** | `DEFAULT_POLICY` as is. | Already works. |
 
 ## What's here
 
-- `engine.py` — `evaluate_request(request, resources, policy) -> list[PolicyDecision]`.
-  Given an `AccessRequest` and the resources it names, returns one decision per resource:
-  auto-grant, auto-deny, or escalate. Ships with a working `DEFAULT_POLICY` so this is
-  runnable on day one, not a stub.
-- `escalation.py` — turns an `ESCALATE` decision into an `EscalationCase`, and resolves
-  incoming `ApprovalVote`s into `pending -> approved/denied` (N-of-M: any denial denies,
-  all required approvers voting yes approves).
+- `engine.py` — `evaluate_request(request, resources, policy) -> list[PolicyDecision]`
+  with a working `DEFAULT_POLICY`.
+- `escalation.py` — `open_case()`, `apply_vote()`; any deny → denied, all required → approved.
 
-## What's intentionally NOT here
+## Build order
 
-- Resolving *who* the required approvers actually are (team owner lookup, manager
-  lookup) — that needs org data, which lives in `usecase-demo`'s seed data and gets
-  wired together in `backend-api`. `PolicyDecision.required_approver_ids` is left empty
-  by `_escalate()` with a `TODO` — fill it in once `backend-api` can pass in the
-  resource→approvers mapping.
-- Persistence — this module is pure functions over Pydantic models in, models out.
-  `backend-api` owns storing `Grant`/`EscalationCase`/`AuditEvent`.
-- TTL expiry sweeping (turning an expired `Grant` into a revoked one on a timer) — that's
-  a `backend-api` scheduler concern; this module just sets `expires_at` when asked to
-  (add a `build_grant()` helper here if useful once that's wired up).
+1. **Tests first** — `tests/test_engine.py`: same-team internal auto-grants; cross-team
+   escalates; over-duration escalates; critical always escalates; unknown id denies.
+2. **Approvers** — `_escalate()` takes an `approvers: dict[str, list[str]]` argument
+   (resource id → approver ids) instead of the empty list; backend passes
+   `usecase_demo.APPROVERS`.
+3. **Chaining** — `evaluate_set(request, resources, policy)` runs after per-resource
+   decisions: if the set contains a `RESTRICTED`+ read and any write-capable resource
+   outside the owning team, escalate every auto-grant in the set with reason
+   `"chained: <a> + <b> forms an export path"`. Add a `capability: read|write` field to
+   `Resource` in `shared/schemas.py` (additive, tell the others).
+4. **Peer signal** — `peer_comparison(requester, resource, grants) -> str` over seed
+   history; pure string, no decision impact tonight, but it's on the card.
+5. **Hot reload** — `PolicyRule` is already Pydantic; backend holds one instance; `PATCH`
+   validates and swaps it. Tests must still pass on the swapped policy.
+6. **Property tests** — Hypothesis strategies over `AccessRequest` + `Resource`; assert
+   the three invariants. Run them in the policy-console "propose" flow if contributor 1
+   gets there.
 
-## Next steps for contributor 3
+## Rules that don't bend
 
-1. Write a `tests/test_engine.py` covering: same-team auto-grant, cross-team escalate,
-   over-duration escalate, critical-tier always-escalate.
-2. Decide the real approver-resolution shape with contributor 5 (backend-api) — likely
-   `resource.owning_team -> [approver_id, ...]` from `usecase-demo` seed data, plus
-   optionally the requester's `manager_id` for cross-team cases.
-3. Tune `DEFAULT_POLICY` numbers against whatever `usecase-demo` scenario contributor 4
-   is building, so the golden-path demo actually produces one auto-grant + one escalate.
+- Pure functions, typed in, typed out. No I/O, no clock reads (take `now` as an argument).
+- A decision is reproducible from its inputs. If it isn't, it's a bug.
 
 ```bash
-cd policy-engine
-pip install -r requirements.txt
-python -c "from engine import evaluate_request, DEFAULT_POLICY; print(DEFAULT_POLICY)"
+cd policy-engine && pip install -r requirements.txt hypothesis && pytest
 ```

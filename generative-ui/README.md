@@ -1,48 +1,58 @@
 # generative-ui
 
-**Owner: contributor 1.** Renders whatever `backend-api`'s `/ui-spec/{requester_id}`
-returns — a list of `{component, props}` panels — as a live dashboard. The generative
-part is that the *set and shape* of panels comes from the server (ultimately Gemini),
-not from the frontend's own routing/state logic.
+**Owner: contributor 1.** Renders whatever `backend-api` says the viewer is allowed to
+see — as a live dashboard whose *shape* is composed by Gemini, not by frontend routing.
+Design brief with every surface and its options: [`docs/ui-surfaces.html`](../docs/ui-surfaces.html)
+(surfaces 1, 2, 4, 5, 6, 8).
 
-## What's here (already runnable)
+## Ambition ladder
 
-- `src/types.ts` — hand-mirrored `UISpec`/`UIComponentSpec` TS types matching
-  `shared/schemas.py`.
-- `src/registry.tsx` — `COMPONENT_REGISTRY`: maps a panel's `component` string to an
-  actual React component. Unrecognized components fall back to `UnknownComponent`
-  instead of crashing the page — important once Gemini is generating these names, since
-  a bad generation shouldn't take the whole dashboard down.
-- `src/components/` — `GrantCard`, `PendingApprovalCard` (both match what
-  `backend-api`'s current static `/ui-spec` implementation emits — verified working end
-  to end), and an `AuditTimeline` stub.
-- `src/App.tsx` — polls `/api/ui-spec/:requesterId` every 3s and renders panels through
-  the registry. Requester id is hardcoded to `usecase-demo`'s seed requester for now.
+| | What | Done when |
+|---|---|---|
+| **Core** (must demo) | Registry renderer fed by SSE instead of polling. Context-rich approval card with tiered justification. Per-request audit timeline. Policy table. | Golden path runs from the browser end to end, no curl. |
+| **Ambitious** (wins) | Gemini emits **A2UI** (Google's agent-driven UI protocol) against our catalog; client diffs panel ids and patches incrementally; data-model updates stream without regenerating layout. Then **role-adaptive composition**: intern / approver / auditor get different layouts from the same data. | A grant appears and a revocation removes a panel with no flicker and no lost scroll. Same request, three viewers, three compositions. |
+| **Fallback** (in repo) | Static shell, state-driven panels from `/ui-spec`, 3s poll. | Already works. |
 
-## Setup
+## Why A2UI
+
+It's Google's own protocol (co-built with the Gemini Enterprise team), the judges are
+from DeepMind, and it's the exact pattern the industry converged on: the agent sends a
+JSON component tree plus a separate data model; the client renders only components in
+its catalog. Spec: https://a2ui.org (v0.9 stable, v1.0 RC). We don't need the full
+protocol — the message shape (`components[]` + `dataModel`) and the catalog idea are
+enough. Keep our `UISpec`/`UIComponentSpec` as the wire type; make it A2UI-shaped.
+
+## What's here (runnable now)
+
+- `src/types.ts` — hand-mirrored `UISpec` types from `shared/schemas.py`.
+- `src/registry.tsx` — `COMPONENT_REGISTRY`; unknown names render `UnknownComponent`
+  instead of crashing. **Keep this.** It's the safety net once Gemini names components.
+- `src/components/` — `GrantCard`, `PendingApprovalCard`, `AuditTimeline` stub.
+- `src/App.tsx` — polls `/api/ui-spec/:requesterId` and renders through the registry.
+
+## Build order
+
+1. **SSE** — replace the 3s poll with `EventSource('/api/stream')` (contributor 5 is
+   adding it). Panels update on `ui_spec` events; audit timeline on `audit_event`.
+2. **Approval card** — props: engine reason, Gemini summary, tier, requester + team +
+   manager, current holdings, peer comparison string, proposed expiry, task. Approve/deny
+   fixed at the bottom. Critical tier: approve disabled until `justification` is
+   non-empty; post it with the vote.
+3. **Per-request timeline** — group `/audit?request_id=` events; render reason strings
+   and vote comments inline; `ACTION_EXECUTED` events with a `screenshot` in payload
+   render as a filmstrip.
+4. **Policy table** — read `GET /policy`; sliders `PATCH /policy`; re-submit button.
+5. **A2UI generation** — new `GET /ui-spec/:id?mode=generated` returns Gemini's
+   A2UI-shaped spec (contributor 2 owns the prompt; you own the renderer). Diff by
+   `panel.id`; CSS transitions on add/remove; never replace the tree wholesale.
+6. **Role-adaptive** — pass `?role=requester|approver|auditor`; three prompt variants.
+
+## Rules that don't bend
+
+- The deny control is never positioned by the model. Fixed slot, always visible.
+- Every generated button carries an `action_id`; the server re-checks policy on it.
+- Off-catalog component → `UnknownComponent`, visibly. Test the registry, not the model.
 
 ```bash
-cd generative-ui
-npm install
-npm run dev
-# separately, in backend-api: uvicorn main:app --reload --port 8000
+cd generative-ui && npm install && npm run dev   # proxies /api → localhost:8000
 ```
-
-The dev server proxies `/api/*` to `localhost:8000` (see `vite.config.ts`) so no CORS
-juggling is needed locally.
-
-## Next steps for contributor 1
-
-1. Run it against `backend-api` after contributor 5 wires up the golden-path scenario —
-   confirm the bucket grant panel and the dataset "pending approval" panel both show up.
-2. Build a second view for approvers (Priya/Jordan in the demo script) — a queue of
-   pending `EscalationCase`s with the agent's reasoning and approve/deny buttons, posting
-   to `POST /escalations/{id}/vote`.
-3. Add more component types as `backend-api`'s `/ui-spec` grows (audit timeline is
-   stubbed, add a "request submitted, awaiting parse" loading state, etc.) — coordinate
-   new `component` names with contributor 5 so both sides agree on the prop shape.
-4. Once contributor 2's Gemini UI-generation is live (replacing backend-api's static
-   `/ui-spec` mapping), the registry is the safety net — make sure `UnknownComponent`
-   renders something reasonable on stage rather than a blank panel.
-5. Swap the 3s poll for SSE/websocket if there's time — nicer for the live "watch it
-   update" demo moment.

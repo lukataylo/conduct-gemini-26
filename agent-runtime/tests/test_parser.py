@@ -57,3 +57,36 @@ def test_build_request_keeps_raw_text(requester):
     assert req.raw_text == "I need analytics-raw for Project Atlas"
     assert req.task_description == req.raw_text
     assert req.resource_ids == ["bucket-analytics-raw"]
+
+
+from gemini_parser import ParseFields, parse_request
+
+
+def test_parse_request_uses_runner_and_drops_unknown(requester):
+    def runner(prompt: str) -> ParseFields:
+        assert "bucket-analytics-raw" in prompt
+        assert "I need access" in prompt
+        return ParseFields(
+            project="atlas-migration",
+            resource_ids=["bucket-analytics-raw", "totally-fake"],
+            requested_duration_days=14,
+        )
+
+    req = parse_request(
+        "I need access to analytics-raw for Project Atlas",
+        requester,
+        ["bucket-analytics-raw", "bq-project-x-finance"],
+        runner=runner,
+    )
+    assert req.resource_ids == ["bucket-analytics-raw"]
+    assert req.project == "atlas-migration"
+    assert req.requested_duration_days == 14
+    assert req.requester.id == "u-newhire-1"
+
+
+def test_parse_request_empty_ids_when_nothing_matches(requester):
+    def runner(prompt: str) -> ParseFields:
+        return ParseFields(project="x", resource_ids=["nope"], requested_duration_days=7)
+
+    req = parse_request("please give me prod", requester, ["bucket-analytics-raw"], runner=runner)
+    assert req.resource_ids == []

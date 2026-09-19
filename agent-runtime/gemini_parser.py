@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from envutil import gemini_api_key  # noqa: E402
 from shared.schemas import AccessRequest, Requester  # noqa: E402
 
 MODEL = "gemini-2.5-flash"  # swap for whatever's current at build time
@@ -66,32 +68,55 @@ def duration_days(raw_text: str, parsed_days: int | None, *, today: date | None 
     return 14
 
 
-def parse_request(raw_text: str, requester: Requester, known_resource_ids: list[str]) -> AccessRequest:
-    """Call Gemini with structured output to turn `raw_text` into an AccessRequest.
+_LOGFIRE_READY = False
 
-    NOTE: This is a thin skeleton — wire up the actual `google-genai` client call here.
-    Keep the parsing prompt constrained to `known_resource_ids` (pass them in the prompt
-    or via an enum-typed schema field) so Gemini can't hallucinate a resource that
-    doesn't exist; policy-engine will reject unknown ids anyway, but better to catch it
-    here so the requester gets an immediate "did you mean X" style response.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not set")
 
-    # TODO(contributor 2): replace with a real google-genai call, e.g.
-    #
-    #   from google import genai
-    #   client = genai.Client(api_key=api_key)
-    #   response = client.models.generate_content(
-    #       model=MODEL,
-    #       contents=[PARSE_PROMPT, f"Known resources: {known_resource_ids}", raw_text],
-    #       config={"response_mime_type": "application/json", "response_schema": ...},
-    #   )
-    #   parsed = json.loads(response.text)
-    #
-    # then build the AccessRequest below from `parsed` instead of the placeholder.
-    raise NotImplementedError("wire up google-genai structured output here")
+def _ensure_logfire() -> None:
+    global _LOGFIRE_READY
+    if _LOGFIRE_READY:
+        return
+    import logfire
+
+    logfire.configure(send_to_logfire="if-token-present")
+    logfire.instrument_pydantic_ai()
+    _LOGFIRE_READY = True
+
+
+def _default_runner(prompt: str) -> ParseFields:
+    from pydantic_ai import Agent
+
+    key = gemini_api_key()
+    os.environ.setdefault("GOOGLE_API_KEY", key)
+    os.environ.setdefault("GEMINI_API_KEY", key)
+    _ensure_logfire()
+    agent = Agent("google-gla:gemini-2.5-flash", output_type=ParseFields, system_prompt=PARSE_PROMPT)
+    result = agent.run_sync(prompt)
+    return result.output
+
+
+def parse_request(
+    raw_text: str,
+    requester: Requester,
+    known_resource_ids: list[str],
+    *,
+    runner: Callable[[str], ParseFields] | None = None,
+) -> AccessRequest:
+    """Turn `raw_text` into an AccessRequest via an injectable structured runner."""
+    if runner is None:
+        runner = _default_runner
+    prompt = (
+        f"{PARSE_PROMPT}\nKnown resources: {', '.join(known_resource_ids)}\n{raw_text}"
+    )
+    fields = runner(prompt)
+    resource_ids = constrain_resource_ids(fields.resource_ids, known_resource_ids)
+    requested_duration_days = duration_days(raw_text, fields.requested_duration_days)
+    return _build_request(
+        raw_text,
+        requester,
+        fields.project,
+        resource_ids,
+        requested_duration_days,
+    )
 
 
 def _build_request(

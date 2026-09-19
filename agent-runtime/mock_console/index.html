@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-hash-example="#storage/bucket-analytics-raw/permissions">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -428,7 +428,8 @@
       place-items: center;
     }
     .backdrop { position: absolute; inset: 0; background: rgba(32, 33, 36, 0.6); }
-    #grant-form {
+    #grant-form,
+    #revoke-form {
       position: relative;
       width: min(560px, calc(100vw - 32px));
       background: #fff;
@@ -436,7 +437,8 @@
       box-shadow: var(--shadow-lg);
       display: none;
     }
-    #grant-form.visible { display: block; }
+    #grant-form.visible,
+    #revoke-form.visible { display: block; }
     .dialog-head {
       display: flex;
       justify-content: space-between;
@@ -478,6 +480,25 @@
         linear-gradient(#d2e3fc, #d2e3fc) 80% 60% / 12% 40% no-repeat,
         var(--wash);
     }
+    tr[data-object] { cursor: pointer; }
+    #object-preview { margin-top: 16px; }
+    #query-editor {
+      width: 100%;
+      min-height: 160px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+    #query-editor:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    #query-results { margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -630,9 +651,16 @@
             <tbody>
               <tr><td>atlas/ingest/2026-09-18/events.jsonl</td><td>2.4 MB</td><td>application/jsonl</td><td>Sep 18, 2026</td><td>Standard</td><td>Not public</td></tr>
               <tr><td>atlas/ingest/2026-09-19/events.jsonl</td><td>1.1 MB</td><td>application/jsonl</td><td>Sep 19, 2026</td><td>Standard</td><td>Not public</td></tr>
+              <tr data-object="events/2026-09-18.parquet"><td>events/2026-09-18.parquet</td><td>8.6 MB</td><td>application/vnd.apache.parquet</td><td>Sep 18, 2026</td><td>Standard</td><td>Not public</td></tr>
               <tr><td>_readme.txt</td><td>412 B</td><td>text/plain</td><td>Sep 12, 2026</td><td>Standard</td><td>Not public</td></tr>
             </tbody>
           </table>
+          <aside id="object-preview" hidden>
+            <article class="info-card">
+              <h3>Object details</h3>
+              <p class="subtitle" data-preview-name></p>
+            </article>
+          </aside>
         </div>
 
         <div data-tab-panel="configuration" hidden>
@@ -745,7 +773,7 @@
             <div class="crumbs">BigQuery Studio</div>
             <div class="page-head">
               <h1>Welcome to BigQuery</h1>
-              <div class="actions"><button type="button" class="btn-filled">COMPOSE A NEW QUERY</button></div>
+              <div class="actions"><button type="button" class="btn-filled" data-open-resource="bq-project-x-finance" data-open-tab="query">COMPOSE A NEW QUERY</button></div>
             </div>
             <p class="subtitle">Select a dataset in Explorer. The finance dataset is <button type="button" class="linkish" data-open-resource="bq-project-x-finance">project-x-finance</button>.</p>
           </div>
@@ -772,11 +800,12 @@
               </div>
               <div class="actions">
                 <button type="button" class="btn" data-tab-jump="permissions">SHARING</button>
-                <button type="button" class="btn-filled">COMPOSE A NEW QUERY</button>
+                <button type="button" class="btn-filled" data-tab-jump="query">COMPOSE A NEW QUERY</button>
               </div>
             </div>
             <div class="tabs" role="tablist">
               <button type="button" role="tab" data-tab="details" aria-selected="true">Details</button>
+              <button type="button" role="tab" data-tab="query">Query</button>
               <button type="button" role="tab" data-tab="permissions">Permissions</button>
               <button type="button" role="tab" data-tab="tables">Tables</button>
               <button type="button" role="tab" data-tab="routines">Routines</button>
@@ -790,6 +819,15 @@
                 <dt>Default collation</dt><dd>unspecified</dd>
                 <dt>Labels</dt><dd>team=finance, project=atlas-migration, tier=restricted</dd>
               </dl>
+            </div>
+            <div data-tab-panel="query" hidden>
+              <div class="toolbar" style="margin-top:16px">
+                <button type="button" class="btn-filled" id="query-run">Run</button>
+              </div>
+              <label class="field">Query
+                <textarea id="query-editor" rows="8" placeholder="SELECT table_id, row_count FROM seed tables"></textarea>
+              </label>
+              <div id="query-results"></div>
             </div>
             <div data-tab-panel="permissions" hidden>
               <div class="card" data-resource-id="bq-project-x-finance">
@@ -1026,6 +1064,23 @@
     </form>
   </div>
 
+  <div class="dialog-root" id="revoke-dialog" hidden>
+    <div class="backdrop" data-close-revoke></div>
+    <div id="revoke-form">
+      <div class="dialog-head">
+        <h2>Remove access</h2>
+        <button type="button" class="icon-btn" data-close-revoke aria-label="Close"><span class="material-icons-outlined">close</span></button>
+      </div>
+      <div class="dialog-body">
+        <p>This principal will lose this role on the resource.</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-text" data-close-revoke>Cancel</button>
+        <button type="button" class="btn-filled" aria-label="Confirm revoke">Confirm revoke</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const ROLES = {
       "bucket-analytics-raw": "Storage Object Viewer",
@@ -1047,9 +1102,20 @@
       "bq-project-x-finance": { view: "dataset" },
       "sql-prod-primary": { view: "instance" },
     };
+    const HASH_PRODUCT = {
+      storage: "storage",
+      bucket: "storage",
+      bigquery: "bigquery",
+      dataset: "bigquery",
+      sql: "sql",
+      instance: "sql",
+      iam: "iam",
+    };
 
     const form = document.getElementById("grant-form");
     const dialog = document.getElementById("grant-dialog");
+    const revokeDialog = document.getElementById("revoke-dialog");
+    const revokeForm = document.getElementById("revoke-form");
     const principalInput = document.getElementById("principal");
     const expiresInput = document.getElementById("expires");
     const roleInput = document.getElementById("role");
@@ -1057,10 +1123,57 @@
     const sidenav = document.getElementById("sidenav");
     let selectedId = null;
     let currentView = "storage";
+    let currentResourceId = null;
+    let pendingRevoke = null;
+
+    function hashFor(view, tab, resourceId) {
+      const product = HASH_PRODUCT[view];
+      if (!product) return "";
+      if (resourceId && (view === "bucket" || view === "dataset" || view === "instance")) {
+        return "#" + product + "/" + resourceId + "/" + (tab || "permissions");
+      }
+      return "#" + product;
+    }
+
+    function syncHash(view, tab) {
+      const next = hashFor(view, tab, currentResourceId);
+      if (!next) return;
+      if (location.hash !== next) history.replaceState(null, "", next);
+    }
+
+    function resolveTab(tab) {
+      if (tab === "query") {
+        const compose = document.querySelector('[data-tab="query"], [data-tab-panel="query"], #query-editor');
+        if (!compose) return "permissions";
+      }
+      return tab;
+    }
+
+    function applyHash() {
+      const raw = (location.hash || "").replace(/^#/, "");
+      if (!raw) {
+        setView("storage");
+        return;
+      }
+      const parts = raw.split("/");
+      const product = parts[0];
+      const id = parts[1];
+      const tab = resolveTab(parts[2]);
+      if (id && RESOURCES[id]) {
+        openResource(id, tab);
+        return;
+      }
+      if (product === "storage" || product === "bigquery" || product === "sql" || product === "iam") {
+        setView(product, tab);
+      }
+    }
 
     function setView(view, tab) {
       currentView = view;
       const meta = VIEWS[view] || VIEWS.storage;
+      if (view === "storage" || view === "bigquery" || view === "sql" || view === "iam" || view === "home") {
+        currentResourceId = null;
+      }
       document.querySelectorAll("[data-view]").forEach((el) => {
         el.hidden = el.dataset.view !== view;
       });
@@ -1069,6 +1182,7 @@
       });
       const nextTab = tab || meta.defaultTab;
       if (nextTab) setTab(view, nextTab);
+      syncHash(view, nextTab);
     }
 
     function setTab(view, tab) {
@@ -1082,11 +1196,13 @@
       root.querySelectorAll("[data-tab-panel]").forEach((el) => {
         el.hidden = el.dataset.tabPanel !== tab;
       });
+      syncHash(view, tab);
     }
 
     function openResource(id, tab) {
       const target = RESOURCES[id];
       if (!target) return;
+      currentResourceId = id;
       setView(target.view, tab);
     }
 
@@ -1094,6 +1210,31 @@
       form.classList.remove("visible");
       dialog.hidden = true;
       document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
+    }
+
+    function closeRevoke() {
+      revokeForm.classList.remove("visible");
+      revokeDialog.hidden = true;
+      pendingRevoke = null;
+    }
+
+    function openRevoke(resource, principal) {
+      pendingRevoke = { resource: resource, principal: principal };
+      revokeDialog.hidden = false;
+      revokeForm.classList.add("visible");
+    }
+
+    function confirmRevoke() {
+      if (!pendingRevoke) return;
+      const resource = pendingRevoke.resource;
+      const principal = pendingRevoke.principal;
+      document.querySelectorAll("#active-grants li").forEach((li) => {
+        if (li.dataset.resource === resource && li.dataset.principal === principal) li.remove();
+      });
+      document.querySelectorAll("tr[data-resource][data-principal]").forEach((row) => {
+        if (row.dataset.resource === resource && row.dataset.principal === principal) row.remove();
+      });
+      closeRevoke();
     }
 
     function openGrant(card) {
@@ -1104,6 +1245,74 @@
       dialog.hidden = false;
       form.classList.add("visible");
       principalInput.focus();
+    }
+
+    function grantTypeLabel(resourceId) {
+      const view = (RESOURCES[resourceId] || {}).view;
+      if (view === "bucket") return "Bucket";
+      if (view === "dataset") return "Dataset";
+      if (view === "instance") return "Instance";
+      return "Resource";
+    }
+
+    function expiresLabel(expires) {
+      if (!expires) return "";
+      return String(expires).slice(0, 10);
+    }
+
+    function renderBinding(binding) {
+      const resourceId = binding.resource_id;
+      const principal = binding.principal;
+      const role = binding.role;
+      const expires = expiresLabel(binding.expires_at);
+      if (!resourceId || !principal) return;
+      const already = document.querySelector(
+        '#active-grants li[data-resource="' + resourceId + '"][data-principal="' + principal + '"]'
+      );
+      if (already) return;
+      const item = document.createElement("li");
+      item.setAttribute("data-resource", resourceId);
+      item.setAttribute("data-principal", principal);
+      if (binding.grant_id) item.setAttribute("data-grant-id", binding.grant_id);
+      item.innerHTML =
+        "<span>" + principal + "</span><span>" + resourceId + "</span><span>" + role +
+        "</span><span>" + grantTypeLabel(resourceId) + "</span><span>expires " + expires + "</span>";
+      activeGrants.appendChild(item);
+      const viewName = (RESOURCES[resourceId] || {}).view;
+      const root = viewName ? document.querySelector('[data-view="' + viewName + '"]') : null;
+      const tbody = root && root.querySelector('[data-tab-panel="permissions"] table.data tbody');
+      if (tbody) {
+        const row = document.createElement("tr");
+        row.setAttribute("data-resource", resourceId);
+        row.setAttribute("data-principal", principal);
+        row.innerHTML =
+          "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
+          "</td><td>Direct · expires " + expires +
+          ' <button type="button" class="btn" data-action="revoke" data-resource="' +
+          resourceId + '" data-principal="' + principal + '">Remove</button></td>';
+        tbody.appendChild(row);
+      }
+    }
+
+    function consoleBackend() {
+      const params = new URLSearchParams(location.search);
+      return params.get("backend") || window.CONSOLE_BACKEND || "";
+    }
+
+    function hydrateFromBackend() {
+      const backend = consoleBackend();
+      if (!backend) return;
+      fetch(backend + "/console/state")
+        .then((resp) => {
+          if (!resp.ok) throw new Error("console state " + resp.status);
+          return resp.json();
+        })
+        .then((state) => {
+          ((state && state.bindings) || []).forEach(renderBinding);
+        })
+        .catch(function () {
+          // keep in-page state
+        });
     }
 
     document.getElementById("nav-toggle").addEventListener("click", () => {
@@ -1118,7 +1327,7 @@
     });
 
     document.querySelectorAll("[data-open-resource]").forEach((btn) => {
-      btn.addEventListener("click", () => openResource(btn.dataset.openResource));
+      btn.addEventListener("click", () => openResource(btn.dataset.openResource, btn.dataset.openTab));
     });
 
     document.querySelectorAll("[role=tab], .sql-side button").forEach((tab) => {
@@ -1167,30 +1376,45 @@
       const expires = expiresInput.value;
       const role = roleInput.value;
       if (!principal || !expires) return;
-      const item = document.createElement("li");
-      item.setAttribute("data-resource", selectedId);
-      item.setAttribute("data-principal", principal);
-      item.innerHTML =
-        "<span>" + principal + "</span><span>" + selectedId + "</span><span>" + role +
-        "</span><span>Bucket</span><span>expires " + expires + "</span>";
-      activeGrants.appendChild(item);
-      const viewName = (RESOURCES[selectedId] || {}).view;
-      const root = viewName ? document.querySelector('[data-view="' + viewName + '"]') : null;
-      const tbody = root && root.querySelector('[data-tab-panel="permissions"] table.data tbody');
-      if (tbody) {
-        const row = document.createElement("tr");
-        row.setAttribute("data-resource", selectedId);
-        row.setAttribute("data-principal", principal);
-        row.innerHTML =
-          "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
-          "</td><td>Direct · expires " + expires + "</td>";
-        tbody.appendChild(row);
-      }
+      renderBinding({
+        resource_id: selectedId,
+        principal: principal,
+        role: role,
+        expires_at: expires,
+      });
       form.reset();
       closeGrant();
     });
 
-    setView("storage");
+    document.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-action=revoke]");
+      if (btn) openRevoke(btn.dataset.resource, btn.dataset.principal);
+      const objectRow = event.target.closest("tr[data-object]");
+      if (objectRow) {
+        const preview = document.getElementById("object-preview");
+        const name = objectRow.getAttribute("data-object");
+        preview.hidden = false;
+        preview.setAttribute("data-object", name);
+        const label = preview.querySelector("[data-preview-name]");
+        if (label) label.textContent = name;
+      }
+    });
+
+    document.getElementById("query-run").addEventListener("click", () => {
+      document.getElementById("query-results").outerHTML =
+        '<div id="query-results" data-dataset="bq-project-x-finance">' +
+        '<table class="data"><thead><tr><th>table_id</th><th>count</th></tr></thead>' +
+        "<tbody><tr><td>events_raw</td><td>184221</td></tr></tbody></table></div>";
+    });
+
+    document.querySelectorAll("[data-close-revoke]").forEach((el) => {
+      el.addEventListener("click", closeRevoke);
+    });
+    document.querySelector('[aria-label="Confirm revoke"]').addEventListener("click", confirmRevoke);
+
+    window.addEventListener("hashchange", applyHash);
+    applyHash();
+    hydrateFromBackend();
   </script>
 </body>
 </html>

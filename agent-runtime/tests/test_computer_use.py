@@ -1,21 +1,40 @@
 from pathlib import Path
 
+import pytest
 from computer_use import (
     GEMINI_CU_MODEL,
     MAX_RECENT_TURN_WITH_SCREENSHOTS,
     _apply_page_action,
     _denorm_coord,
     _normalize_cu_action,
+    browse_goal,
     completed_event,
+    console_url_for,
+    enact_goal,
     execute_grant,
+    export_goal,
     grant_goal,
     host_allowed,
     prune_old_screenshots,
+    query_goal,
+    revoke_goal,
     run_computer_use_loop,
+    sap_grant_goal,
     verify_active,
+    verify_inactive,
+    verify_sap_bp_visible,
+    verify_sap_export_blocked,
 )
 from gemini_models import DEFAULT_CU_MODEL, DEFAULT_PARSE_MODEL
 from mock_console.server import serve_in_thread
+from mock_sap.server import serve_in_thread as serve_sap
+from shared.schemas import Grant
+
+
+def _serve_console():
+    server = serve_in_thread(port=0)
+    host, port = server.server_address
+    return server, f"http://{host}:{port}/"
 
 
 def test_models_are_lite_cu_and_3_8_parse():
@@ -124,6 +143,164 @@ def test_goal_names_resource_principal_and_expiry(grant):
     assert "Do not grant any other resource" in text
 
 
+def test_revoke_goal_names_resource_principal_and_remove(grant):
+    text = revoke_goal(grant)
+    assert "bucket-analytics-raw" in text
+    assert "u-newhire-1" in text
+    assert "Remove" in text
+    assert "Do not grant any other resource" in text
+
+
+def test_browse_goal_names_object_and_preview(grant):
+    text = browse_goal(grant)
+    assert "events/2026-09-18.parquet" in text
+    assert "#object-preview" in text
+
+
+def test_query_goal_names_dataset_and_results(grant):
+    text = query_goal(grant)
+    assert "project-x-finance" in text
+    assert "#query-results" in text
+
+
+def test_enact_goal_contains_selectors_for_each_action(grant):
+    assert enact_goal(grant, "grant") == grant_goal(grant)
+    assert enact_goal(grant, "revoke") == revoke_goal(grant)
+    browse = enact_goal(grant, "browse")
+    assert browse == browse_goal(grant)
+    assert "events/2026-09-18.parquet" in browse
+    assert "#object-preview" in browse
+    query = enact_goal(grant, "query")
+    assert query == query_goal(grant)
+    assert "project-x-finance" in query
+    assert "#query-results" in query
+
+
+def test_enact_goal_rejects_unknown_action(grant):
+    with pytest.raises(ValueError):
+        enact_goal(grant, "explode")
+
+
+def _sap_grant(grant: Grant) -> Grant:
+    return Grant(
+        id="g-sap-1",
+        request_id=grant.request_id,
+        resource_id="sap-bp-display",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+
+
+def test_sap_grant_goal_names_fiori_not_gcp(grant):
+    sap = _sap_grant(grant)
+    text = sap_grant_goal(sap)
+    assert "SAP S/4HANA Cloud" in text
+    assert "SAP_SD_CUST_DISPLAY" in text
+    assert "1710001" in text
+    assert "Maintain Business Users" in text
+    assert "Google Cloud" not in text or "not Google Cloud" in text
+    assert "Permissions" not in text
+    assert grant_goal(sap) == text
+
+
+def test_export_goal_is_fiori_bounce():
+    text = export_goal()
+    assert "Export Customer List" in text
+    assert "activity 16" in text
+    assert "visible" in text
+
+
+def test_enact_goal_export_uses_export_goal(grant):
+    assert enact_goal(grant, "export") == export_goal()
+
+
+def test_console_url_for_routes_sap_and_gcp(grant, monkeypatch):
+    monkeypatch.delenv("SAP_CONSOLE_URL", raising=False)
+    monkeypatch.delenv("CONSOLE_URL", raising=False)
+    assert console_url_for(_sap_grant(grant)) == "http://127.0.0.1:8766/"
+    assert console_url_for(grant) == "http://127.0.0.1:8765/"
+    monkeypatch.setenv("SAP_CONSOLE_URL", "http://sap.example/")
+    monkeypatch.setenv("CONSOLE_URL", "http://gcp.example/")
+    assert console_url_for(_sap_grant(grant)) == "http://sap.example/"
+    assert console_url_for(grant) == "http://gcp.example/"
+
+
+def test_host_allowed_includes_sap_console_url_host(monkeypatch):
+    monkeypatch.delenv("CONSOLE_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("CONSOLE_URL", raising=False)
+    monkeypatch.setenv("SAP_CONSOLE_URL", "https://fiori.example:443/")
+    assert host_allowed("https://fiori.example/other") is True
+    assert host_allowed("https://evil.example/") is False
+
+
+def test_verify_sap_export_blocked_requires_visible_class():
+    css_only = (
+        '<style>#sap-auth-error.visible { display: block; }</style>'
+        '<div id="sap-auth-error" role="alert">Authorization missing</div>'
+    )
+    assert verify_sap_export_blocked(css_only) is False
+    shown = '<div id="sap-auth-error" class="visible" role="alert">Authorization missing</div>'
+    assert verify_sap_export_blocked(shown) is True
+
+
+def test_verify_sap_bp_visible_requires_unhidden_object():
+    hidden = '<article id="bp-object" data-bp="1710001" hidden></article>'
+    assert verify_sap_bp_visible(hidden) is False
+    open_page = '<article id="bp-object" data-bp="1710001"></article>'
+    assert verify_sap_bp_visible(open_page) is True
+
+
+def test_completed_export_event_is_bounced_without_grant(grant):
+    event = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="playwright",
+        turn_count=1,
+        action="export",
+    )
+    assert event.grant_id is None
+    assert event.payload["status"] == "bounced"
+    assert event.payload["action"] == "export"
+    assert event.payload["tool"] == "sap_export_customer_list"
+
+
+def _serve_sap():
+    server = serve_sap(port=0)
+    host, port = server.server_address
+    return server, f"http://{host}:{port}/"
+
+
+def test_playwright_sap_grant_marks_active(grant):
+    sap = _sap_grant(grant)
+    server, url = _serve_sap()
+    try:
+        event = execute_grant(sap, url, mode="playwright")
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "grant"
+        assert event.grant_id == sap.id
+    finally:
+        server.shutdown()
+
+
+def test_playwright_sap_export_bounces(grant):
+    sap = _sap_grant(grant)
+    server, url = _serve_sap()
+    try:
+        event = execute_grant(sap, url, mode="playwright", action="export")
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "export"
+        assert event.payload["status"] == "bounced"
+        assert event.grant_id is None
+    finally:
+        server.shutdown()
+
+
 def test_host_allowed_rejects_unknown():
     assert host_allowed("http://127.0.0.1:8765/", allowlist=["127.0.0.1", "localhost"]) is True
     assert host_allowed("https://evil.example/", allowlist=["127.0.0.1"]) is False
@@ -150,6 +327,18 @@ def test_verify_active_reads_data_attributes(grant):
     assert verify_active("<ul id='active-grants'></ul>", grant) is False
 
 
+def test_verify_inactive_reads_data_attributes(grant):
+    html = '<ul id="active-grants"><li data-resource="bucket-analytics-raw" data-principal="u-newhire-1">ok</li></ul>'
+    assert verify_inactive(html, grant) is False
+    assert verify_inactive("<ul id='active-grants'></ul>", grant) is True
+    other = (
+        '<ul id="active-grants">'
+        '<li data-resource="bq-project-x-finance" data-principal="u-newhire-1">x</li>'
+        "</ul>"
+    )
+    assert verify_inactive(other, grant) is True
+
+
 def test_completed_event_shape(grant):
     event = completed_event(
         grant,
@@ -165,16 +354,73 @@ def test_completed_event_shape(grant):
     assert event.payload["phase"] == "completed"
     assert event.payload["success"] is False
     assert event.payload["reason"] == "turn_budget"
+    assert event.payload["action"] == "grant"
     assert event.grant_id == grant.id
 
 
+def test_completed_event_includes_revoke_action(grant):
+    event = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="playwright",
+        turn_count=1,
+        action="revoke",
+    )
+    assert event.payload["action"] == "revoke"
+    assert event.payload["success"] is True
+
+
+def test_completed_event_detail_uses_action_name(grant):
+    ok = completed_event(
+        grant,
+        success=True,
+        reason=None,
+        actions=[],
+        watch_url=None,
+        mode="computer_use",
+        turn_count=1,
+        action="browse",
+    )
+    assert ok.detail == "completed browse bucket-analytics-raw"
+    failed = completed_event(
+        grant,
+        success=False,
+        reason="verify_failed",
+        actions=[],
+        watch_url=None,
+        mode="computer_use",
+        turn_count=1,
+        action="query",
+    )
+    assert failed.detail == "query execution failed: verify_failed"
+
+
 def test_playwright_execute_grant_marks_active(grant):
-    server = serve_in_thread(port=8765)
+    server, url = _serve_console()
     try:
-        event = execute_grant(grant, "http://127.0.0.1:8765/", mode="playwright")
+        event = execute_grant(grant, url, mode="playwright")
         assert event.payload["phase"] == "completed"
         assert event.payload["success"] is True
         assert event.payload["mode"] == "playwright"
+        assert event.payload["action"] == "grant"
+    finally:
+        server.shutdown()
+
+
+def test_playwright_execute_grant_then_revoke_marks_inactive(grant):
+    server, url = _serve_console()
+    try:
+        granted = execute_grant(grant, url, mode="playwright")
+        assert granted.payload["success"] is True
+        assert granted.payload["action"] == "grant"
+        revoked = execute_grant(grant, url, mode="playwright", action="revoke")
+        assert revoked.payload["phase"] == "completed"
+        assert revoked.payload["success"] is True
+        assert revoked.payload["mode"] == "playwright"
+        assert revoked.payload["action"] == "revoke"
     finally:
         server.shutdown()
 
@@ -182,9 +428,9 @@ def test_playwright_execute_grant_marks_active(grant):
 def test_playwright_writes_video_when_record_dir_set(grant, monkeypatch, tmp_path):
     monkeypatch.setenv("EXECUTE_RECORD_DIR", str(tmp_path))
     monkeypatch.setenv("EXECUTE_SLOW_MO", "0")
-    server = serve_in_thread(port=8768)
+    server, url = _serve_console()
     try:
-        event = execute_grant(grant, "http://127.0.0.1:8768/", mode="playwright")
+        event = execute_grant(grant, url, mode="playwright")
         assert event.payload["success"] is True
         video = event.payload.get("video_path")
         assert video
@@ -251,6 +497,81 @@ def test_loop_publishes_turn_frame(grant):
     result = run_computer_use_loop(grant, Page(), Client(), on_frame=on_frame)
     assert result["success"] is True
     assert seen == [(1, b"jpeg-bytes", "image/jpeg", "verify")]
+
+
+def test_loop_export_still_verifies_after_clicks(grant):
+    calls = []
+
+    class Client:
+        def __init__(self):
+            self.n = 0
+
+        def next_action(self, screenshot_png, goal):
+            self.n += 1
+            if self.n == 1:
+                return {"name": "wait", "args": {}, "intent": "look", "safety": "allowed"}
+            return None
+
+    class Page:
+        url = "http://127.0.0.1:8766/"
+
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def wait_for_timeout(self, ms):
+            calls.append(ms)
+
+        def content(self):
+            return '<div id="sap-auth-error" class="visible">blocked</div>'
+
+    result = run_computer_use_loop(grant, Page(), Client(), action="export", max_turns=5)
+    assert result["success"] is True
+    assert result["reason"] is None
+
+
+def test_loop_blocks_navigate_off_host(grant):
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            return {
+                "name": "navigate",
+                "args": {"url": "https://evil.example/"},
+                "intent": "leave",
+                "safety": "allowed",
+            }
+
+    class Page:
+        url = "http://127.0.0.1:8766/"
+
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def goto(self, url):
+            raise AssertionError(f"should not navigate to {url}")
+
+    result = run_computer_use_loop(grant, Page(), Client(), max_turns=3)
+    assert result["success"] is False
+    assert result["reason"] == "blocked"
+
+
+def test_loop_uses_enact_goal_for_action(grant):
+    seen: list[str] = []
+
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            seen.append(goal)
+            return None
+
+    class Page:
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def content(self):
+            return "<ul id='active-grants'></ul>"
+
+    run_computer_use_loop(grant, Page(), Client(), action="browse")
+    assert seen
+    assert "events/2026-09-18.parquet" in seen[0]
+    assert "#object-preview" in seen[0]
 
 
 def test_loop_none_verifies_then_succeeds(grant):

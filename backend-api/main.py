@@ -11,13 +11,18 @@ Trust boundaries (see docs/ui-surfaces.html, "Hardening before the demo"):
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import inspect
+import json
 import os
 import sys
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -31,6 +36,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from sse_starlette.sse import EventSourceResponse
 
 import cu_frames  # noqa: E402
 
@@ -46,12 +52,21 @@ from shared.schemas import (  # noqa: E402
     DecisionType,
     EscalationCase,
     Grant,
+    PolicyRule,
     Requester,
     UIComponentSpec,
     UISpec,
 )
 
-app = FastAPI(title="Aperture — backend-api")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    flag = (os.environ.get("APERTURE_SWEEP") or "").strip().lower()
+    if flag in {"1", "true", "yes", "on"}:
+        threading.Thread(target=_sweep_loop, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Aperture — backend-api", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # TODO(track 5): restrict to the deployed UI origin before Railway
@@ -75,14 +90,45 @@ ESCALATIONS: dict[str, EscalationCase] = {}
 AUDIT_LOG: list[AuditEvent] = []
 WATCH_URLS: dict[str, str] = {}
 PARSE_IMPL: Callable[[str, Requester], AccessRequest] | None = None
-EXECUTE_ENQUEUE_IMPL: Callable[[Grant], None] | None = None
+EXECUTE_ENQUEUE_IMPL: Callable[..., None] | None = None
 COMPOSE_IMPL: Callable[..., UISpec] | None = None
 AGENT_TURN_IMPL: Callable[..., object] | None = None
 CONVERSATIONS: dict[str, dict] = {}
+STREAM_SUBSCRIBERS: list[Callable] = []
+CLOCK_OFFSET = timedelta(0)
+_STREAM_EXTRA_TYPES = {
+    AuditEventType.GRANT_ISSUED: "grant_issued",
+    AuditEventType.GRANT_REVOKED: "grant_revoked",
+    AuditEventType.PROJECT_CLOSED: "project_closed",
+}
 
 KNOWN_REQUESTERS: dict[str, Requester] = {
     r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
 }
+
+LIVE_POLICY: PolicyRule = policy_engine.DEFAULT_POLICY.model_copy(deep=True)
+DEMO_TICKET = os.environ.get("APERTURE_TICKET", "ATLAS-142")
+NEVER_ENACT_IDS = frozenset({"sql-prod-primary", "sap-customer-directory", "sap-hr-payroll"})
+
+
+def _has_business_context(request: AccessRequest) -> bool:
+    ctx = request.context
+    meta = request.metadata or {}
+    return bool(
+        ctx.active_jira_ticket
+        or ctx.active_pagerduty_incident
+        or meta.get("ticket_id")
+        or meta.get("incident_id")
+    )
+
+
+def _ensure_business_context(request: AccessRequest) -> AccessRequest:
+    """Demo default for JIT-Evidence-01. Keep an explicit caller ticket/incident."""
+    if _has_business_context(request):
+        return request
+    return request.model_copy(
+        update={"context": request.context.model_copy(update={"active_jira_ticket": DEMO_TICKET})}
+    )
 
 
 _CLOCK_OVERRIDE: datetime | None = None  # set only while POST /demo/seed writes history
@@ -91,8 +137,9 @@ RESERVED_ACTORS = {"policy-engine", "gcp-iam"}
 
 
 def now() -> datetime:
-    # TODO(track 5): route through a demo clock with POST /clock/advance
-    return _CLOCK_OVERRIDE or datetime.now(timezone.utc)
+    if _CLOCK_OVERRIDE is not None:
+        return _CLOCK_OVERRIDE
+    return datetime.now(timezone.utc) + CLOCK_OFFSET
 
 
 def _hash(event: AuditEvent) -> str:
@@ -111,7 +158,21 @@ def _audit(event_type: AuditEventType, actor: str, detail: str, **kw) -> AuditEv
         **kw,
     )
     AUDIT_LOG.append(event)
+    _publish_stream(event)
     return event
+
+
+def _publish_stream(event: AuditEvent) -> None:
+    messages = [{"type": "audit_event", "event": event}]
+    extra = _STREAM_EXTRA_TYPES.get(event.type)
+    if extra:
+        messages.append({"type": extra, "event": event})
+    for subscriber in list(STREAM_SUBSCRIBERS):
+        for message in messages:
+            try:
+                subscriber(message)
+            except Exception:
+                continue
 
 
 class NLSubmit(BaseModel):
@@ -159,13 +220,29 @@ def _parse_nl(raw_text: str, requester: Requester) -> AccessRequest:
     return parsed
 
 
-def _enqueue_execute(grant: Grant) -> None:
+def _console_url_for(grant: Grant) -> str:
+    if grant.resource_id.startswith("sap-"):
+        return os.environ.get("SAP_CONSOLE_URL") or "http://127.0.0.1:8766/"
+    return os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+
+
+def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
+    if grant.resource_id in NEVER_ENACT_IDS:
+        return
     watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
     if watch:
         WATCH_URLS[grant.id] = watch
     if EXECUTE_ENQUEUE_IMPL is not None:
-        EXECUTE_ENQUEUE_IMPL(grant)
+        impl = EXECUTE_ENQUEUE_IMPL
+        try:
+            nparams = len(inspect.signature(impl).parameters)
+        except (TypeError, ValueError):
+            nparams = 2
+        if nparams >= 2:
+            impl(grant, action)
+        else:
+            impl(grant)
         return
     url = os.environ.get("AGENT_RUNTIME_EXECUTE_URL")
     local = (os.environ.get("AGENT_RUNTIME_LOCAL_EXECUTE") or "").strip().lower() in {
@@ -178,13 +255,14 @@ def _enqueue_execute(grant: Grant) -> None:
         return
 
     def _run() -> None:
-        console = os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+        console = _console_url_for(grant)
         callback = os.environ.get("BACKEND_PUBLIC_URL") or "http://127.0.0.1:8000"
         payload = {
             "grant": grant.model_dump(mode="json"),
             "console_url": console,
             "callback_base_url": callback,
             "watch_url": watch,
+            "action": action,
         }
         try:
             if url:
@@ -193,7 +271,7 @@ def _enqueue_execute(grant: Grant) -> None:
             _agent_runtime_on_path()
             from computer_use import execute_grant
 
-            execute_grant(grant, console, watch_url=watch, callback_base_url=callback)
+            execute_grant(grant, console, watch_url=watch, callback_base_url=callback, action=action)
         except Exception as exc:
             _audit(
                 AuditEventType.ACTION_EXECUTED,
@@ -399,10 +477,11 @@ def _evaluate_request(request: AccessRequest) -> dict:
     requester = request.requester
     if request.requested_duration_days < 1:
         raise HTTPException(400, "requested_duration_days must be at least 1")
+    request = _ensure_business_context(request)
     request = request.model_copy(update={
         "id": str(uuid.uuid4()),
         "requester": requester,
-        "resource_ids": list(dict.fromkeys(request.resource_ids)),  # one decision per resource, even if asked twice
+        "resource_ids": list(dict.fromkeys(request.resource_ids)),
     })
     REQUESTS[request.id] = request
     _audit(
@@ -417,6 +496,7 @@ def _evaluate_request(request: AccessRequest) -> dict:
     decisions = policy_engine.evaluate_request(
         request,
         resources,
+        policy=LIVE_POLICY,
         active_grants=active_grants(requester.id),
         now=now(),
     )
@@ -567,10 +647,90 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
     ]
 
 
+@app.get("/policy")
+def get_policy() -> PolicyRule:
+    return LIVE_POLICY
+
+
 @app.get("/resources")
 def list_resources() -> list:
     """The resource catalog the UI draws its access matrix from."""
     return list(usecase_demo.RESOURCES.values())
+
+
+_CONSOLE_ROLES = {
+    "bucket-analytics-raw": "Storage Object Viewer",
+    "bq-project-x-finance": "BigQuery Data Viewer",
+    "sql-prod-primary": "Cloud SQL Client",
+}
+
+
+def _console_role(resource_id: str) -> str:
+    mapped = _CONSOLE_ROLES.get(resource_id)
+    if mapped:
+        return mapped
+    resource = usecase_demo.RESOURCES.get(resource_id)
+    if resource is not None and resource.type.value.lower() == "github_repo":
+        return "Write" if resource.capability == "write" else "Triage"
+    return resource.capability if resource is not None else resource_id
+
+
+@app.get("/console/state")
+def console_state() -> dict:
+    """Active grant bindings the mock console hydrates into permissions tables."""
+    bindings = [
+        {
+            "resource_id": grant.resource_id,
+            "principal": grant.requester_id,
+            "role": _console_role(grant.resource_id),
+            "expires_at": grant.expires_at,
+            "grant_id": grant.id,
+        }
+        for grant in active_grants()
+        if not grant.resource_id.startswith("sap-")
+    ]
+    return {"resources": list(usecase_demo.RESOURCES.values()), "bindings": bindings}
+
+
+def _sap_binding(grant: Grant) -> dict:
+    resource = usecase_demo.RESOURCES.get(grant.resource_id)
+    meta = resource.metadata if resource is not None else {}
+    return {
+        "resource_id": grant.resource_id,
+        "principal": grant.requester_id,
+        "role": meta.get("role") or _console_role(grant.resource_id),
+        "company_code": meta.get("company_code"),
+        "customer_id": meta.get("customer_id"),
+        "activity": meta.get("activity"),
+        "expires_at": grant.expires_at,
+        "grant_id": grant.id,
+    }
+
+
+@app.get("/sap/state")
+def sap_state() -> dict:
+    """SAP resources and active sap-* bindings the Fiori console hydrates from."""
+    resources = [r for r in usecase_demo.RESOURCES.values() if r.id.startswith("sap-")]
+    bindings = [_sap_binding(grant) for grant in active_grants() if grant.resource_id.startswith("sap-")]
+    return {"resources": resources, "bindings": bindings}
+
+
+@app.post("/sap/export-demo")
+def sap_export_demo() -> dict:
+    """Presenter bounce: no grant, no enqueue — records a dumped customer-list attempt."""
+    _audit(
+        AuditEventType.ACTION_EXECUTED,
+        actor="agent",
+        detail="sap_export_customer_list · bounced · no active grant",
+        grant_id=None,
+        payload={
+            "tool": "sap_export_customer_list",
+            "status": "bounced",
+            "action": "export",
+            "requester_id": "u-newhire-1",
+        },
+    )
+    return {"status": "bounced", "grant_id": None}
 
 
 @app.get("/people")
@@ -631,7 +791,69 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
     # keep real access if another active grant still covers the same requester + resource
     if not any(g.resource_id == grant.resource_id for g in active_grants(grant.requester_id)):
         _mirror_to_gcp(grant, add=False)
+    _enqueue_execute(grant, action="revoke")
     return grant
+
+
+def sweep_expired() -> list[str]:
+    cutoff = now()
+    revoked: list[str] = []
+    for grant in list(GRANTS.values()):
+        if grant.revoked or grant.expires_at > cutoff:
+            continue
+        revoke_grant(grant.id, reason="expired")
+        revoked.append(grant.id)
+    return revoked
+
+
+class ClockAdvanceIn(BaseModel):
+    days: int
+
+
+@app.post("/clock/advance")
+def advance_clock(body: ClockAdvanceIn) -> dict:
+    global CLOCK_OFFSET
+    CLOCK_OFFSET = CLOCK_OFFSET + timedelta(days=body.days)
+    _audit(AuditEventType.ACTION_EXECUTED, actor="policy-engine", detail=f"advanced {body.days}d")
+    return {"now": now(), "offset_days": CLOCK_OFFSET.days}
+
+
+@app.get("/stream")
+async def stream():
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _push(message: dict) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, message)
+
+    STREAM_SUBSCRIBERS.append(_push)
+
+    async def _events():
+        try:
+            while True:
+                message = await queue.get()
+                event = message["event"]
+                payload = {
+                    "type": message["type"],
+                    "event": event.model_dump(mode="json") if hasattr(event, "model_dump") else event,
+                }
+                yield {"data": json.dumps(payload)}
+        finally:
+            try:
+                STREAM_SUBSCRIBERS.remove(_push)
+            except ValueError:
+                pass
+
+    return EventSourceResponse(_events())
+
+
+def _sweep_loop() -> None:
+    while True:
+        time.sleep(2)
+        try:
+            sweep_expired()
+        except Exception:
+            continue
 
 
 @app.post("/projects/{project}/close")
@@ -836,8 +1058,11 @@ def demo_seed() -> dict:
     """Reset the store and replay the demo morning: Priya's finished task, Jordan's
     month-end access, Alex's request with one grant and one escalation, the agent's
     calls, one bounce, and a critical-tier ask still waiting."""
-    global _CLOCK_OVERRIDE
-    REQUESTS.clear(); GRANTS.clear(); ESCALATIONS.clear(); AUDIT_LOG.clear(); WATCH_URLS.clear()
+    global _CLOCK_OVERRIDE, CLOCK_OFFSET, EXECUTE_ENQUEUE_IMPL
+    CLOCK_OFFSET = timedelta(0)
+    prev_enqueue = EXECUTE_ENQUEUE_IMPL
+    EXECUTE_ENQUEUE_IMPL = lambda grant, action="grant": None
+    REQUESTS.clear(); GRANTS.clear(); ESCALATIONS.clear(); AUDIT_LOG.clear(); WATCH_URLS.clear(); CONVERSATIONS.clear()
     alex, priya, jordan = usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER
 
     def grant_for(uid: str, rid: str) -> Grant | None:
@@ -867,6 +1092,7 @@ def demo_seed() -> dict:
         _demo_call(alex.id, "gcs_list_analytics_raw", grant_for(alex.id, "bucket-analytics-raw"), 20, "gcs_list_analytics_raw · 43 objects")
     finally:
         _CLOCK_OVERRIDE = None
+        EXECUTE_ENQUEUE_IMPL = prev_enqueue
     return {"grants": len(GRANTS), "cases": len(ESCALATIONS), "events": len(AUDIT_LOG)}
 
 

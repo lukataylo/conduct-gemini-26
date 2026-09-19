@@ -120,25 +120,86 @@ def completed_event(
     )
 
 
-def execute_grant(grant: Grant, console_url: str) -> AuditEvent:
-    """Drive the mock console (via computer-use) to actually perform `grant`.
+_VISIBLE_NAMES = {
+    "bucket-analytics-raw": "analytics-raw",
+    "bq-project-x-finance": "project-x-finance",
+    "sql-prod-primary": "prod-primary",
+}
 
-    NOTE: skeleton. Wire up the real Anthropic computer-use loop here:
 
-      1. Launch/attach to a browser or virtual display pointed at `console_url`
-         (the mock GCP console from usecase-demo / backend-api).
-      2. Give Claude the computer-use tool + a goal derived from `grant`
-         (resource_id, requester_id, expires_at).
-      3. Loop on tool_use blocks (screenshot / click / type / key) until the console
-         shows the grant as active, or a turn budget is exhausted.
-      4. Return an AuditEvent describing what was done (and ideally a screenshot path
-         in `payload` for the UI to show "proof of work").
+def execute_grant(
+    grant: Grant,
+    console_url: str,
+    *,
+    mode: str | None = None,
+    watch_url: str | None = None,
+) -> AuditEvent:
+    """Drive the mock console to perform `grant`. Playwright is one scripted attempt."""
+    resolved = mode or os.environ.get("EXECUTE_GRANT_MODE") or "computer_use"
+    if resolved != "playwright":
+        raise NotImplementedError("wire up the Gemini computer-use tool loop here")
+    return _execute_playwright(grant, console_url, watch_url=watch_url)
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-    """
-    raise NotImplementedError("wire up the Anthropic computer-use tool loop here")
+
+def _execute_playwright(
+    grant: Grant, console_url: str, *, watch_url: str | None
+) -> AuditEvent:
+    audit_logger.log(
+        AuditEventType.ACTION_EXECUTED,
+        actor="agent",
+        detail=f"started grant {grant.resource_id}",
+        request_id=grant.request_id,
+        grant_id=grant.id,
+        payload={"phase": "started", "mode": "playwright", "watch_url": watch_url},
+    )
+    if not host_allowed(console_url):
+        return completed_event(
+            grant,
+            success=False,
+            reason="unknown_host",
+            actions=[],
+            watch_url=watch_url,
+            mode="playwright",
+            turn_count=0,
+        )
+
+    from playwright.sync_api import sync_playwright
+
+    visible_name = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
+    expiry = grant.expires_at.date().isoformat()
+    actions = [
+        {"intent": f"click Grant access on {visible_name}", "name": "click", "args": {}},
+        {"intent": "fill Principal", "name": "type", "args": {"value": grant.requester_id}},
+        {"intent": "fill Expires", "name": "type", "args": {"value": expiry}},
+        {"intent": "click Confirm", "name": "click", "args": {}},
+    ]
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.goto(console_url)
+            card = page.locator(".card").filter(
+                has=page.locator(".name", has_text=visible_name)
+            )
+            card.get_by_role("button", name="Grant access").click()
+            page.get_by_label("Principal").fill(grant.requester_id)
+            page.get_by_label("Expires").fill(expiry)
+            page.get_by_role("button", name="Confirm").click()
+            html = page.locator("#active-grants").evaluate("el => el.outerHTML")
+        finally:
+            browser.close()
+
+    ok = verify_active(html, grant)
+    return completed_event(
+        grant,
+        success=ok,
+        reason=None if ok else "verify_failed",
+        actions=actions,
+        watch_url=watch_url,
+        mode="playwright",
+        turn_count=1,
+    )
 
 
 def _action_event(grant: Grant, detail: str, payload: dict | None = None) -> AuditEvent:

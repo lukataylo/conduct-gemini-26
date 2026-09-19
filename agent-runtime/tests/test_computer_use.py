@@ -1,4 +1,5 @@
-from computer_use import completed_event, grant_goal, host_allowed, verify_active
+from computer_use import completed_event, execute_grant, grant_goal, host_allowed, verify_active
+from mock_console.server import serve_in_thread
 
 
 def test_goal_names_resource_principal_and_expiry(grant):
@@ -35,3 +36,14 @@ def test_completed_event_shape(grant):
     assert event.payload["success"] is False
     assert event.payload["reason"] == "turn_budget"
     assert event.grant_id == grant.id
+
+
+def test_playwright_execute_grant_marks_active(grant):
+    server = serve_in_thread(port=8765)
+    try:
+        event = execute_grant(grant, "http://127.0.0.1:8765/", mode="playwright")
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["mode"] == "playwright"
+    finally:
+        server.shutdown()

@@ -247,3 +247,37 @@ Do not start Live, `ScopeMap`, or `compose_console` until the five-beat spine ha
 - "Where is the generative UI?" — "This workspace was composed for Priya. Alex's is a different tree from the same grants. Here is the catalog; here is an off-catalog name failing closed."
 - "Can I talk to it?" — "Yes. Live and chat are one agent. Ask it to request access and it still has to go through the engine. Ask it to approve and it cannot."
 - "Isn't this a chatbot with charts?" — "The charts are your lease. The actions are re-checked. The left pane is still the coding agent's tools disappearing when the project closes."
+
+## Conflicts with what is already on `main`
+
+Landed immediately after this spec: `28fc00f` (lukataylor-pixel) — *Build the Aperture requester app: lease timeline + flight recorder*. Git-clean on our files. Product-overlap is real. Integrate; do not rewrite.
+
+### What they shipped
+
+- `generative-ui/src/main.tsx` now mounts `aperture/App.tsx`, not the registry `App.tsx`.
+- Hardcoded **Alex-only** shell: summary strip, `Timeline` (leases), `Recorder` (audit + tool calls nested under grants), `DemoBar`.
+- Polls `/grants?include_revoked=true`, `/escalations`, `/audit`, `/audit/verify` every 1.5s. **Does not consume `UISpec`.**
+- `DemoBar` drives the golden path from Alex's screen: Request (hand-built `AccessRequest`) → Approve (casts every required vote) → Call tool (synthesises `ACTION_EXECUTED`) → Close project.
+- Backend: `GET /grants?include_revoked=` — default remains active-only.
+
+### How this maps to this spec
+
+| This spec | Their code | Rule |
+|---|---|---|
+| `LeaseGantt` | `aperture/Timeline.tsx` | Treat Timeline as LeaseGantt v0. Do not add a second Gantt. |
+| `FlightRecorder` | `aperture/Recorder.tsx` | Treat Recorder as FlightRecorder v0. |
+| `HoldingsStrip` / `ChainHealth` | header summary + `chain ok` | Already on the shell. |
+| `ScopeMap`, `QueueSLA`, `PeerSignal` | missing | Add later; do not replace Timeline/Recorder to make room. |
+| Chat + Gemini Live | missing | Dock onto **their** shell. Do not resurrect registry `App.tsx` as the demo entry. |
+| Quick actions | `DemoBar` | DemoBar is **presenter chrome** (like `/demo`). It is not the product action strip and not an approver. |
+| Registry + `compose_ui` catalog | still in repo, unused at boot | Keep for generated mode. Register `LeaseGantt`/`FlightRecorder` as aliases of Timeline/Recorder when compose is wired. |
+| `UISpec.viewer_id` rename | unused by their app; still required by `compose_ui` + `/ui-spec` | **Do not rename `requester_id`.** Additive fields only. |
+| Approver vote chrome | DemoBar auto-votes as Priya and Jordan | Fine for a four-minute run. Beat 3 for judges still needs a real Priya view; do not delete DemoBar. |
+
+### Landmines
+
+- **`GET /grants` default must stay active + unexpired.** MCP `tools/list` uses it. Never pass `include_revoked=true` from the runtime. Timeline is the only caller of that flag.
+- **Do not bypass policy from new console features** the way DemoBar `Approve` does. New chat/Live/quick-action paths go parse → engine. DemoBar stays labelled `demo`.
+- **Do not POST synthetic `ACTION_EXECUTED` from the console agent.** DemoBar's "Call tool" is a presenter stub. Real calls come from MCP or computer use.
+- **Local track-2 WIP** (`envutil`, `gemini_parser`, `a2ui`, `computer_use`, `gemini_models.py`) does not overlap their files. Rebase/push that separately; do not bundle it with console-spec edits.
+- **Docs still disagree:** `agent-runtime/README.md` says MCP is core; `docs/superpowers/plans/2026-09-19-agent-runtime-core.md` says MCP is out of scope. This spec does not resolve that. `compose_ui` vs `compose_console` is the same function grown in place — do not add a second composer.

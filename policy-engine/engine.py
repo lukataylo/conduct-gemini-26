@@ -258,6 +258,16 @@ def _evaluate_single(
             metadata=peer_metadata,
         )
 
+    if tier == SensitivityTier.INTERNAL and not cross_team:
+        # Internal write within the owning team, already inside the duration limit above.
+        return _grant(
+            request,
+            resource,
+            reason=f"Auto-Approved: internal {resource.capability} within team, {requested_days}d within {max_days}d limit (Velocity-Benefit-01b).",
+            ttl_hours=max(1, requested_days) * 24,
+            metadata=peer_metadata,
+        )
+
     if tier == SensitivityTier.PUBLIC:
         return _grant(
             request,

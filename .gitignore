@@ -20,6 +20,9 @@ env.local
 # Modal
 .modal/
 
+# Computer-use recordings (webm / gif / turn pngs)
+agent-runtime/recordings/
+
 # OS
 .DS_Store
 

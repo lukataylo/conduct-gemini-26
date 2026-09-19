@@ -17,9 +17,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import modal
 from a2ui import compose_ui
 from audit_logger import set_emitter
-from computer_use import execute_grant
+from computer_use import current_sandbox_id, execute_grant
 from gemini_parser import parse_request
 from http_emitter import make_emitter
+from mcp_server import tools_for_grants
 from shared.schemas import EscalationCase, Grant, Requester
 
 app = modal.App("access-scope-agent-runtime")
@@ -74,7 +75,7 @@ def handle_execute(payload: dict, *, execute=execute_grant) -> dict:
         set_emitter(make_emitter(callback_base_url))
     event = execute(grant, console_url, watch_url=watch_url)
     return {
-        "sandbox_id": "local",
+        "sandbox_id": current_sandbox_id(),
         "watch_url": watch_url,
         "grant_id": grant.id,
         "event": event.model_dump(mode="json"),
@@ -97,8 +98,24 @@ def handle_compose(payload: dict, *, compose=compose_ui) -> dict:
         c if isinstance(c, EscalationCase) else EscalationCase.model_validate(c)
         for c in cases_data
     ]
-    spec = compose(grants, cases, role, viewer_id=viewer_id)
+    watch_urls = payload.get("watch_urls") or None
+    kwargs: dict = {"viewer_id": viewer_id}
+    if watch_urls:
+        kwargs["watch_urls"] = watch_urls
+    spec = compose(grants, cases, role, **kwargs)
     return spec.model_dump(mode="json")
+
+
+def handle_mcp_tools(payload: dict) -> dict:
+    grants_data = payload.get("grants") or []
+    grants = [
+        g if isinstance(g, Grant) else Grant.model_validate(g) for g in grants_data
+    ]
+    return {"tools": tools_for_grants(grants)}
+
+
+def handle_watch() -> dict:
+    return {"sandbox_id": current_sandbox_id(), "ready": True}
 
 
 @app.function(image=image, secrets=secrets)
@@ -120,3 +137,17 @@ def execute_grant_endpoint(payload: dict) -> dict:
 def compose_ui_endpoint(payload: dict) -> dict:
     """POST { grants, cases, role, viewer_id } -> UISpec (as dict)."""
     return handle_compose(payload)
+
+
+@app.function(image=image, secrets=secrets)
+@modal.fastapi_endpoint(method="POST")
+def mcp_tools_endpoint(payload: dict) -> dict:
+    """POST { grants } -> scoped MCP tool list for active grants only."""
+    return handle_mcp_tools(payload)
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="GET")
+def watch_endpoint() -> dict:
+    """Lightweight watch probe for ConsoleWatchCard / AGENT_RUNTIME_WATCH_URL."""
+    return handle_watch()

@@ -32,3 +32,11 @@ def gemini_api_key() -> str:
     if not key:
         raise RuntimeError("GEMINI_API_KEY not set")
     return key
+
+
+def export_gemini_keys() -> str:
+    """Force GOOGLE_API_KEY / GEMINI_API_KEY for Pydantic AI and google-genai."""
+    key = gemini_api_key()
+    os.environ["GEMINI_API_KEY"] = key
+    os.environ["GOOGLE_API_KEY"] = key
+    return key

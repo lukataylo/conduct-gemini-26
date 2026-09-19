@@ -1,7 +1,6 @@
 """Compose an A2UI-shaped UISpec against a fixed component catalog."""
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
@@ -9,7 +8,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from envutil import gemini_api_key  # noqa: E402
+from envutil import export_gemini_keys  # noqa: E402
+from gemini_models import parse_model  # noqa: E402
 from shared.schemas import EscalationCase, Grant, UIComponentSpec, UISpec  # noqa: E402
 
 CATALOG = ("GrantCard", "PendingApprovalCard", "AuditTimeline", "ConsoleWatchCard")
@@ -37,12 +37,10 @@ def _ensure_logfire() -> None:
 def _default_runner(prompt: str) -> UISpec:
     from pydantic_ai import Agent
 
-    key = gemini_api_key()
-    os.environ.setdefault("GOOGLE_API_KEY", key)
-    os.environ.setdefault("GEMINI_API_KEY", key)
+    export_gemini_keys()
     _ensure_logfire()
     agent = Agent(
-        "google-gla:gemini-2.5-flash",
+        parse_model(),
         output_type=UISpec,
         system_prompt=COMPOSE_PROMPT,
     )
@@ -83,19 +81,34 @@ def _case_card(case: EscalationCase) -> UIComponentSpec:
     )
 
 
+def _watch_card(grant_id: str, watch_url: str) -> UIComponentSpec:
+    return UIComponentSpec(
+        id=f"watch-{grant_id}",
+        component="ConsoleWatchCard",
+        props={"grant_id": grant_id, "watch_url": watch_url},
+    )
+
+
 def _fallback(
     grants: Iterable[Grant],
     cases: Iterable[EscalationCase],
     role: str,
     viewer_id: str,
+    watch_urls: dict[str, str] | None = None,
 ) -> UISpec:
     active = [g for g in grants if _is_active(g)]
     pending = [c for c in cases if c.status == "pending"]
+    watch_urls = watch_urls or {}
     panels: list[UIComponentSpec] = []
     if role == "requester":
         mine = [g for g in active if g.requester_id == viewer_id]
         my_cases = [c for c in pending if c.requester_id == viewer_id]
         panels = [_grant_card(g) for g in mine] + [_case_card(c) for c in my_cases]
+        panels.extend(
+            _watch_card(g.id, watch_urls[g.id])
+            for g in mine
+            if watch_urls.get(g.id)
+        )
     elif role == "approver":
         mine = [c for c in pending if viewer_id in c.required_approver_ids]
         panels = [_case_card(c) for c in mine] + [_grant_card(g) for g in active]
@@ -105,6 +118,25 @@ def _fallback(
             *(_grant_card(g) for g in active),
         ]
     return UISpec(requester_id=viewer_id, panels=panels)
+
+
+def _with_watch_cards(
+    spec: UISpec,
+    grants: Iterable[Grant],
+    watch_urls: dict[str, str] | None,
+) -> UISpec:
+    if not watch_urls:
+        return spec
+    grant_ids = {g.id for g in grants}
+    have = {p.id for p in spec.panels}
+    extra = [
+        _watch_card(grant_id, url)
+        for grant_id, url in watch_urls.items()
+        if grant_id in grant_ids and url and f"watch-{grant_id}" not in have
+    ]
+    if not extra:
+        return spec
+    return spec.model_copy(update={"panels": [*spec.panels, *extra]})
 
 
 def _sanitize(
@@ -153,13 +185,15 @@ def compose_ui(
     *,
     viewer_id: str,
     runner: Callable[[str], UISpec] | None = None,
+    watch_urls: dict[str, str] | None = None,
 ) -> UISpec:
     """Return a catalog-constrained UISpec. Missing/raising runner uses fallback."""
     if runner is None:
-        spec = _fallback(grants, cases, role, viewer_id)
+        spec = _fallback(grants, cases, role, viewer_id, watch_urls)
     else:
         try:
             spec = runner(_prompt(grants, cases, role, viewer_id))
         except Exception:
-            spec = _fallback(grants, cases, role, viewer_id)
-    return spec.model_copy(update={"panels": _sanitize(spec.panels, grants, cases)})
+            spec = _fallback(grants, cases, role, viewer_id, watch_urls)
+    sanitized = spec.model_copy(update={"panels": _sanitize(spec.panels, grants, cases)})
+    return _with_watch_cards(sanitized, grants, watch_urls)

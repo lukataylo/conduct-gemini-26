@@ -122,6 +122,41 @@ def test_fallback_auditor_layout():
     assert "PendingApprovalCard" not in names
 
 
+def test_fallback_emits_watch_card_when_url_present():
+    spec = compose_ui(
+        [_grant()],
+        [],
+        "requester",
+        viewer_id="u-newhire-1",
+        watch_urls={"g-1": "https://watch.example/vnc"},
+    )
+    watch = [p for p in spec.panels if p.component == "ConsoleWatchCard"]
+    assert len(watch) == 1
+    assert watch[0].id == "watch-g-1"
+    assert watch[0].props["watch_url"] == "https://watch.example/vnc"
+    assert watch[0].props["grant_id"] == "g-1"
+
+
+def test_watch_card_appended_even_when_runner_omits_it():
+    def runner(prompt: str) -> UISpec:
+        return UISpec(
+            requester_id="u-newhire-1",
+            panels=[
+                UIComponentSpec(id="grant-g-1", component="GrantCard", props={"grant_id": "g-1"}),
+            ],
+        )
+
+    spec = compose_ui(
+        [_grant()],
+        [],
+        "requester",
+        viewer_id="u-newhire-1",
+        runner=runner,
+        watch_urls={"g-1": "https://watch.example/vnc"},
+    )
+    assert any(p.id == "watch-g-1" for p in spec.panels)
+
+
 def test_fallback_skips_inactive_grants_and_nonpending_cases():
     now = datetime.now(timezone.utc)
     revoked = Grant(

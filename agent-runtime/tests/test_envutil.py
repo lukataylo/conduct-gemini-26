@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from envutil import gemini_api_key, load_local_env
+from envutil import export_gemini_keys, gemini_api_key, load_local_env
 
 
 def test_gemini_api_key_reads_standard_name(monkeypatch, tmp_path: Path):
@@ -29,3 +29,11 @@ def test_gemini_api_key_missing_raises(monkeypatch):
         raise AssertionError("expected RuntimeError")
     except RuntimeError as exc:
         assert "GEMINI_API_KEY" in str(exc)
+
+
+def test_export_gemini_keys_overwrites_empty_google(monkeypatch):
+    monkeypatch.setenv("GEMINIAPIKEY", "from-alias")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    assert export_gemini_keys() == "from-alias"
+    assert gemini_api_key() == "from-alias"

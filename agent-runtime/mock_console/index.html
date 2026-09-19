@@ -3,187 +3,1160 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mock GCP Console — IAM</title>
+  <title>Google Cloud</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
   <style>
     :root {
-      --ground: #f3f5f8;
-      --surface: #ffffff;
-      --surface-2: #e9edf2;
-      --ink: #17212b;
-      --ink-2: #4f5f70;
-      --ink-3: #8593a2;
-      --line: #d3dae2;
-      --accent: #1d5cc2;
-      --accent-ink: #ffffff;
-      --accent-soft: #e4edfb;
-      --good: #14663d;
-      --good-soft: #e0f3e9;
-      --warn: #8a4f00;
-      --warn-soft: #fbeedb;
-      --crit: #b83a3a;
-      --crit-soft: #f9e3e3;
-      --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --blue: #1a73e8;
+      --blue-deep: #1967d2;
+      --blue-hover: #1765cc;
+      --blue-soft: #e8f0fe;
+      --ink: #202124;
+      --ink-2: #3c4043;
+      --ink-3: #5f6368;
+      --line: #dadce0;
+      --ground: #fff;
+      --wash: #f8f9fa;
+      --hover: #f1f3f4;
+      --good: #1e8e3e;
+      --good-soft: #e6f4ea;
+      --warn: #e37400;
+      --warn-soft: #fef7e0;
+      --crit: #d93025;
+      --shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+      --shadow-lg: 0 8px 10px 1px rgba(60, 64, 67, 0.14), 0 3px 14px 2px rgba(60, 64, 67, 0.12);
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
       background: var(--ground);
       color: var(--ink);
-      font-family: var(--sans);
-      font-size: 15px;
-      line-height: 1.5;
+      font: 14px/20px Roboto, Arial, sans-serif;
     }
-    header {
-      background: var(--surface);
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: var(--blue-deep); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    .topbar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px 0 4px;
       border-bottom: 1px solid var(--line);
-      padding: 14px 24px;
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink-3);
+      display: grid;
+      place-items: center;
+    }
+    .icon-btn:hover { background: var(--hover); }
+    .icon-btn .material-icons-outlined { font-size: 22px; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px 0 4px;
+      color: var(--ink-2);
+      font-size: 16px;
+      letter-spacing: 0.1px;
+      white-space: nowrap;
+    }
+    .brand svg { display: block; }
+    .project-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 8px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      max-width: 280px;
+    }
+    .project-picker:hover { background: var(--wash); }
+    .project-picker .material-icons-outlined { font-size: 18px; color: var(--ink-3); }
+    .project-picker b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+    .search {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 36px;
+      max-width: 720px;
+      margin: 0 16px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 24px;
+      background: var(--hover);
+      color: var(--ink-3);
+    }
+    .search input {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      outline: none;
+      color: var(--ink);
+    }
+    .top-actions { display: flex; align-items: center; margin-left: auto; }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .shell { display: flex; height: calc(100% - 48px); }
+    .sidenav {
+      width: 256px;
+      flex: 0 0 256px;
+      border-right: 1px solid var(--line);
+      background: #fff;
+      overflow: auto;
+      padding: 8px 0;
+    }
+    .sidenav.collapsed { width: 72px; flex-basis: 72px; }
+    .sidenav.collapsed .nav-label,
+    .sidenav.collapsed .nav-section { display: none; }
+    .nav-section {
+      padding: 16px 24px 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.8px;
+      color: var(--ink-3);
+    }
+    .nav-item {
+      width: calc(100% - 16px);
+      margin: 0 8px;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 0 20px 20px 0;
+      color: var(--ink-2);
+      text-align: left;
+    }
+    .nav-item .material-icons-outlined { font-size: 20px; color: var(--ink-3); }
+    .nav-item:hover { background: var(--hover); }
+    .nav-item.active {
+      background: var(--blue-soft);
+      color: var(--blue-deep);
+      font-weight: 500;
+    }
+    .nav-item.active .material-icons-outlined { color: var(--blue-deep); }
+    .nav-item.ghost { color: var(--ink-3); }
+
+    .content {
+      flex: 1;
+      overflow: auto;
+      background: #fff;
+    }
+    .page { padding: 16px 24px 40px; }
+    .crumbs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--ink-3);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .crumbs button {
+      border: 0;
+      background: none;
+      color: var(--blue-deep);
+      padding: 0;
+    }
+    .page-head {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: flex-start;
       gap: 16px;
+      margin: 4px 0 12px;
     }
-    header h1 { margin: 0; font-size: 16px; font-weight: 600; }
-    header p { margin: 0; color: var(--ink-2); font-size: 13px; }
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 24px;
-      display: grid;
-      gap: 24px;
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 28px;
     }
-    h2 { margin: 0 0 12px; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
-    .cards { display: grid; gap: 12px; }
-    .card {
-      background: var(--surface);
+    .subtitle { margin: 4px 0 0; color: var(--ink-3); font-size: 13px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink-2);
+    }
+    .btn:hover { background: var(--wash); }
+    .btn-filled {
+      height: 36px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 4px;
+      background: var(--blue);
+      color: #fff;
+      font-weight: 500;
+    }
+    .btn-filled:hover { background: var(--blue-hover); }
+    .btn-text {
+      height: 36px;
+      padding: 0 12px;
+      border: 0;
+      background: transparent;
+      color: var(--blue-deep);
+      font-weight: 500;
+    }
+    .btn-text:hover { background: var(--blue-soft); border-radius: 4px; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      margin: 8px 0 0;
+    }
+    [role="tab"] {
+      border: 0;
+      background: none;
+      color: var(--ink-3);
+      height: 48px;
+      padding: 0 16px;
+      font-weight: 500;
+    }
+    [role="tab"]:hover { background: var(--wash); }
+    [role="tab"][aria-selected="true"] {
+      color: var(--blue-deep);
+      box-shadow: inset 0 -2px 0 var(--blue);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 16px 0;
+    }
+    .filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      min-width: 280px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink-3);
+    }
+    .filter input { border: 0; outline: none; flex: 1; color: var(--ink); }
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table.data th, table.data td {
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    table.data th {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-3);
+      background: #fff;
+    }
+    table.data td { color: var(--ink-2); }
+    table.data tr:hover td { background: var(--wash); }
+    .linkish {
+      border: 0;
+      background: none;
+      color: var(--blue-deep);
+      padding: 0;
+      font-weight: 500;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .pill.ok { background: var(--good-soft); color: var(--good); }
+    .pill.warn { background: var(--warn-soft); color: var(--warn); }
+    .pill.off { background: var(--hover); color: var(--ink-3); }
+
+    .banner {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      margin: 16px 0;
+      border-radius: 4px;
+      background: var(--blue-soft);
+      color: var(--ink-2);
+    }
+    .banner.warn { background: var(--warn-soft); }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+    .info-card {
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 16px 18px;
+      padding: 16px 20px;
+      background: #fff;
     }
-    .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .card-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-    .name { margin: 0; font-size: 18px; font-family: var(--mono); }
-    .meta { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; }
-    .tier {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 3px;
+    .info-card h3 { margin: 0 0 12px; font-size: 14px; font-weight: 500; }
+    .kv { display: grid; grid-template-columns: 180px 1fr; gap: 8px 16px; }
+    .kv dt { color: var(--ink-3); }
+    .kv dd { margin: 0; }
+    .section-title { margin: 24px 0 8px; font-size: 16px; font-weight: 500; }
+
+    .bq-layout { display: flex; min-height: calc(100vh - 48px); }
+    .explorer {
+      width: 280px;
+      border-right: 1px solid var(--line);
+      padding: 12px;
+      background: var(--wash);
     }
-    .tier.internal { background: var(--accent-soft); color: var(--accent); }
-    .tier.restricted { background: var(--warn-soft); color: var(--warn); }
-    .tier.critical { background: var(--crit-soft); color: var(--crit); }
-    button {
-      font: inherit;
-      cursor: pointer;
-      border-radius: 6px;
+    .explorer h2 { margin: 0 0 8px; font-size: 14px; font-weight: 500; }
+    .tree-btn {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      color: var(--ink-2);
+      text-align: left;
+    }
+    .tree-btn:hover, .tree-btn.active { background: var(--blue-soft); color: var(--blue-deep); }
+    .bq-main { flex: 1; }
+
+    .sql-layout { display: flex; min-height: calc(100vh - 48px); }
+    .sql-side {
+      width: 220px;
+      border-right: 1px solid var(--line);
+      padding: 12px 0;
+    }
+    .sql-side button {
+      width: 100%;
+      border: 0;
+      background: none;
+      text-align: left;
+      padding: 10px 20px;
+      color: var(--ink-2);
+    }
+    .sql-side button:hover { background: var(--hover); }
+    .sql-side button.active { background: var(--blue-soft); color: var(--blue-deep); font-weight: 500; }
+    .sql-main { flex: 1; }
+
+    .card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin: 16px 0 8px;
+    }
+    .card.selected .name { color: var(--blue-deep); }
+    .name { margin: 0; font-size: 16px; font-weight: 500; }
+    .perm-switch { display: flex; gap: 0; margin: 8px 0 0; }
+    .perm-switch button {
       border: 1px solid var(--line);
-      background: var(--surface);
-      color: var(--ink);
-      padding: 8px 12px;
+      background: #fff;
+      height: 32px;
+      padding: 0 12px;
     }
-    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #grant-form {
-      display: none;
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--line);
-      grid-template-columns: 1fr 1fr auto;
-      gap: 12px;
-      align-items: end;
-    }
-    #grant-form.visible { display: grid; }
-    label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
-    input {
-      font: inherit;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--surface);
-      color: var(--ink);
-    }
-    #active-grants { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-    #active-grants:empty::after {
-      content: "None yet.";
-      color: var(--ink-3);
-      font-size: 13px;
+    .perm-switch button:first-child { border-radius: 4px 0 0 4px; }
+    .perm-switch button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+    .perm-switch button.on { background: var(--blue-soft); color: var(--blue-deep); border-color: var(--blue); }
+
+    #active-grants {
+      list-style: none;
+      margin: 0;
+      padding: 0;
     }
     #active-grants li {
-      background: var(--good-soft);
-      color: var(--good);
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-family: var(--mono);
-      font-size: 13px;
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.6fr 1fr auto;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      font-family: Roboto, Arial, sans-serif;
+      color: var(--ink-2);
+    }
+    #active-grants:empty::after { content: none; }
+
+    .dialog-root[hidden] { display: none; }
+    .dialog-root {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+    }
+    .backdrop { position: absolute; inset: 0; background: rgba(32, 33, 36, 0.6); }
+    #grant-form {
+      position: relative;
+      width: min(560px, calc(100vw - 32px));
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      display: none;
+    }
+    #grant-form.visible { display: block; }
+    .dialog-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px 8px;
+    }
+    .dialog-head h2 { margin: 0; font-size: 22px; font-weight: 400; }
+    .dialog-body { padding: 8px 20px 0; display: grid; gap: 16px; }
+    .field { display: grid; gap: 6px; color: var(--ink-3); font-size: 12px; font-weight: 500; }
+    .field input, .field select {
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      background: #fff;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 20px;
+    }
+    .chart {
+      height: 120px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(#e8f0fe, #e8f0fe) 0 70% / 12% 30% no-repeat,
+        linear-gradient(#d2e3fc, #d2e3fc) 16% 50% / 12% 50% no-repeat,
+        linear-gradient(#e8f0fe, #e8f0fe) 32% 40% / 12% 60% no-repeat,
+        linear-gradient(#d2e3fc, #d2e3fc) 48% 55% / 12% 45% no-repeat,
+        linear-gradient(#e8f0fe, #e8f0fe) 64% 35% / 12% 65% no-repeat,
+        linear-gradient(#d2e3fc, #d2e3fc) 80% 60% / 12% 40% no-repeat,
+        var(--wash);
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Google Cloud — IAM bindings</h1>
-    <p>Mock console · project lon-agentic26lon-9202</p>
+  <header class="topbar">
+    <button type="button" class="icon-btn" id="nav-toggle" aria-label="Main menu">
+      <span class="material-icons-outlined">menu</span>
+    </button>
+    <div class="brand">
+      <svg width="26" height="18" viewBox="0 0 74 48" aria-hidden="true">
+        <path fill="#4285F4" d="M61.7 20.3C60.1 8.8 50.3 0 38.2 0 28.6 0 20.3 5.5 16.2 13.8 7.2 14.8.4 22.4.4 31.8c0 9.9 8 18 17.9 18h42c7.7 0 14-6.3 14-14 0-7.3-5.5-13.2-12.6-15.5z"/>
+        <path fill="#EA4335" d="M16.2 13.8C20.3 5.5 28.6 0 38.2 0c6.4 0 12.2 2.5 16.4 6.6L44.3 17c-1.7-1.6-4-2.6-6.5-2.6-4.4 0-8.1 2.8-9.6 6.7l-11.9-7.3z"/>
+        <path fill="#FBBC04" d="M16.2 13.8l11.9 7.3C26.5 25 26 29 26.9 32.8L15 40.2C10.6 32.3 11.2 22.3 16.2 13.8z"/>
+        <path fill="#34A853" d="M38.2 49.8c8.4 0 15.6-4.4 19.7-11.1L46.2 31c-1.9 3.1-5.3 5.2-9.2 5.2-3.7 0-6.9-1.9-8.8-4.8l-12.2 7.3C20.4 45.8 28.7 49.8 38.2 49.8z"/>
+      </svg>
+      Google Cloud
+    </div>
+    <button type="button" class="project-picker" id="project-picker" aria-haspopup="listbox">
+      <span class="material-icons-outlined">folder</span>
+      <b>lon-agentic26lon-9202</b>
+      <span class="material-icons-outlined">arrow_drop_down</span>
+    </button>
+    <label class="search">
+      <span class="material-icons-outlined">search</span>
+      <input type="search" placeholder="Search (/) for resources, docs, products, and more">
+    </label>
+    <div class="top-actions">
+      <button type="button" class="icon-btn" aria-label="Activate Cloud Shell"><span class="material-icons-outlined">terminal</span></button>
+      <button type="button" class="icon-btn" aria-label="Notifications"><span class="material-icons-outlined">notifications</span></button>
+      <button type="button" class="icon-btn" aria-label="Help"><span class="material-icons-outlined">help_outline</span></button>
+      <button type="button" class="icon-btn" aria-label="Settings"><span class="material-icons-outlined">settings</span></button>
+      <button type="button" class="icon-btn" aria-label="Google Account"><span class="avatar">A</span></button>
+    </div>
   </header>
-  <main>
-    <section>
-      <h2>Resources</h2>
-      <div class="cards">
-        <article class="card" data-resource-id="bucket-analytics-raw">
-          <div class="card-top">
+
+  <div class="shell">
+    <nav class="sidenav" id="sidenav">
+      <button type="button" class="nav-item" data-nav="home"><span class="material-icons-outlined">home</span><span class="nav-label">Home</span></button>
+      <div class="nav-section">PINNED</div>
+      <button type="button" class="nav-item active" data-nav="storage"><span class="material-icons-outlined">cloud</span><span class="nav-label">Cloud Storage</span></button>
+      <button type="button" class="nav-item" data-nav="bigquery"><span class="material-icons-outlined">analytics</span><span class="nav-label">BigQuery</span></button>
+      <button type="button" class="nav-item" data-nav="sql"><span class="material-icons-outlined">storage</span><span class="nav-label">SQL</span></button>
+      <button type="button" class="nav-item" data-nav="iam"><span class="material-icons-outlined">security</span><span class="nav-label">IAM &amp; Admin</span></button>
+      <div class="nav-section">MORE PRODUCTS</div>
+      <button type="button" class="nav-item ghost" data-nav="compute" disabled><span class="material-icons-outlined">memory</span><span class="nav-label">Compute Engine</span></button>
+      <button type="button" class="nav-item ghost" data-nav="vpc" disabled><span class="material-icons-outlined">lan</span><span class="nav-label">VPC network</span></button>
+      <button type="button" class="nav-item ghost" data-nav="logging" disabled><span class="material-icons-outlined">article</span><span class="nav-label">Logging</span></button>
+    </nav>
+
+    <main class="content">
+      <section class="page" data-view="home" hidden>
+        <div class="crumbs">Google Cloud</div>
+        <div class="page-head">
+          <div>
+            <h1>Welcome</h1>
+            <p class="subtitle">Project lon-agentic26lon-9202 · europe-west2</p>
+          </div>
+        </div>
+        <div class="cards-grid">
+          <article class="info-card">
+            <h3>Project info</h3>
+            <dl class="kv">
+              <dt>Project name</dt><dd>lon-agentic26lon-9202</dd>
+              <dt>Project ID</dt><dd>lon-agentic26lon-9202</dd>
+              <dt>Project number</dt><dd>9202619202</dd>
+            </dl>
+          </article>
+          <article class="info-card">
+            <h3>Resources</h3>
+            <p><button type="button" class="linkish" data-open-resource="bucket-analytics-raw">analytics-raw</button> · Bucket</p>
+            <p><button type="button" class="linkish" data-open-resource="bq-project-x-finance">project-x-finance</button> · Dataset</p>
+            <p><button type="button" class="linkish" data-open-resource="sql-prod-primary">prod-primary</button> · SQL instance</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" data-view="storage">
+        <div class="crumbs">Cloud Storage</div>
+        <div class="page-head">
+          <h1>Buckets</h1>
+          <div class="actions">
+            <button type="button" class="btn">REFRESH</button>
+            <button type="button" class="btn-filled">CREATE</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label class="filter"><span class="material-icons-outlined">filter_list</span><input data-filter="storage" placeholder="Filter buckets"></label>
+        </div>
+        <table class="data" id="bucket-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Name</th>
+              <th>Location</th>
+              <th>Default storage class</th>
+              <th>Last modified</th>
+              <th>Public access</th>
+              <th>Access control</th>
+              <th>Protection</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><input type="checkbox"></td>
+              <td><button type="button" class="linkish" data-open-resource="bucket-analytics-raw">analytics-raw</button></td>
+              <td>europe-west2</td>
+              <td>Standard</td>
+              <td>Sep 18, 2026</td>
+              <td><span class="pill off">Not public</span></td>
+              <td>Uniform</td>
+              <td>Soft delete</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="page" data-view="bucket" hidden>
+        <div class="crumbs">
+          <button type="button" data-nav="storage">Buckets</button>
+          <span class="material-icons-outlined" style="font-size:14px">chevron_right</span>
+          analytics-raw
+        </div>
+        <div class="page-head">
+          <div>
+            <h1>analytics-raw</h1>
+            <p class="subtitle">gs://lon-agentic26lon-9202-analytics-raw · europe-west2</p>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn">REFRESH</button>
+            <button type="button" class="btn">UPLOAD</button>
+          </div>
+        </div>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-tab="objects" aria-selected="true">Objects</button>
+          <button type="button" role="tab" data-tab="configuration">Configuration</button>
+          <button type="button" role="tab" data-tab="permissions">Permissions</button>
+          <button type="button" role="tab" data-tab="protection">Protection</button>
+          <button type="button" role="tab" data-tab="lifecycle">Lifecycle</button>
+          <button type="button" role="tab" data-tab="replication">Replication</button>
+          <button type="button" role="tab" data-tab="observability">Observability</button>
+        </div>
+
+        <div data-tab-panel="objects">
+          <div class="toolbar">
+            <button type="button" class="btn-filled">UPLOAD FILES</button>
+            <button type="button" class="btn">CREATE FOLDER</button>
+            <label class="filter"><span class="material-icons-outlined">filter_list</span><input placeholder="Filter by name prefix"></label>
+          </div>
+          <table class="data">
+            <thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Created</th><th>Storage class</th><th>Public access</th></tr></thead>
+            <tbody>
+              <tr><td>atlas/ingest/2026-09-18/events.jsonl</td><td>2.4 MB</td><td>application/jsonl</td><td>Sep 18, 2026</td><td>Standard</td><td>Not public</td></tr>
+              <tr><td>atlas/ingest/2026-09-19/events.jsonl</td><td>1.1 MB</td><td>application/jsonl</td><td>Sep 19, 2026</td><td>Standard</td><td>Not public</td></tr>
+              <tr><td>_readme.txt</td><td>412 B</td><td>text/plain</td><td>Sep 12, 2026</td><td>Standard</td><td>Not public</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div data-tab-panel="configuration" hidden>
+          <article class="info-card" style="margin-top:16px">
+            <h3>Storage class and location</h3>
+            <dl class="kv">
+              <dt>Location type</dt><dd>Region</dd>
+              <dt>Location</dt><dd>europe-west2 (London)</dd>
+              <dt>Default storage class</dt><dd>Standard</dd>
+              <dt>Autoclass</dt><dd>Off</dd>
+            </dl>
+          </article>
+          <article class="info-card" style="margin-top:16px">
+            <h3>Access control</h3>
+            <dl class="kv">
+              <dt>Access control</dt><dd>Uniform</dd>
+              <dt>Public access prevention</dt><dd>Enforced</dd>
+              <dt>Encryption</dt><dd>Google-managed key</dd>
+              <dt>Labels</dt><dd>team=data-platform, project=atlas-migration, tier=internal</dd>
+            </dl>
+          </article>
+        </div>
+
+        <div data-tab-panel="permissions" hidden>
+          <div class="banner">
+            <span class="material-icons-outlined">info</span>
+            This bucket uses uniform bucket-level access. IAM is the only access control on objects.
+          </div>
+          <div class="card" data-resource-id="bucket-analytics-raw">
             <div>
               <p class="name">analytics-raw</p>
-              <p class="meta">GCS bucket · data-platform · <span class="tier internal">internal</span></p>
+              <p class="subtitle">Permissions on this bucket, including inherited role bindings.</p>
             </div>
-            <button type="button" class="grant-access">Grant access</button>
+            <button type="button" class="btn-filled grant-access">Grant access</button>
           </div>
-        </article>
-        <article class="card" data-resource-id="bq-project-x-finance">
-          <div class="card-top">
-            <div>
-              <p class="name">project-x-finance</p>
-              <p class="meta">BigQuery dataset · finance · <span class="tier restricted">restricted</span></p>
+          <div class="perm-switch">
+            <button type="button" class="on">View by principals</button>
+            <button type="button">View by roles</button>
+          </div>
+          <div class="toolbar">
+            <label class="filter"><span class="material-icons-outlined">filter_list</span><input placeholder="Enter property name or value"></label>
+          </div>
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Principal</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Inheritance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>projectOwner:lon-agentic26lon-9202</td>
+                <td>Project owners</td>
+                <td>Storage Admin</td>
+                <td>Inherited</td>
+              </tr>
+              <tr>
+                <td>access-granter@lon-agentic26lon-9202.iam.gserviceaccount.com</td>
+                <td>access-granter</td>
+                <td>Storage Admin</td>
+                <td>Bucket</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 class="sr-only">Active grants</h3>
+          <div data-grant-host="bucket-analytics-raw"></div>
+        </div>
+
+        <div data-tab-panel="protection" hidden>
+          <h2 class="section-title">Protection</h2>
+          <dl class="kv">
+            <dt>Soft delete</dt><dd>7 days</dd>
+            <dt>Object versioning</dt><dd>Disabled</dd>
+            <dt>Retention policy</dt><dd>None</dd>
+            <dt>Bucket lock</dt><dd>Unlocked</dd>
+            <dt>Object retention</dt><dd>Not enabled</dd>
+          </dl>
+        </div>
+        <div data-tab-panel="lifecycle" hidden>
+          <div class="page-head" style="margin-top:16px">
+            <h2 class="section-title" style="margin:0">Lifecycle rules</h2>
+            <button type="button" class="btn-filled">ADD A RULE</button>
+          </div>
+          <p class="subtitle">No lifecycle rules. Rules can delete or change storage class as objects age.</p>
+        </div>
+        <div data-tab-panel="replication" hidden>
+          <h2 class="section-title">Replication</h2>
+          <p>Single-region bucket. Turbo replication is available only on dual-region buckets.</p>
+        </div>
+        <div data-tab-panel="observability" hidden>
+          <h2 class="section-title">Observability</h2>
+          <div class="cards-grid">
+            <article class="info-card"><h3>Request count</h3><div class="chart"></div></article>
+            <article class="info-card"><h3>Sent / received bytes</h3><div class="chart"></div></article>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="bigquery" hidden>
+        <div class="bq-layout">
+          <aside class="explorer">
+            <h2>Explorer</h2>
+            <button type="button" class="tree-btn"><span class="material-icons-outlined">folder</span>lon-agentic26lon-9202</button>
+            <button type="button" class="tree-btn" style="padding-left:28px"><span class="material-icons-outlined">dataset</span>Datasets</button>
+            <button type="button" class="tree-btn active" style="padding-left:44px" data-open-resource="bq-project-x-finance"><span class="material-icons-outlined">table_view</span>project-x-finance</button>
+          </aside>
+          <div class="bq-main page">
+            <div class="crumbs">BigQuery Studio</div>
+            <div class="page-head">
+              <h1>Welcome to BigQuery</h1>
+              <div class="actions"><button type="button" class="btn-filled">COMPOSE A NEW QUERY</button></div>
             </div>
-            <button type="button" class="grant-access">Grant access</button>
+            <p class="subtitle">Select a dataset in Explorer. The finance dataset is <button type="button" class="linkish" data-open-resource="bq-project-x-finance">project-x-finance</button>.</p>
           </div>
-        </article>
-        <article class="card" data-resource-id="sql-prod-primary">
-          <div class="card-top">
-            <div>
-              <p class="name">prod-primary</p>
-              <p class="meta">Cloud SQL instance · data-platform · <span class="tier critical">critical</span></p>
+        </div>
+      </section>
+
+      <section data-view="dataset" hidden>
+        <div class="bq-layout">
+          <aside class="explorer">
+            <h2>Explorer</h2>
+            <button type="button" class="tree-btn" data-nav="bigquery"><span class="material-icons-outlined">folder</span>lon-agentic26lon-9202</button>
+            <button type="button" class="tree-btn active" style="padding-left:44px" data-open-resource="bq-project-x-finance"><span class="material-icons-outlined">table_view</span>project-x-finance</button>
+          </aside>
+          <div class="bq-main page">
+            <div class="crumbs">
+              <button type="button" data-nav="bigquery">BigQuery</button>
+              <span class="material-icons-outlined" style="font-size:14px">chevron_right</span>
+              project-x-finance
             </div>
-            <button type="button" class="grant-access">Grant access</button>
+            <div class="page-head">
+              <div>
+                <h1>project-x-finance</h1>
+                <p class="subtitle">lon-agentic26lon-9202.project_x_finance · europe-west2</p>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn" data-tab-jump="permissions">SHARING</button>
+                <button type="button" class="btn-filled">COMPOSE A NEW QUERY</button>
+              </div>
+            </div>
+            <div class="tabs" role="tablist">
+              <button type="button" role="tab" data-tab="details" aria-selected="true">Details</button>
+              <button type="button" role="tab" data-tab="permissions">Permissions</button>
+              <button type="button" role="tab" data-tab="tables">Tables</button>
+              <button type="button" role="tab" data-tab="routines">Routines</button>
+              <button type="button" role="tab" data-tab="transfers">Transfers</button>
+            </div>
+            <div data-tab-panel="details">
+              <dl class="kv" style="margin-top:16px">
+                <dt>Dataset ID</dt><dd>project_x_finance</dd>
+                <dt>Data location</dt><dd>europe-west2</dd>
+                <dt>Default table expiration</dt><dd>Never</dd>
+                <dt>Default collation</dt><dd>unspecified</dd>
+                <dt>Labels</dt><dd>team=finance, project=atlas-migration, tier=restricted</dd>
+              </dl>
+            </div>
+            <div data-tab-panel="permissions" hidden>
+              <div class="card" data-resource-id="bq-project-x-finance">
+                <div>
+                  <p class="name">project-x-finance</p>
+                  <p class="subtitle">Dataset permissions · Sharing &gt; Permissions</p>
+                </div>
+                <button type="button" class="btn-filled grant-access">Grant access</button>
+              </div>
+              <table class="data">
+                <thead><tr><th>Principal</th><th>Role</th><th>Inheritance</th></tr></thead>
+                <tbody>
+                  <tr><td>projectOwner:lon-agentic26lon-9202</td><td>BigQuery Data Owner</td><td>Inherited</td></tr>
+                  <tr><td>finance-data@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>BigQuery Data Editor</td><td>Dataset</td></tr>
+                </tbody>
+              </table>
+              <div data-grant-host="bq-project-x-finance"></div>
+            </div>
+            <div data-tab-panel="tables" hidden>
+              <table class="data">
+                <thead><tr><th>Table ID</th><th>Created</th><th>Number of rows</th><th>Size</th></tr></thead>
+                <tbody>
+                  <tr><td>events_raw</td><td>Sep 12, 2026</td><td>184,221</td><td>42 MB</td></tr>
+                  <tr><td>atlas_pipeline_status</td><td>Sep 14, 2026</td><td>36</td><td>12 KB</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div data-tab-panel="routines" hidden><p class="subtitle" style="margin-top:16px">No routines in this dataset.</p></div>
+            <div data-tab-panel="transfers" hidden><p class="subtitle" style="margin-top:16px">No scheduled transfers.</p></div>
           </div>
-        </article>
+        </div>
+      </section>
+
+      <section class="page" data-view="sql" hidden>
+        <div class="crumbs">SQL</div>
+        <div class="page-head">
+          <h1>Cloud SQL Instances</h1>
+          <div class="actions"><button type="button" class="btn-filled">CREATE INSTANCE</button></div>
+        </div>
+        <table class="data">
+          <thead>
+            <tr><th>Instance ID</th><th>Type</th><th>Public IP</th><th>Private IP</th><th>Location</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><button type="button" class="linkish" data-open-resource="sql-prod-primary">prod-primary</button></td>
+              <td>PostgreSQL 16</td>
+              <td>—</td>
+              <td>10.20.0.4</td>
+              <td>europe-west2-a</td>
+              <td><span class="pill ok">RUNNABLE</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section data-view="instance" hidden>
+        <div class="sql-layout">
+          <aside class="sql-side">
+            <button type="button" class="active" data-tab="overview">Overview</button>
+            <button type="button" data-tab="connections">Connections</button>
+            <button type="button" data-tab="users">Users</button>
+            <button type="button" data-tab="databases">Databases</button>
+            <button type="button" data-tab="backups">Backups</button>
+            <button type="button" data-tab="replicas">Replicas</button>
+            <button type="button" data-tab="operations">Operations</button>
+            <button type="button" role="tab" data-tab="permissions">Permissions</button>
+          </aside>
+          <div class="sql-main page">
+            <div class="crumbs">
+              <button type="button" data-nav="sql">Cloud SQL Instances</button>
+              <span class="material-icons-outlined" style="font-size:14px">chevron_right</span>
+              prod-primary
+            </div>
+            <div class="page-head">
+              <div>
+                <h1>prod-primary</h1>
+                <p class="subtitle">PostgreSQL 16 · europe-west2-a · <span class="pill ok">RUNNABLE</span></p>
+              </div>
+            </div>
+            <div data-tab-panel="overview">
+              <div class="cards-grid">
+                <article class="info-card">
+                  <h3>Connect to this instance</h3>
+                  <dl class="kv">
+                    <dt>Connection name</dt><dd>lon-agentic26lon-9202:europe-west2:prod-primary</dd>
+                    <dt>Private IP</dt><dd>10.20.0.4</dd>
+                    <dt>Public IP</dt><dd>Not assigned</dd>
+                  </dl>
+                </article>
+                <article class="info-card">
+                  <h3>Configuration</h3>
+                  <dl class="kv">
+                    <dt>Machine type</dt><dd>db-custom-2-7680</dd>
+                    <dt>Storage</dt><dd>100 GB SSD</dd>
+                    <dt>Availability</dt><dd>Zonal</dd>
+                  </dl>
+                </article>
+              </div>
+            </div>
+            <div data-tab-panel="connections" hidden>
+              <h2 class="section-title">Networking</h2>
+              <p>Private IP enabled on default VPC. Public IP is disabled. Authorized networks: none.</p>
+            </div>
+            <div data-tab-panel="users" hidden>
+              <table class="data">
+                <thead><tr><th>User name</th><th>Host name</th><th>Authentication</th></tr></thead>
+                <tbody>
+                  <tr><td>postgres</td><td>%</td><td>Built-in</td></tr>
+                  <tr><td>alex-chen-agent@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>cloudsql</td><td>Cloud IAM</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div data-tab-panel="databases" hidden>
+              <table class="data">
+                <thead><tr><th>Database</th><th>Charset</th><th>Collation</th></tr></thead>
+                <tbody>
+                  <tr><td>postgres</td><td>UTF8</td><td>en_US.UTF8</td></tr>
+                  <tr><td>atlas</td><td>UTF8</td><td>en_US.UTF8</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div data-tab-panel="backups" hidden>
+              <p class="subtitle">Automated backups: daily 02:00–06:00 UTC. Point-in-time recovery enabled. No on-demand backups.</p>
+            </div>
+            <div data-tab-panel="replicas" hidden><p class="subtitle">No read replicas.</p></div>
+            <div data-tab-panel="operations" hidden>
+              <table class="data">
+                <thead><tr><th>Operation</th><th>Status</th><th>Start time</th></tr></thead>
+                <tbody><tr><td>Backup</td><td>DONE</td><td>Sep 19, 2026, 02:14</td></tr></tbody>
+              </table>
+            </div>
+            <div data-tab-panel="permissions" hidden>
+              <div class="banner warn">
+                <span class="material-icons-outlined">warning</span>
+                Cloud SQL instance IAM is mocked. This instance is the auto-deny example and is never granted on the golden path.
+              </div>
+              <div class="card" data-resource-id="sql-prod-primary">
+                <div>
+                  <p class="name">prod-primary</p>
+                  <p class="subtitle">Instance-level IAM bindings</p>
+                </div>
+                <button type="button" class="btn-filled grant-access">Grant access</button>
+              </div>
+              <table class="data">
+                <thead><tr><th>Principal</th><th>Role</th><th>Inheritance</th></tr></thead>
+                <tbody>
+                  <tr><td>projectOwner:lon-agentic26lon-9202</td><td>Cloud SQL Admin</td><td>Inherited</td></tr>
+                </tbody>
+              </table>
+              <div data-grant-host="sql-prod-primary"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" data-view="iam" hidden>
+        <div class="crumbs">IAM &amp; Admin</div>
+        <div class="page-head">
+          <h1>IAM</h1>
+          <div class="actions"><button type="button" class="btn">MANAGE RESOURCES</button></div>
+        </div>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-tab="iam" aria-selected="true">IAM</button>
+          <button type="button" role="tab" data-tab="service-accounts">Service accounts</button>
+          <button type="button" role="tab" data-tab="organization-policies">Organization policies</button>
+          <button type="button" role="tab" data-tab="audit-logs">Audit logs</button>
+        </div>
+        <div data-tab-panel="iam">
+          <p class="subtitle" style="margin-top:16px">Project lon-agentic26lon-9202 · principals with access to this project</p>
+          <table class="data">
+            <thead><tr><th>Principal</th><th>Role</th><th>Inheritance</th></tr></thead>
+            <tbody>
+              <tr><td>access-granter@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>Storage Admin, BigQuery Data Editor</td><td>Resource</td></tr>
+              <tr><td>alex-chen-agent@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>No project-level data roles</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div data-tab-panel="service-accounts" hidden>
+          <table class="data">
+            <thead><tr><th>Email</th><th>Name</th><th>Keys</th></tr></thead>
+            <tbody>
+              <tr><td>access-granter@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>access-granter</td><td>0</td></tr>
+              <tr><td>alex-chen-agent@lon-agentic26lon-9202.iam.gserviceaccount.com</td><td>Alex's coding agent</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div data-tab-panel="organization-policies" hidden>
+          <p class="subtitle" style="margin-top:16px">iam.disableServiceAccountKeyCreation is enforced. Service account impersonation is restricted.</p>
+        </div>
+        <div data-tab-panel="audit-logs" hidden>
+          <p class="subtitle" style="margin-top:16px">Admin Read, Data Read, and Data Write are enabled for Cloud Storage and BigQuery.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <ul id="active-grants" hidden></ul>
+
+  <div class="dialog-root" id="grant-dialog" hidden>
+    <div class="backdrop" data-close-grant></div>
+    <form id="grant-form" autocomplete="off">
+      <div class="dialog-head">
+        <h2>Grant access</h2>
+        <button type="button" class="icon-btn" data-close-grant aria-label="Close"><span class="material-icons-outlined">close</span></button>
       </div>
-      <form id="grant-form" autocomplete="off">
-        <label>Principal <input id="principal" name="principal" required></label>
-        <label>Expires <input id="expires" name="expires" type="date" required></label>
-        <button type="submit" class="primary">Confirm</button>
-      </form>
-    </section>
-    <section>
-      <h2>Active grants</h2>
-      <ul id="active-grants"></ul>
-    </section>
-  </main>
+      <div class="dialog-body">
+        <div>
+          <strong>Add principals</strong>
+          <label class="field" style="margin-top:8px">New principals
+            <input id="principal" name="principal" aria-label="Principal" required placeholder="Users, groups, service accounts, or domains">
+          </label>
+        </div>
+        <div>
+          <strong>Assign roles</strong>
+          <label class="field" style="margin-top:8px">Select a role
+            <select id="role" name="role" aria-label="Role">
+              <option value="Storage Object Viewer">Storage Object Viewer</option>
+              <option value="Storage Object Admin">Storage Object Admin</option>
+              <option value="BigQuery Data Viewer">BigQuery Data Viewer</option>
+              <option value="BigQuery Data Editor">BigQuery Data Editor</option>
+              <option value="Cloud SQL Client">Cloud SQL Client</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">Expires
+          <input id="expires" name="expires" type="date" required>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-text" data-close-grant>Cancel</button>
+        <button type="submit" class="btn-filled" aria-label="Confirm">Save</button>
+      </div>
+    </form>
+  </div>
+
   <script>
+    const ROLES = {
+      "bucket-analytics-raw": "Storage Object Viewer",
+      "bq-project-x-finance": "BigQuery Data Viewer",
+      "sql-prod-primary": "Cloud SQL Client",
+    };
+    const VIEWS = {
+      home: { nav: "home" },
+      storage: { nav: "storage" },
+      bucket: { nav: "storage", defaultTab: "objects" },
+      bigquery: { nav: "bigquery" },
+      dataset: { nav: "bigquery", defaultTab: "details" },
+      sql: { nav: "sql" },
+      instance: { nav: "sql", defaultTab: "overview" },
+      iam: { nav: "iam", defaultTab: "iam" },
+    };
+    const RESOURCES = {
+      "bucket-analytics-raw": { view: "bucket" },
+      "bq-project-x-finance": { view: "dataset" },
+      "sql-prod-primary": { view: "instance" },
+    };
+
     const form = document.getElementById("grant-form");
+    const dialog = document.getElementById("grant-dialog");
     const principalInput = document.getElementById("principal");
     const expiresInput = document.getElementById("expires");
+    const roleInput = document.getElementById("role");
     const activeGrants = document.getElementById("active-grants");
+    const sidenav = document.getElementById("sidenav");
     let selectedId = null;
+    let currentView = "storage";
 
-    document.querySelectorAll(".card").forEach((card) => {
-      card.querySelector(".grant-access").addEventListener("click", () => {
-        document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
-        card.classList.add("selected");
-        selectedId = card.getAttribute("data-resource-id");
-        form.classList.add("visible");
-        principalInput.focus();
+    function setView(view, tab) {
+      currentView = view;
+      const meta = VIEWS[view] || VIEWS.storage;
+      document.querySelectorAll("[data-view]").forEach((el) => {
+        el.hidden = el.dataset.view !== view;
+      });
+      document.querySelectorAll("[data-nav]").forEach((el) => {
+        el.classList.toggle("active", el.dataset.nav === meta.nav);
+      });
+      const nextTab = tab || meta.defaultTab;
+      if (nextTab) setTab(view, nextTab);
+    }
+
+    function setTab(view, tab) {
+      const root = document.querySelector(`[data-view="${view}"]`);
+      if (!root) return;
+      root.querySelectorAll("[role=tab], .sql-side button").forEach((el) => {
+        const on = el.dataset.tab === tab;
+        if (el.getAttribute("role") === "tab") el.setAttribute("aria-selected", on ? "true" : "false");
+        el.classList.toggle("active", on);
+      });
+      root.querySelectorAll("[data-tab-panel]").forEach((el) => {
+        el.hidden = el.dataset.tabPanel !== tab;
+      });
+    }
+
+    function openResource(id, tab) {
+      const target = RESOURCES[id];
+      if (!target) return;
+      setView(target.view, tab);
+    }
+
+    function closeGrant() {
+      form.classList.remove("visible");
+      dialog.hidden = true;
+      document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
+    }
+
+    function openGrant(card) {
+      selectedId = card.getAttribute("data-resource-id");
+      document.querySelectorAll(".card").forEach((c) => c.classList.remove("selected"));
+      card.classList.add("selected");
+      if (ROLES[selectedId]) roleInput.value = ROLES[selectedId];
+      dialog.hidden = false;
+      form.classList.add("visible");
+      principalInput.focus();
+    }
+
+    document.getElementById("nav-toggle").addEventListener("click", () => {
+      sidenav.classList.toggle("collapsed");
+    });
+
+    document.querySelectorAll("[data-nav]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        setView(btn.dataset.nav);
+      });
+    });
+
+    document.querySelectorAll("[data-open-resource]").forEach((btn) => {
+      btn.addEventListener("click", () => openResource(btn.dataset.openResource));
+    });
+
+    document.querySelectorAll("[role=tab], .sql-side button").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const root = tab.closest("[data-view]");
+        if (root) setTab(root.dataset.view, tab.dataset.tab);
+      });
+    });
+
+    document.querySelectorAll("[data-tab-jump]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const root = btn.closest("[data-view]");
+        if (root) setTab(root.dataset.view, btn.dataset.tabJump);
+      });
+    });
+
+    document.querySelectorAll(".grant-access").forEach((button) => {
+      button.addEventListener("click", () => {
+        const card = button.closest(".card");
+        if (card) openGrant(card);
+      });
+    });
+
+    document.querySelectorAll("[data-close-grant]").forEach((el) => {
+      el.addEventListener("click", closeGrant);
+    });
+
+    document.querySelectorAll(".perm-switch button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        btn.parentElement.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+      });
+    });
+
+    document.querySelector("[data-filter=storage]").addEventListener("input", (event) => {
+      const q = event.target.value.toLowerCase();
+      document.querySelectorAll("#bucket-table tbody tr").forEach((row) => {
+        row.hidden = q !== "" && !row.textContent.toLowerCase().includes(q);
       });
     });
 
@@ -192,14 +1165,32 @@
       if (!selectedId) return;
       const principal = principalInput.value.trim();
       const expires = expiresInput.value;
+      const role = roleInput.value;
       if (!principal || !expires) return;
       const item = document.createElement("li");
       item.setAttribute("data-resource", selectedId);
       item.setAttribute("data-principal", principal);
-      item.textContent = selectedId + " → " + principal + " (expires " + expires + ")";
+      item.innerHTML =
+        "<span>" + principal + "</span><span>" + selectedId + "</span><span>" + role +
+        "</span><span>Bucket</span><span>expires " + expires + "</span>";
       activeGrants.appendChild(item);
+      const viewName = (RESOURCES[selectedId] || {}).view;
+      const root = viewName ? document.querySelector('[data-view="' + viewName + '"]') : null;
+      const tbody = root && root.querySelector('[data-tab-panel="permissions"] table.data tbody');
+      if (tbody) {
+        const row = document.createElement("tr");
+        row.setAttribute("data-resource", selectedId);
+        row.setAttribute("data-principal", principal);
+        row.innerHTML =
+          "<td>" + principal + "</td><td>Granted principal</td><td>" + role +
+          "</td><td>Direct · expires " + expires + "</td>";
+        tbody.appendChild(row);
+      }
       form.reset();
+      closeGrant();
     });
+
+    setView("storage");
   </script>
 </body>
 </html>

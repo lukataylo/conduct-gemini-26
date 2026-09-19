@@ -10,7 +10,15 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(ROOT))
 sys.path.append(str(ROOT / "agent-runtime"))
 
+import audit_logger  # noqa: E402
 from shared.schemas import Grant, Requester  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_audit() -> None:
+    audit_logger.reset()
+    yield
+    audit_logger.reset()
 
 
 @pytest.fixture

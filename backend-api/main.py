@@ -12,14 +12,20 @@ Trust boundaries (see docs/ui-surfaces.html, "Hardening before the demo"):
 from __future__ import annotations
 
 import hashlib
+import os
 import sys
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Callable
+
+import httpx
+from pydantic import BaseModel
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 import gcp_iam  # noqa: E402
@@ -50,6 +56,10 @@ REQUESTS: dict[str, AccessRequest] = {}
 GRANTS: dict[str, Grant] = {}
 ESCALATIONS: dict[str, EscalationCase] = {}
 AUDIT_LOG: list[AuditEvent] = []
+WATCH_URLS: dict[str, str] = {}
+PARSE_IMPL: Callable[[str, Requester], AccessRequest] | None = None
+EXECUTE_ENQUEUE_IMPL: Callable[[Grant], None] | None = None
+COMPOSE_IMPL: Callable[..., UISpec] | None = None
 
 KNOWN_REQUESTERS: dict[str, Requester] = {
     r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
@@ -80,14 +90,115 @@ def _audit(event_type: AuditEventType, actor: str, detail: str, **kw) -> AuditEv
     return event
 
 
-@app.post("/requests")
-def submit_request(request: AccessRequest) -> dict:
-    """Accepts a structured AccessRequest (agent-runtime parses NL upstream), evaluates
-    it against policy-engine, and issues grants / opens escalations."""
-    requester = KNOWN_REQUESTERS.get(request.requester.id)
-    if requester is None:
-        raise HTTPException(400, f"unknown requester '{request.requester.id}'")
+class NLSubmit(BaseModel):
+    raw_text: str
+    requester_id: str
 
+
+def _agent_runtime_on_path() -> None:
+    root = Path(__file__).resolve().parents[1]
+    runtime = str(root / "agent-runtime")
+    if runtime not in sys.path:
+        sys.path.append(runtime)
+
+
+def _parse_nl(raw_text: str, requester: Requester) -> AccessRequest:
+    if PARSE_IMPL is not None:
+        return PARSE_IMPL(raw_text, requester)
+    known = list(usecase_demo.RESOURCES)
+    url = os.environ.get("AGENT_RUNTIME_PARSE_URL")
+    if url:
+        try:
+            resp = httpx.post(
+                url,
+                json={
+                    "raw_text": raw_text,
+                    "requester": requester.model_dump(mode="json"),
+                    "known_resource_ids": known,
+                },
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            parsed = AccessRequest.model_validate(resp.json())
+            return parsed.model_copy(update={"requester": requester, "raw_text": raw_text})
+        except Exception as exc:
+            raise HTTPException(502, f"parse failed: {exc}") from exc
+    _agent_runtime_on_path()
+    from gemini_parser import parse_request
+
+    return parse_request(raw_text, requester, known)
+
+
+def _enqueue_execute(grant: Grant) -> None:
+    """Fire-and-forget execute. Models never issue grants; this only enacts one."""
+    watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
+    if watch:
+        WATCH_URLS[grant.id] = watch
+    if EXECUTE_ENQUEUE_IMPL is not None:
+        EXECUTE_ENQUEUE_IMPL(grant)
+        return
+    url = os.environ.get("AGENT_RUNTIME_EXECUTE_URL")
+    local = (os.environ.get("AGENT_RUNTIME_LOCAL_EXECUTE") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not url and not local:
+        return
+
+    def _run() -> None:
+        console = os.environ.get("CONSOLE_URL") or "http://127.0.0.1:8765/"
+        callback = os.environ.get("BACKEND_PUBLIC_URL") or "http://127.0.0.1:8000"
+        payload = {
+            "grant": grant.model_dump(mode="json"),
+            "console_url": console,
+            "callback_base_url": callback,
+            "watch_url": watch,
+        }
+        try:
+            if url:
+                httpx.post(url, json=payload, timeout=600.0)
+                return
+            _agent_runtime_on_path()
+            from computer_use import execute_grant
+
+            execute_grant(grant, console, watch_url=watch)
+        except Exception as exc:
+            _audit(
+                AuditEventType.ACTION_EXECUTED,
+                actor="agent",
+                detail=f"execute enqueue failed: {exc}",
+                request_id=grant.request_id,
+                grant_id=grant.id,
+                payload={"phase": "completed", "success": False, "reason": "sandbox_error"},
+            )
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.post("/requests")
+async def submit_request(http_request: Request) -> dict:
+    """Accepts NL `{raw_text, requester_id}` or a structured AccessRequest."""
+    body = await http_request.json()
+    if isinstance(body, dict) and "raw_text" in body and "requester" not in body:
+        nl = NLSubmit.model_validate(body)
+        requester = KNOWN_REQUESTERS.get(nl.requester_id)
+        if requester is None:
+            raise HTTPException(400, f"unknown requester '{nl.requester_id}'")
+        request = _parse_nl(nl.raw_text, requester)
+        request = request.model_copy(update={"requester": requester, "raw_text": nl.raw_text})
+    else:
+        request = AccessRequest.model_validate(body)
+        requester = KNOWN_REQUESTERS.get(request.requester.id)
+        if requester is None:
+            raise HTTPException(400, f"unknown requester '{request.requester.id}'")
+        request = request.model_copy(update={"requester": requester})
+    return _evaluate_request(request)
+
+
+def _evaluate_request(request: AccessRequest) -> dict:
+    requester = request.requester
     request = request.model_copy(update={"id": str(uuid.uuid4()), "requester": requester})
     REQUESTS[request.id] = request
     _audit(
@@ -202,6 +313,7 @@ def _issue_grant(
     ttl_label = f"{ttl_hours}h" if ttl_hours is not None else f"{ttl_days}d"
     _audit(AuditEventType.GRANT_ISSUED, actor="policy-engine", detail=f"granted {resource_id} for {ttl_label}", request_id=request_id, grant_id=grant.id)
     _mirror_to_gcp(grant, add=True)
+    _enqueue_execute(grant)
     return grant
 
 
@@ -298,20 +410,31 @@ def verify_chain() -> dict:
 
 @app.get("/ui-spec/{requester_id}")
 def ui_spec(requester_id: str) -> UISpec:
-    """Current UISpec for a requester from their active grants and pending cases.
-
-    Static mapping for now — the seam where Gemini composes an A2UI-shaped spec
-    (track 2 prompt, track 1 renderer). Panel ids are stable so the client can diff.
-    """
+    """A2UI UISpec from compose_ui (catalog-constrained, watch cards when a URL exists)."""
     grants = active_grants(requester_id)
     pending = [c for c in ESCALATIONS.values() if c.status == "pending" and c.requester_id == requester_id]
+    watch_urls = {g.id: WATCH_URLS[g.id] for g in grants if g.id in WATCH_URLS}
+    if COMPOSE_IMPL is not None:
+        return COMPOSE_IMPL(grants, pending, "requester", viewer_id=requester_id, watch_urls=watch_urls)
+    url = os.environ.get("AGENT_RUNTIME_COMPOSE_URL")
+    if url:
+        try:
+            resp = httpx.post(
+                url,
+                json={
+                    "grants": [g.model_dump(mode="json") for g in grants],
+                    "cases": [c.model_dump(mode="json") for c in pending],
+                    "role": "requester",
+                    "viewer_id": requester_id,
+                    "watch_urls": watch_urls,
+                },
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            return UISpec.model_validate(resp.json())
+        except Exception:
+            pass
+    _agent_runtime_on_path()
+    from a2ui import compose_ui
 
-    panels = [
-        UIComponentSpec(id=f"grant-{g.id}", component="GrantCard", props={"grant_id": g.id, "resource_id": g.resource_id, "expires_at": g.expires_at.isoformat()})
-        for g in grants
-    ] + [
-        UIComponentSpec(id=f"case-{c.id}", component="PendingApprovalCard", props={"escalation_id": c.id, "resource_id": c.resource_id})
-        for c in pending
-    ]
-
-    return UISpec(requester_id=requester_id, panels=panels)
+    return compose_ui(grants, pending, "requester", viewer_id=requester_id, watch_urls=watch_urls)

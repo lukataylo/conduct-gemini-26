@@ -5,7 +5,6 @@ touches the request pipeline — everything downstream (policy-engine) is typed.
 """
 from __future__ import annotations
 
-import os
 import re
 import sys
 import uuid
@@ -17,10 +16,11 @@ from pydantic import BaseModel, Field
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from envutil import gemini_api_key  # noqa: E402
+from envutil import export_gemini_keys  # noqa: E402
+from gemini_models import parse_model  # noqa: E402
 from shared.schemas import AccessRequest, Requester  # noqa: E402
 
-MODEL = "gemini-2.5-flash"  # swap for whatever's current at build time
+MODEL = DEFAULT_PARSE_MODEL = parse_model()
 
 PARSE_PROMPT = """You are extracting a structured access request from an employee's
 (or their coding agent's) free-text message. Identify:
@@ -57,11 +57,16 @@ def duration_days(raw_text: str, parsed_days: int | None, *, today: date | None 
     )
     if match:
         text = match.group(1)
-        for fmt in ("%b %d, %Y", "%B %d, %Y", "%b %d", "%B %d"):
+        for fmt in ("%b %d, %Y", "%B %d, %Y"):
             try:
-                parsed = datetime.strptime(text, fmt)
-                year = parsed.year if "%Y" in fmt else today.year
-                target = date(year, parsed.month, parsed.day)
+                target = datetime.strptime(text, fmt).date()
+                return max(1, (target - today).days)
+            except ValueError:
+                continue
+        for fmt in ("%b %d", "%B %d"):
+            try:
+                parsed = datetime.strptime(f"{text} {today.year}", f"{fmt} %Y")
+                target = date(today.year, parsed.month, parsed.day)
                 return max(1, (target - today).days)
             except ValueError:
                 continue
@@ -85,11 +90,9 @@ def _ensure_logfire() -> None:
 def _default_runner(prompt: str) -> ParseFields:
     from pydantic_ai import Agent
 
-    key = gemini_api_key()
-    os.environ.setdefault("GOOGLE_API_KEY", key)
-    os.environ.setdefault("GEMINI_API_KEY", key)
+    export_gemini_keys()
     _ensure_logfire()
-    agent = Agent("google-gla:gemini-2.5-flash", output_type=ParseFields, system_prompt=PARSE_PROMPT)
+    agent = Agent(parse_model(), output_type=ParseFields, system_prompt=PARSE_PROMPT)
     result = agent.run_sync(prompt)
     return result.output
 

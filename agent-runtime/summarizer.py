@@ -5,14 +5,14 @@ The model never sees requester raw text — only decision, resource, and identit
 """
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from envutil import gemini_api_key  # noqa: E402
+from envutil import export_gemini_keys  # noqa: E402
+from gemini_models import parse_model  # noqa: E402
 from shared.schemas import PolicyDecision, Requester, Resource  # noqa: E402
 
 SUMMARY_PROMPT = """Write a short approver-facing summary of this access-policy decision.
@@ -36,11 +36,9 @@ def _ensure_logfire() -> None:
 def _default_runner(prompt: str) -> str:
     from pydantic_ai import Agent
 
-    key = gemini_api_key()
-    os.environ.setdefault("GOOGLE_API_KEY", key)
-    os.environ.setdefault("GEMINI_API_KEY", key)
+    export_gemini_keys()
     _ensure_logfire()
-    agent = Agent("google-gla:gemini-2.5-flash", output_type=str, system_prompt=SUMMARY_PROMPT)
+    agent = Agent(parse_model(), output_type=str, system_prompt=SUMMARY_PROMPT)
     result = agent.run_sync(prompt)
     return result.output
 

@@ -32,3 +32,8 @@ def test_emitter_posts_audit_event():
     assert client.calls[0][0] == "http://backend.example.com/audit"
     assert client.calls[0][1]["id"] == "evt-1"
     assert client.calls[0][1]["type"] == "action_executed"
+
+
+def test_default_client_is_closeable():
+    emit = make_emitter("http://backend.example.com")
+    emit.close()

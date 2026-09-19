@@ -9,6 +9,7 @@ from shared.schemas import AuditEvent
 
 def make_emitter(callback_base_url: str, *, client: Any | None = None) -> Callable[[AuditEvent], None]:
     base = callback_base_url.rstrip("/")
+    owns_client = client is None
     http = client or httpx.Client(timeout=5.0)
 
     def emit(event: AuditEvent) -> None:
@@ -23,4 +24,9 @@ def make_emitter(callback_base_url: str, *, client: Any | None = None) -> Callab
             except Exception:
                 return
 
+    def close() -> None:
+        if owns_client:
+            http.close()
+
+    emit.close = close  # type: ignore[attr-defined]
     return emit

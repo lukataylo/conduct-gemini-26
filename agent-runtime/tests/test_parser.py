@@ -34,6 +34,15 @@ def test_duration_uses_parsed_value():
     assert duration_days("need access", 30) == 30
 
 
+def test_duration_yearless_no_strptime_warning():
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        duration_days("done by Nov 15", None, today=date(2026, 9, 19))
+    assert not any("strptime" in str(w.message).lower() for w in caught)
+
+
 def test_duration_from_done_by_date():
     assert duration_days(
         "done by Nov 15",

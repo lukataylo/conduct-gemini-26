@@ -163,40 +163,71 @@ def revoke_goal(grant: Grant) -> str:
     )
 
 
-def browse_goal(grant: Grant) -> str:
+def _append_ask(goal: str, ask: str | None) -> str:
+    if not ask:
+        return goal
+    return f"{goal} The human asked: {ask}"
+
+
+def browse_goal(grant: Grant, ask: str | None = None) -> str:
     """Instruction for computer-use: open the seeded object and show its preview."""
     visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
-    return (
+    object_name = _browse_object_name(ask)
+    return _append_ask(
         f"Browse objects in {grant.resource_id} ({visible}). This is a Google Cloud Console. "
         f"Open Storage in the left nav, open the {visible} bucket, open the Objects tab, "
-        f"and open events/2026-09-18.parquet. Confirm #object-preview shows that object. "
-        f"Do not grant any other resource."
+        f"and open {object_name}. Confirm #object-preview shows that object. "
+        f"Do not grant any other resource. Do not open Permissions or Grant access.",
+        ask,
     )
 
 
-def query_goal(grant: Grant) -> str:
+def query_goal(grant: Grant, ask: str | None = None) -> str:
     """Instruction for computer-use: run a read-only query on project-x-finance."""
     visible = _VISIBLE_NAMES.get(grant.resource_id, grant.resource_id)
-    return (
+    return _append_ask(
         f"Compose a query on {grant.resource_id} ({visible}). This is a Google Cloud Console. "
         f"Open BigQuery in the left nav, open the project-x-finance dataset, open the Query tab, "
         f"run a read-only SELECT, and confirm results appear in #query-results. "
-        f"Do not grant any other resource."
+        f"Do not grant any other resource. Do not open Permissions or Grant access.",
+        ask,
     )
 
 
-def enact_goal(grant: Grant, action: str) -> str:
-    """Dispatch the computer-use goal for grant|revoke|browse|query|export."""
+def inspect_goal(grant: Grant, ask: str | None = None) -> str:
+    """Instruction for computer-use: open the granted SAP object page."""
+    target = _inspect_target(grant, ask)
+    tile, selector = _INSPECT_SURFACES.get(
+        grant.resource_id,
+        ("Customer Master", f'[data-bp="{target}"]'),
+    )
+    return _append_ask(
+        f"Inspect {target} in {tile} for principal {grant.requester_id} "
+        f"on SAP S/4HANA Cloud · Atlas, resource {grant.resource_id}. "
+        f"This is a Fiori launchpad, not Google Cloud. "
+        f"Open the {tile} tile and open {target}. "
+        f"Confirm the object is visible and not redacted ({selector}). "
+        f"Stay on this Fiori page. Do not navigate to any other host or search the web. "
+        f"Do not open Export Customer List. Do not open Employee Payroll. "
+        f"Do not grant any other resource.",
+        ask,
+    )
+
+
+def enact_goal(grant: Grant, action: str, ask: str | None = None) -> str:
+    """Dispatch the computer-use goal for grant|revoke|browse|query|inspect|export."""
     if action == "grant":
-        return grant_goal(grant)
+        return _append_ask(grant_goal(grant), ask)
     if action == "revoke":
-        return revoke_goal(grant)
+        return _append_ask(revoke_goal(grant), ask)
     if action == "browse":
-        return browse_goal(grant)
+        return browse_goal(grant, ask)
     if action == "query":
-        return query_goal(grant)
+        return query_goal(grant, ask)
+    if action == "inspect":
+        return inspect_goal(grant, ask)
     if action == "export":
-        return export_goal()
+        return _append_ask(export_goal(), ask)
     raise ValueError(f"unknown enact action: {action}")
 
 
@@ -307,6 +338,121 @@ def verify_sap_bp_visible(html: str, bp: str = "1710001") -> bool:
     scanner = _SapBpScanner(bp)
     scanner.feed(html)
     return scanner.visible
+
+
+class _BrowsePreviewScanner(HTMLParser):
+    def __init__(self, object_name: str) -> None:
+        super().__init__()
+        self.object_name = object_name
+        self.visible = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = dict(attrs)
+        if data.get("id") != "object-preview":
+            return
+        if "hidden" in data:
+            return
+        if data.get("data-object") == self.object_name:
+            self.visible = True
+
+
+class _QueryResultsScanner(HTMLParser):
+    def __init__(self, dataset: str) -> None:
+        super().__init__()
+        self.dataset = dataset
+        self.visible = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = dict(attrs)
+        if data.get("id") != "query-results":
+            return
+        if data.get("data-dataset") == self.dataset:
+            self.visible = True
+
+
+class _InspectObjectScanner(HTMLParser):
+    def __init__(self, *, attr: str | None, value: str, element_id: str | None) -> None:
+        super().__init__()
+        self.attr = attr
+        self.value = value
+        self.element_id = element_id
+        self.visible = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = dict(attrs)
+        classes = (data.get("class") or "").split()
+        match = False
+        if self.element_id and data.get("id") == self.element_id:
+            match = True
+        if self.attr and data.get(self.attr) == self.value:
+            match = True
+        if not match:
+            return
+        if "hidden" in data or "redacted" in classes:
+            return
+        self.visible = True
+
+
+def _browse_object_name(ask: str | None) -> str:
+    default = "events/2026-09-18.parquet"
+    if ask and default in ask:
+        return default
+    return default
+
+
+def _inspect_target(grant: Grant, ask: str | None) -> str:
+    default = _INSPECT_DEFAULTS.get(grant.resource_id, "1710001")
+    if not ask:
+        return default
+    lowered = ask.lower()
+    if "90001234" in ask:
+        return "90001234"
+    if "4500008123" in ask:
+        return "4500008123"
+    if "1710001" in ask or "northwind" in lowered:
+        return "1710001"
+    return default
+
+
+def verify_browse(html: str, grant: Grant, ask: str | None = None) -> bool:
+    """True when #object-preview shows the named object — not an IAM row."""
+    scanner = _BrowsePreviewScanner(_browse_object_name(ask))
+    scanner.feed(html)
+    return scanner.visible
+
+
+def verify_query(html: str, grant: Grant, ask: str | None = None) -> bool:
+    """True when #query-results is bound to the granted dataset."""
+    del ask
+    scanner = _QueryResultsScanner(grant.resource_id)
+    scanner.feed(html)
+    return scanner.visible
+
+
+def verify_inspect(html: str, grant: Grant, ask: str | None = None) -> bool:
+    """True when the granted SAP object is visible and not redacted."""
+    target = _inspect_target(grant, ask)
+    element_id, attr = _INSPECT_VERIFY.get(
+        grant.resource_id,
+        ("bp-object", "data-bp"),
+    )
+    scanner = _InspectObjectScanner(attr=attr, value=target, element_id=element_id)
+    scanner.feed(html)
+    return scanner.visible
+
+
+def _verify_html(html: str, grant: Grant, action: str, ask: str | None = None) -> bool:
+    if action == "export":
+        return verify_sap_export_blocked(html)
+    if action == "revoke":
+        return verify_inactive(html, grant)
+    if action == "browse":
+        return verify_browse(html, grant, ask)
+    if action == "query":
+        return verify_query(html, grant, ask)
+    if action == "inspect":
+        return verify_inspect(html, grant, ask)
+    return verify_active(html, grant)
 
 
 def recording_dir() -> Path | None:
@@ -496,6 +642,30 @@ _SAP_ROLES = {
     "sap-bp-display": "SAP_SD_CUST_DISPLAY",
     "sap-billing-display": "SAP_SD_BILL_DISPLAY",
     "sap-sales-order-display": "SAP_SD_SO_DISPLAY",
+}
+
+_INSPECT_DEFAULTS = {
+    "sap-bp-display": "1710001",
+    "sap-billing-display": "90001234",
+    "sap-sales-order-display": "4500008123",
+}
+
+_INSPECT_SURFACES = {
+    "sap-bp-display": ("Customer Master", '[data-bp="1710001"]'),
+    "sap-billing-display": ("Billing Documents", '[data-open-billing="90001234"]'),
+    "sap-sales-order-display": ("Sales Orders", '[data-open-sales="4500008123"]'),
+}
+
+_INSPECT_VERIFY = {
+    "sap-bp-display": ("bp-object", "data-bp"),
+    "sap-billing-display": ("billing-object", None),
+    "sap-sales-order-display": ("sales-object", None),
+}
+
+_INSPECT_NAV = {
+    "sap-bp-display": ("bp", "data-open-bp"),
+    "sap-billing-display": ("billing", "data-open-billing"),
+    "sap-sales-order-display": ("sales", "data-open-sales"),
 }
 
 _RESOURCE_NAV = {
@@ -737,7 +907,7 @@ def _apply_page_action(page, action: dict) -> None:
         return
 
 
-def _verify_page(page, grant: Grant, action: str = "grant") -> bool:
+def _verify_page(page, grant: Grant, action: str = "grant", ask: str | None = None) -> bool:
     html = ""
     if hasattr(page, "content"):
         try:
@@ -749,11 +919,7 @@ def _verify_page(page, grant: Grant, action: str = "grant") -> bool:
             html = page.locator("#active-grants").evaluate("el => el.outerHTML")
         except Exception:
             html = ""
-    if action == "export":
-        return verify_sap_export_blocked(html)
-    if action == "revoke":
-        return verify_inactive(html, grant)
-    return verify_active(html, grant)
+    return _verify_html(html, grant, action, ask)
 
 
 def prune_old_screenshots(contents: list, *, keep: int = MAX_RECENT_TURN_WITH_SCREENSHOTS) -> None:
@@ -819,9 +985,10 @@ def run_computer_use_loop(
     on_frame=None,
     mode: str = "computer_use",
     action: str = "grant",
+    ask: str | None = None,
 ) -> dict:
     """Drive `page` with an injectable Computer Use client. Never calls Gemini itself."""
-    goal = enact_goal(grant, action)
+    goal = enact_goal(grant, action, ask)
     actions: list[dict] = []
     for turn in range(1, max_turns + 1):
         screenshot, mime_type = capture_screenshot(page)
@@ -849,7 +1016,7 @@ def run_computer_use_loop(
                 mode=mode,
                 on_frame=on_frame,
             )
-            ok = _verify_page(page, grant, action)
+            ok = _verify_page(page, grant, action, ask)
             return {
                 "success": ok,
                 "reason": None if ok else "verify_failed",
@@ -1082,6 +1249,7 @@ def execute_grant(
     watch_url: str | None = None,
     callback_base_url: str | None = None,
     action: str = "grant",
+    ask: str | None = None,
 ) -> AuditEvent:
     """Drive the mock console to perform `grant`. Playwright is one scripted attempt."""
     resolved = mode or os.environ.get("EXECUTE_GRANT_MODE") or "computer_use"
@@ -1093,7 +1261,12 @@ def execute_grant(
     on_frame = frame_publisher(grant, callback, resolved)
     if action == "revoke" or resolved == "playwright":
         return _execute_playwright(
-            grant, console_url, watch_url=watch_url, on_frame=on_frame, action=action
+            grant,
+            console_url,
+            watch_url=watch_url,
+            on_frame=on_frame,
+            action=action,
+            ask=ask,
         )
     if resolved == "computer_use":
         return _execute_computer_use(
@@ -1102,6 +1275,7 @@ def execute_grant(
             watch_url=watch_url,
             on_frame=on_frame,
             action=action,
+            ask=ask,
         )
     raise ValueError(f"unknown execute mode: {resolved}")
 
@@ -1113,6 +1287,7 @@ def _execute_computer_use(
     watch_url: str | None,
     on_frame=None,
     action: str = "grant",
+    ask: str | None = None,
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -1166,6 +1341,7 @@ def _execute_computer_use(
                     on_frame=on_frame,
                     mode="computer_use",
                     action=action,
+                    ask=ask,
                 )
             finally:
                 video_path = _close_recorded_page(browser, context, page, rec, stem)
@@ -1279,6 +1455,73 @@ def _enact_sap_export_on_page(page) -> None:
     run.click()
 
 
+def _open_resource_page(page, grant: Grant) -> None:
+    nav = _RESOURCE_NAV.get(grant.resource_id)
+    if nav:
+        nav_btn = page.locator(f'.nav-item[data-nav="{nav}"]')
+        _highlight_locator(page, nav_btn)
+        nav_btn.click()
+    resource = page.locator(f'[data-open-resource="{grant.resource_id}"]:visible').first
+    _highlight_locator(page, resource)
+    resource.click()
+
+
+def _enact_browse_on_page(page, grant: Grant, ask: str | None = None) -> None:
+    _open_resource_page(page, grant)
+    objects = page.locator('[data-tab="objects"]')
+    if objects.count():
+        _highlight_locator(page, objects)
+        objects.click()
+    obj = page.locator(f'[data-object="{_browse_object_name(ask)}"]')
+    _highlight_locator(page, obj)
+    obj.click()
+
+
+def _enact_query_on_page(page, grant: Grant, ask: str | None = None) -> None:
+    _open_resource_page(page, grant)
+    query_tab = page.get_by_role("tab", name="Query")
+    _highlight_locator(page, query_tab)
+    query_tab.click()
+    if ask:
+        editor = page.locator("#query-editor")
+        if editor.count():
+            editor.fill(ask)
+    run = page.locator("#query-run")
+    _highlight_locator(page, run)
+    run.click()
+
+
+def _enact_inspect_on_page(page, grant: Grant, ask: str | None = None) -> None:
+    target = _inspect_target(grant, ask)
+    view, attr = _INSPECT_NAV.get(grant.resource_id, ("bp", "data-open-bp"))
+    home = page.locator("[data-nav-home]").first
+    _highlight_locator(page, home)
+    home.click()
+    nav = page.locator(f'[data-tile="{view}"]')
+    _highlight_locator(page, nav)
+    nav.click()
+    row = page.locator(f'[{attr}="{target}"]').first
+    _highlight_locator(page, row)
+    row.click()
+
+
+def _playwright_read(page, grant: Grant, action: str, ask: str | None = None) -> None:
+    """Scripted browse/query/inspect/export using the mock's data-* selectors."""
+    if action == "browse":
+        _enact_browse_on_page(page, grant, ask)
+        return
+    if action == "query":
+        _enact_query_on_page(page, grant, ask)
+        return
+    if action == "inspect":
+        _enact_inspect_on_page(page, grant, ask)
+        return
+    if action == "export":
+        _enact_sap_export_on_page(page)
+        return
+    raise ValueError(f"unknown read action: {action}")
+
+
 def _execute_playwright(
     grant: Grant,
     console_url: str,
@@ -1286,6 +1529,7 @@ def _execute_playwright(
     watch_url: str | None,
     on_frame=None,
     action: str = "grant",
+    ask: str | None = None,
 ) -> AuditEvent:
     audit_logger.log(
         AuditEventType.ACTION_EXECUTED,
@@ -1316,6 +1560,23 @@ def _execute_playwright(
         actions = [
             {"intent": "open Export Customer List", "name": "click", "args": {}},
             {"intent": "click Export", "name": "click", "args": {}},
+        ]
+    elif action == "browse":
+        actions = [
+            {"intent": f"open {visible_name}", "name": "click", "args": {}},
+            {"intent": "open Objects tab", "name": "click", "args": {}},
+            {"intent": f"open {_browse_object_name(ask)}", "name": "click", "args": {}},
+        ]
+    elif action == "query":
+        actions = [
+            {"intent": f"open {visible_name}", "name": "click", "args": {}},
+            {"intent": "open Query tab", "name": "click", "args": {}},
+            {"intent": "run query", "name": "click", "args": {}},
+        ]
+    elif action == "inspect":
+        actions = [
+            {"intent": "open granted SAP object", "name": "click", "args": {}},
+            {"intent": f"open {_inspect_target(grant, ask)}", "name": "click", "args": {}},
         ]
     elif sap and action == "revoke":
         actions = [
@@ -1369,10 +1630,12 @@ def _execute_playwright(
                 mode="playwright",
                 on_frame=on_frame,
             )
-            if action == "export":
-                _enact_sap_export_on_page(page)
+            if action in {"browse", "query", "inspect", "export"}:
+                if action == "inspect":
+                    _enact_sap_grant_on_page(page, grant)
+                _playwright_read(page, grant, action, ask)
                 html = page.content()
-                frame_action = "export bounce"
+                frame_action = "export bounce" if action == "export" else action
             elif sap and action == "revoke":
                 _enact_sap_grant_on_page(page, grant)
                 _enact_sap_revoke_on_page(page, grant)
@@ -1405,12 +1668,7 @@ def _execute_playwright(
         finally:
             video_path = _close_recorded_page(browser, context, page, rec, stem)
 
-    if action == "export":
-        ok = verify_sap_export_blocked(html)
-    elif action == "revoke":
-        ok = verify_inactive(html, grant)
-    else:
-        ok = verify_active(html, grant)
+    ok = _verify_html(html, grant, action, ask)
     return completed_event(
         grant,
         success=ok,

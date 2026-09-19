@@ -7,6 +7,8 @@ from computer_use import (
     _apply_page_action,
     _denorm_coord,
     _normalize_cu_action,
+    _playwright_read,
+    _verify_page,
     browse_goal,
     completed_event,
     console_url_for,
@@ -15,13 +17,17 @@ from computer_use import (
     export_goal,
     grant_goal,
     host_allowed,
+    inspect_goal,
     prune_old_screenshots,
     query_goal,
     revoke_goal,
     run_computer_use_loop,
     sap_grant_goal,
     verify_active,
+    verify_browse,
     verify_inactive,
+    verify_inspect,
+    verify_query,
     verify_sap_bp_visible,
     verify_sap_export_blocked,
 )
@@ -181,6 +187,42 @@ def test_enact_goal_rejects_unknown_action(grant):
         enact_goal(grant, "explode")
 
 
+def test_enact_goal_browse_matches_browse_goal_without_ask(grant):
+    assert enact_goal(grant, "browse") == browse_goal(grant)
+    assert enact_goal(grant, "browse", None) == browse_goal(grant, None)
+    assert enact_goal(grant, "query") == query_goal(grant)
+
+
+def test_goals_include_the_human_ask(grant):
+    ask = "show me last week's parquet for Atlas invoice lines"
+    assert ask in browse_goal(grant, ask)
+    assert ask in query_goal(grant, ask)
+    assert ask in inspect_goal(_sap_grant(grant), ask)
+    assert ask in enact_goal(grant, "browse", ask)
+    assert ask in enact_goal(grant, "query", ask)
+    assert ask in enact_goal(_sap_grant(grant), "inspect", ask)
+    assert ask in enact_goal(grant, "export", ask)
+
+
+def test_inspect_goal_names_fiori_object(grant):
+    sap = _sap_grant(grant)
+    text = inspect_goal(sap)
+    assert "1710001" in text
+    assert "Customer Master" in text
+    assert "Atlas" in text
+    assert "not Google Cloud" in text
+    assert enact_goal(sap, "inspect") == inspect_goal(sap)
+    billing = Grant(
+        id="g-bill",
+        request_id=grant.request_id,
+        resource_id="sap-billing-display",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    assert "90001234" in inspect_goal(billing)
+
+
 def _sap_grant(grant: Grant) -> Grant:
     return Grant(
         id="g-sap-1",
@@ -301,6 +343,125 @@ def test_playwright_sap_export_bounces(grant):
         server.shutdown()
 
 
+def test_playwright_browse_opens_preview(grant):
+    server, url = _serve_console()
+    try:
+        event = execute_grant(
+            grant,
+            url,
+            mode="playwright",
+            action="browse",
+            ask="open events/2026-09-18.parquet",
+        )
+        assert event.payload["phase"] == "completed"
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "browse"
+    finally:
+        server.shutdown()
+
+
+def test_playwright_query_shows_results(grant):
+    finance = Grant(
+        id="g-fin",
+        request_id=grant.request_id,
+        resource_id="bq-project-x-finance",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    server, url = _serve_console()
+    try:
+        event = execute_grant(
+            finance,
+            url,
+            mode="playwright",
+            action="query",
+            ask="invoice lines in finance",
+        )
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "query"
+    finally:
+        server.shutdown()
+
+
+def test_playwright_inspect_opens_northwind(grant):
+    sap = _sap_grant(grant)
+    server, url = _serve_sap()
+    try:
+        event = execute_grant(
+            sap,
+            url,
+            mode="playwright",
+            action="inspect",
+            ask="Show me Northwind in Customer Master",
+        )
+        assert event.payload["success"] is True
+        assert event.payload["action"] == "inspect"
+        assert event.grant_id == sap.id
+    finally:
+        server.shutdown()
+
+
+class _FakeLocator:
+    def __init__(self, sel: str, clicks: list[str]):
+        self.sel = sel
+        self._clicks = clicks
+
+    def click(self):
+        self._clicks.append(self.sel)
+
+    def count(self):
+        return 1
+
+    @property
+    def first(self):
+        return self
+
+    def bounding_box(self):
+        return None
+
+    def fill(self, value):
+        self._clicks.append(f"fill:{self.sel}:{value}")
+
+
+class _FakePage:
+    def __init__(self):
+        self.clicks: list[str] = []
+
+    def locator(self, sel):
+        return _FakeLocator(sel, self.clicks)
+
+    def get_by_role(self, role, name=None):
+        return _FakeLocator(f"{role}:{name}", self.clicks)
+
+
+def test_playwright_read_uses_data_selectors(grant):
+    page = _FakePage()
+    _playwright_read(page, grant, "browse")
+    assert any('data-object="events/2026-09-18.parquet"' in sel for sel in page.clicks)
+
+    finance = Grant(
+        id="g-fin",
+        request_id=grant.request_id,
+        resource_id="bq-project-x-finance",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    qpage = _FakePage()
+    _playwright_read(qpage, finance, "query", ask="invoice lines")
+    assert any("#query-run" in sel for sel in qpage.clicks)
+
+    sap = _sap_grant(grant)
+    ipage = _FakePage()
+    _playwright_read(ipage, sap, "inspect", ask="Show me Northwind")
+    assert any("data-open-bp" in sel for sel in ipage.clicks)
+
+    epage = _FakePage()
+    _playwright_read(epage, sap, "export")
+    assert any("data-tile" in sel and "export" in sel for sel in epage.clicks)
+
+
 def test_host_allowed_rejects_unknown():
     assert host_allowed("http://127.0.0.1:8765/", allowlist=["127.0.0.1", "localhost"]) is True
     assert host_allowed("https://evil.example/", allowlist=["127.0.0.1"]) is False
@@ -337,6 +498,112 @@ def test_verify_inactive_reads_data_attributes(grant):
         "</ul>"
     )
     assert verify_inactive(other, grant) is True
+
+
+def test_verify_browse_is_not_verify_active(grant):
+    iam = (
+        '<ul id="active-grants">'
+        '<li data-resource="bucket-analytics-raw" data-principal="u-newhire-1">ok</li>'
+        "</ul>"
+    )
+    assert verify_active(iam, grant) is True
+    assert verify_browse(iam, grant) is False
+    hidden = (
+        '<aside id="object-preview" hidden data-object="events/2026-09-18.parquet"></aside>'
+    )
+    assert verify_browse(hidden, grant) is False
+    preview = (
+        '<aside id="object-preview" data-object="events/2026-09-18.parquet">'
+        "events/2026-09-18.parquet</aside>"
+    )
+    assert verify_browse(preview, grant) is True
+    assert verify_active(preview, grant) is False
+
+
+def test_verify_query_needs_dataset_results(grant):
+    finance = Grant(
+        id="g-fin",
+        request_id=grant.request_id,
+        resource_id="bq-project-x-finance",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    iam = (
+        '<ul id="active-grants">'
+        '<li data-resource="bq-project-x-finance" data-principal="u-newhire-1">ok</li>'
+        "</ul>"
+    )
+    assert verify_active(iam, finance) is True
+    assert verify_query(iam, finance) is False
+    assert verify_query('<div id="query-results"></div>', finance) is False
+    results = '<div id="query-results" data-dataset="bq-project-x-finance">184221</div>'
+    assert verify_query(results, finance) is True
+
+
+def test_verify_inspect_needs_unredacted_object(grant):
+    sap = _sap_grant(grant)
+    hidden = '<article id="bp-object" data-bp="1710001" hidden></article>'
+    assert verify_inspect(hidden, sap) is False
+    redacted = '<article id="bp-object" data-bp="1710001" class="redacted"></article>'
+    assert verify_inspect(redacted, sap) is False
+    open_page = '<article id="bp-object" data-bp="1710001"></article>'
+    assert verify_inspect(open_page, sap) is True
+    billing = Grant(
+        id="g-bill",
+        request_id=grant.request_id,
+        resource_id="sap-billing-display",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    assert verify_inspect('<article id="billing-object" hidden></article>', billing) is False
+    assert verify_inspect('<article id="billing-object"></article>', billing) is True
+
+
+def test_verify_page_dispatches_by_action(grant):
+    class IamPage:
+        def content(self):
+            return (
+                '<ul id="active-grants">'
+                '<li data-resource="bucket-analytics-raw" data-principal="u-newhire-1">ok</li>'
+                "</ul>"
+            )
+
+    class BrowsePage:
+        def content(self):
+            return (
+                '<aside id="object-preview" data-object="events/2026-09-18.parquet"></aside>'
+            )
+
+    class QueryPage:
+        def content(self):
+            return '<div id="query-results" data-dataset="bq-project-x-finance"></div>'
+
+    class InspectPage:
+        def content(self):
+            return '<article id="bp-object" data-bp="1710001"></article>'
+
+    class ExportPage:
+        def content(self):
+            return '<div id="sap-auth-error" class="visible">blocked</div>'
+
+    finance = Grant(
+        id="g-fin",
+        request_id=grant.request_id,
+        resource_id="bq-project-x-finance",
+        requester_id=grant.requester_id,
+        granted_at=grant.granted_at,
+        expires_at=grant.expires_at,
+    )
+    sap = _sap_grant(grant)
+    assert _verify_page(IamPage(), grant, "grant") is True
+    assert _verify_page(IamPage(), grant, "browse") is False
+    assert _verify_page(BrowsePage(), grant, "browse") is True
+    assert _verify_page(QueryPage(), finance, "query") is True
+    assert _verify_page(InspectPage(), sap, "inspect") is True
+    assert _verify_page(ExportPage(), sap, "export") is True
+    assert _verify_page(IamPage(), grant, "revoke") is False
 
 
 def test_completed_event_shape(grant):
@@ -572,6 +839,32 @@ def test_loop_uses_enact_goal_for_action(grant):
     assert seen
     assert "events/2026-09-18.parquet" in seen[0]
     assert "#object-preview" in seen[0]
+
+
+def test_loop_goal_contains_ask(grant):
+    seen: list[str] = []
+    ask = "show me last week's parquet"
+
+    class Client:
+        def next_action(self, screenshot_png, goal):
+            seen.append(goal)
+            return None
+
+    class Page:
+        def screenshot(self, type="png"):
+            return b"png"
+
+        def content(self):
+            return (
+                '<aside id="object-preview" data-object="events/2026-09-18.parquet"></aside>'
+            )
+
+    result = run_computer_use_loop(
+        grant, Page(), Client(), action="browse", ask=ask
+    )
+    assert seen
+    assert ask in seen[0]
+    assert result["success"] is True
 
 
 def test_loop_none_verifies_then_succeeds(grant):

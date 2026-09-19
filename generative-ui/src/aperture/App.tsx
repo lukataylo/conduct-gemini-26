@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./aperture.css";
 import { ALL, toUsers, useSnapshot } from "./api";
 import { Approvals } from "./Approvals";
+import { Composer } from "./Composer";
 import { DemoBar } from "./DemoBar";
 import { Enact } from "./Enact";
 import { Manager } from "./Manager";
@@ -80,6 +81,9 @@ export default function ApertureApp() {
             <i />
             {!snap.online ? "offline" : snap.verify?.ok ? `chain ok · ${snap.verify.length}` : `chain broken · ${snap.verify?.broken_at}`}
           </span>
+          <button className="nb mic" type="button" disabled title="voice offline — use chat" aria-label="voice offline — use chat">
+            Mic
+          </button>
           {screen === "console" && (
             <span className="seg" role="group" aria-label="Zoom">
               <button aria-pressed={zoom === "session"} onClick={() => setZoom("session")}>session</button>
@@ -102,34 +106,37 @@ export default function ApertureApp() {
       )}
 
       {screen === "console" && (
-        <>
-          <div className="sum">
-            <div><span className="n" style={{ color: accent }}>{active.length}</span><span className="k">active leases</span></div>
-            <div><span className="n amber">{pending.length}</span><span className="k">pending</span></div>
-            <div><span className={`n ${needsMe ? "hot" : ""}`}>{needsMe}</span><span className="k">needs {me ? me.name.split(" ")[0] : "a decision"}</span></div>
-            <div><span className="n">{revoked.length}</span><span className="k">revoked</span></div>
-            <div><span className={`n ${bounced ? "red" : ""}`}>{bounced}</span><span className="k">bounced</span></div>
-            <div><span className="n">{next ? new Date(next).toLocaleDateString([], { day: "numeric", month: "short" }) : "—"}</span><span className="k">next expiry</span></div>
+        <div className="console-body">
+          <div className="console-main">
+            <div className="sum">
+              <div><span className="n" style={{ color: accent }}>{active.length}</span><span className="k">active leases</span></div>
+              <div><span className="n amber">{pending.length}</span><span className="k">pending</span></div>
+              <div><span className={`n ${needsMe ? "hot" : ""}`}>{needsMe}</span><span className="k">needs {me ? me.name.split(" ")[0] : "a decision"}</span></div>
+              <div><span className="n">{revoked.length}</span><span className="k">revoked</span></div>
+              <div><span className={`n ${bounced ? "red" : ""}`}>{bounced}</span><span className="k">bounced</span></div>
+              <div><span className="n">{next ? new Date(next).toLocaleDateString([], { day: "numeric", month: "short" }) : "—"}</span><span className="k">next expiry</span></div>
+            </div>
+            <div className="grid2">
+              <div>
+                <div className="sec-h"><h2>Access · {me ? me.name : "everyone"}</h2></div>
+                <Matrix grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={selected} zoom={zoom} now={now} />
+              </div>
+              <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={selected} />
+            </div>
+            <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
+            <main className="main">
+              <div>
+                <div className="sec-h"><h2>Leases</h2></div>
+                <Timeline grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={selected} zoom={zoom} now={now} />
+              </div>
+              <div>
+                <div className="sec-h"><h2>Recorder</h2></div>
+                <Recorder events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} />
+              </div>
+            </main>
           </div>
-          <div className="grid2">
-            <div>
-              <div className="sec-h"><h2>Access · {me ? me.name : "everyone"}</h2></div>
-              <Matrix grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={selected} zoom={zoom} now={now} />
-            </div>
-            <Approvals cases={snap.cases} grants={snap.grants} events={snap.events} resources={snap.resources} users={users} selected={selected} />
-          </div>
-          <Enact events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} preview={snap.preview} />
-          <main className="main">
-            <div>
-              <div className="sec-h"><h2>Leases</h2></div>
-              <Timeline grants={snap.grants} cases={snap.cases} events={snap.events} resources={snap.resources} users={users} selected={selected} zoom={zoom} now={now} />
-            </div>
-            <div>
-              <div className="sec-h"><h2>Recorder</h2></div>
-              <Recorder events={snap.events} grants={snap.grants} resources={snap.resources} users={users} selected={selected} />
-            </div>
-          </main>
-        </>
+          <Composer selected={selected} users={users} online={snap.online} />
+        </div>
       )}
 
       <DemoBar grants={snap.grants} cases={snap.cases} users={users} selected={selected} online={snap.online} />

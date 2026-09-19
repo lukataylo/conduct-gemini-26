@@ -187,3 +187,33 @@ export function label(resourceId: string, resources?: Resource[]): string {
   const r = resources?.find((x) => x.id === resourceId);
   return r ? r.name : resourceId.replace(/^(bucket|bq|sql)-/, "");
 }
+
+export interface AgentTurnPreview {
+  resource_ids: string[];
+  requested_duration_days: number;
+  project: string;
+  raw_text?: string | null;
+}
+
+export interface AgentTurnResult {
+  status: string;
+  preview?: AgentTurnPreview;
+  request_id?: string;
+  results?: { resource_id: string; status: string; reason?: string }[];
+}
+
+export interface AgentTurnOut {
+  reply: string;
+  tools_used: string[];
+  request_result: AgentTurnResult | null;
+  conversation_id: string;
+}
+
+export function postAgentTurn(body: {
+  viewer_id: string;
+  message: string;
+  conversation_id?: string | null;
+  confirm?: boolean;
+}): Promise<AgentTurnOut> {
+  return post<AgentTurnOut>("/agent/turn", body);
+}

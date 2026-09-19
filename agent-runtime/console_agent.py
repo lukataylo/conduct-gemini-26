@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from envutil import export_gemini_keys  # noqa: E402
+from envutil import export_gemini_keys, load_local_env  # noqa: E402
 from gemini_models import parse_model  # noqa: E402
 from shared.schemas import Requester  # noqa: E402
 
@@ -71,6 +71,7 @@ def default_console_runner(message: str, deps: ConsoleAgentDeps, system_prompt: 
     """Live Gemini path. Unit tests inject `runner` and never call this."""
     from pydantic_ai import Agent, RunContext
 
+    load_local_env()
     export_gemini_keys()
     _ensure_logfire()
     used: list[str] = []

@@ -10,16 +10,6 @@ interface Props {
   online: boolean;
 }
 
-const REQUEST_TEXT =
-  "I need access to the analytics-raw GCS bucket and the project-x-finance BigQuery dataset to build the ingestion pipeline for Project Atlas, done by Nov 15.";
-
-// What each person asks for when the presenter presses Request as them.
-const ASKS: Record<string, { resource_ids: string[]; days: number; text: string }> = {
-  "u-newhire-1": { resource_ids: ["bucket-analytics-raw", "bq-project-x-finance"], days: 14, text: REQUEST_TEXT },
-  "u-manager-1": { resource_ids: ["bucket-analytics-raw"], days: 7, text: "Reviewing the Atlas ingestion output for the week." },
-  "u-finance-owner-1": { resource_ids: ["bq-project-x-finance"], days: 30, text: "Month-end close on Project X." },
-};
-
 export function DemoBar({ grants, cases, users, selected, online }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const run = async (name: string, fn: () => Promise<unknown>) => {
@@ -37,21 +27,24 @@ export function DemoBar({ grants, cases, users, selected, online }: Props) {
   const active = grants.filter((g) => !g.revoked);
   const pending = cases.filter((c) => c.status === "pending");
 
-  const requestAs = (u: User) => {
-    const ask = ASKS[u.id] ?? ASKS["u-newhire-1"];
-    return post("/requests", {
-      id: "client",
-      requester: { id: u.id, name: u.name, role: u.role, team: u.team },
-      task_description: ask.text,
-      project: PROJECT,
-      resource_ids: ask.resource_ids,
-      requested_duration_days: ask.days,
-      raw_text: ask.text,
-    });
-  };
-
   const seedPeers = async () => {
-    for (const u of users) if (u.id !== "u-newhire-1") await requestAs(u);
+    const asks: Record<string, { resource_ids: string[]; days: number; text: string }> = {
+      "u-manager-1": { resource_ids: ["bucket-analytics-raw"], days: 7, text: "Reviewing the Atlas ingestion output for the week." },
+      "u-finance-owner-1": { resource_ids: ["bq-project-x-finance"], days: 30, text: "Month-end close on Project X." },
+    };
+    for (const u of users) {
+      const ask = asks[u.id];
+      if (!ask) continue;
+      await post("/requests", {
+        id: "client",
+        requester: { id: u.id, name: u.name, role: u.role, team: u.team },
+        task_description: ask.text,
+        project: PROJECT,
+        resource_ids: ask.resource_ids,
+        requested_duration_days: ask.days,
+        raw_text: ask.text,
+      });
+    }
   };
 
   const approveAll = async () => {
@@ -86,7 +79,6 @@ export function DemoBar({ grants, cases, users, selected, online }: Props) {
   return (
     <div className="demo">
       <span className="demo-k">demo</span>
-      <B name={`Request as ${me?.name.split(" ")[0] ?? "…"}`} onClick={() => (me ? requestAs(me) : Promise.resolve())} disabled={selected === ALL} />
       <B name="Seed peers" onClick={seedPeers} />
       <B name="Approve all" onClick={approveAll} disabled={pending.length === 0} />
       <B name={`Call tool as ${me?.name.split(" ")[0] ?? "…"}`} onClick={call} disabled={selected === ALL} />

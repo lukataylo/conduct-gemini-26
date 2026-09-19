@@ -1,16 +1,23 @@
 # generative-ui
 
-**Owner: contributor 1.** Renders whatever `backend-api` says the viewer is allowed to
-see — as a live dashboard whose *shape* is composed by Gemini, not by frontend routing.
-Design brief with every surface and its options: [`docs/ui-surfaces.html`](../docs/ui-surfaces.html)
+**Owner: contributor 1.** The human console. Gemini composes a **per-viewer
+workspace** (analytics, quick actions, chat, Gemini Live) from that person's
+role and live grants. It does not decide access. Finished-product spec:
+[`docs/superpowers/specs/2026-09-19-generative-console-design.md`](../docs/superpowers/specs/2026-09-19-generative-console-design.md).
+Surface options: [`docs/ui-surfaces.html`](../docs/ui-surfaces.html)
 (surfaces 1, 2, 4, 5, 6, 8).
+
+The shell is static (role, Live mic, conversation dock, approver vote chrome).
+Gemini fills MAIN and the action strip against the catalog. Chat and Live are
+one conversation hosted by track 2; they can `request_access` and explain, they
+cannot vote or grant.
 
 ## Ambition ladder
 
 | | What | Done when |
 |---|---|---|
 | **Core** (must demo) | Registry renderer fed by SSE. Chat input → confirmation card. **Approver view with a vote button** (doesn't exist yet — first thing after SSE). Approval card: reason string as the summary on day one, requester text in a labelled unverified block, critical-tier justification. Per-request timeline with verify. Policy table. Denied panel. | Golden path from the browser including the approval. Close project → panel leaves live. |
-| **Ambitious** (after 16:00) | Gemini emits **A2UI** against our catalog; client diffs on `panel.id` (in schema) and patches; data streams without regenerating layout. Then **role-adaptive composition**. Reviewed: with a three-component catalog this looks identical to the fallback — only build it once the catalog is wide enough to differ. | Same request, three viewers, three compositions, no flicker. |
+| **Ambitious** (after the 16:00 checkpoint) | Per-viewer **generative console** from the spec: analytics widgets (`ScopeMap`, `LeaseGantt`, `QueueSLA`, …), server-issued quick actions, chat + **Gemini Live** as one agent. A2UI-shaped `UISpec` with `region` / `role` / `actions`; client diffs on `panel.id`. Same grants, Alex vs Priya are different trees. | Switch role and the workspace recomposes; Live answers "what's waiting?" from typed state; mic-down still leaves the canvas usable. |
 | **Fallback** (in repo) | Static shell, state-driven panels from `/ui-spec`, 3s poll, `hasOwn` lookup, per-panel error boundary. | Already works. |
 
 ## Why A2UI
@@ -47,10 +54,12 @@ enough. Keep our `UISpec`/`UIComponentSpec` as the wire type; make it A2UI-shape
    `ACTION_EXECUTED` events with a `screenshot_url` render as a filmstrip.
 5. **Denied panel** — fixed position, reason string, alternative text if present.
 6. **Policy table** — read `GET /policy`; sliders `PATCH /policy`; re-submit button.
-7. **A2UI generation** (stretch) — `GET /ui-spec/:id?mode=generated` returns Gemini's
-   spec (contributor 2 owns the prompt; you own the renderer). Diff by `panel.id`; CSS
-   transitions on add/remove; never replace the tree wholesale.
-8. **Role-adaptive** (stretch) — `?role=requester|approver|auditor`; three prompt variants.
+7. **Generative console** (stretch, after checkpoint) — implement the catalog
+   and shell in the [console spec](../docs/superpowers/specs/2026-09-19-generative-console-design.md):
+   analytics widgets, `QuickActionBar`, conversation dock, Live mic. `GET /ui-spec/:id?mode=generated&role=`
+   returns track 2's `compose_console`. Diff by `panel.id`; never replace the tree wholesale.
+8. **Chat + Gemini Live** (stretch) — one `conversation_id`; Live hosted by track 2
+   on the AI Studio key. Vote and grant stay out of the tool list.
 
 ## Rules that don't bend
 

@@ -1,7 +1,8 @@
 # CLAUDE.md — shared context for everyone's Claude
 
-Read the root `README.md` and `shared/README.md` first. This file records team decisions
-that aren't obvious from the code.
+The project is **Aperture**, a dynamic access-scope agent. Use that name in docs, UI
+copy, and commit messages. Read the root `README.md` and `shared/README.md` first. This
+file records team decisions that aren't obvious from the code.
 
 ## Real GCP behind a `REAL_GCP` flag (owner: GCP setup — eddbr)
 

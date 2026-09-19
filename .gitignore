@@ -31,6 +31,9 @@ backend-api/.cu-frames/
 .vscode/
 .idea/
 
+# Claude Code harness state (not project config)
+.claude/*.lock
+
 # build info
 *.tsbuildinfo
 

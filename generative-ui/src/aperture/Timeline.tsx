@@ -123,12 +123,13 @@ export function Timeline({ grants, cases, events, resources, users, selected, zo
         })}
         {bars.length === 0 && <div className="tl-empty">No leases yet</div>}
         <div className="tl-calls" style={{ top: `${bars.length * 56 + 12}px` }}>
-          {calls.map((e) => {
+          {calls.map((e, i) => {
             const bounced = e.payload.status === "bounced";
             const g = grants.find((x) => x.id === e.grant_id);
             const color = bounced ? "#ef4444" : byId.get(g?.requester_id ?? "")?.color ?? "#fff";
+            // Calls seconds apart land on the same x; stagger labels so they stay legible.
             return (
-              <span key={e.id} className={`tcall ${bounced ? "bounced" : ""}`} style={{ left: `${x(Date.parse(e.timestamp))}%`, ["--u" as string]: color }} title={e.detail}>
+              <span key={e.id} className={`tcall ${bounced ? "bounced" : ""}`} style={{ left: `${x(Date.parse(e.timestamp))}%`, top: `${(i % 3) * 16}px`, ["--u" as string]: color }} title={e.detail}>
                 <i />
                 <b>{String(e.payload.tool ?? e.detail.split(" ")[0])}</b>
               </span>

@@ -1,6 +1,7 @@
-# Conduct x Gemini Hackathon — Dynamic Access Scope Agent
+# Aperture — Dynamic Access Scope Agent
 
-An agent that gives **task-bounded access** to corporate tools (mocked GCP: GCS buckets,
+**Aperture** — an opening sized to what you're allowed to see — is an agent that gives
+**task-bounded access** to corporate tools (mocked GCP: GCS buckets,
 BigQuery datasets, Cloud SQL, IAM roles). A requester (e.g. a new hire's coding agent)
 describes a task in natural language; the system parses it, runs it through a
 **deterministic policy engine**, auto-grants low-risk scoped access, escalates
@@ -12,15 +13,14 @@ Core principle: **Gemini/Claude propose and explain — a deterministic policy e
 LLMs never directly grant access; they parse requests into structured data and generate
 UI/explanations. This keeps the security-critical path auditable, not vibes-based.
 
-**Event:** {Tech: Europe} Agentic AI Hack, London, 19 Sep 2026 — co-hosted by Google
-DeepMind and Conduct; partners Modal and Pydantic. Live demos 20:00, opt-in 19:00.
+**Event:** built at the Conduct x Gemini hackathon — {Tech: Europe} Agentic AI Hack,
+London, 19 Sep 2026 — co-hosted by Google DeepMind and Conduct; partners Modal and
+Pydantic. Live demos 20:00, opt-in 19:00.
 
 **Design brief:** [`docs/ui-surfaces.html`](docs/ui-surfaces.html) — every UI surface
 with 3–4 options and trade-offs, the build order for tonight, track ambitions, and the
 judge questions we pre-empt. Each track README has a **core / ambitious / fallback**
 ladder; build the core, then climb.
-
-**Working codename:** Aperture — an opening sized to what you're allowed to see.
 
 **What's built (19 Sep):** the console (lease timeline, dot-matrix access grid,
 per-person approvals, recorder, onboarding) and the agent's MCP server — reasoning,

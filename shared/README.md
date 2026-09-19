@@ -1,7 +1,7 @@
 # shared
 
-The contract every other workstream imports. `schemas.py` defines the Pydantic v2
-models that cross service boundaries:
+Aperture's contract — the module every other workstream imports. `schemas.py` defines
+the Pydantic v2 models that cross service boundaries:
 
 - `AccessRequest` — what a requester (or their agent) asked for
 - `PolicyRule` / `PolicyDecision` — how the policy engine evaluates a request

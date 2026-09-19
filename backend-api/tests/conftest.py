@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 
 import main
@@ -11,6 +13,8 @@ def reset_store():
     main.AUDIT_LOG.clear()
     main.WATCH_URLS.clear()
     main.CONVERSATIONS.clear()
+    main.STREAM_SUBSCRIBERS.clear()
+    main.CLOCK_OFFSET = timedelta(0)
     main.PARSE_IMPL = None
     main.AGENT_TURN_IMPL = None
     main.EXECUTE_ENQUEUE_IMPL = None
@@ -23,6 +27,8 @@ def reset_store():
     main.AUDIT_LOG.clear()
     main.WATCH_URLS.clear()
     main.CONVERSATIONS.clear()
+    main.STREAM_SUBSCRIBERS.clear()
+    main.CLOCK_OFFSET = timedelta(0)
     main.PARSE_IMPL = None
     main.AGENT_TURN_IMPL = None
     main.EXECUTE_ENQUEUE_IMPL = None

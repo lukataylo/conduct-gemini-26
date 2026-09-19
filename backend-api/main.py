@@ -11,12 +11,17 @@ Trust boundaries (see docs/ui-surfaces.html, "Hardening before the demo"):
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import inspect
+import json
 import os
 import sys
 import threading
+import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -29,6 +34,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sse_starlette.sse import EventSourceResponse
 
 import cu_frames  # noqa: E402
 
@@ -49,7 +55,15 @@ from shared.schemas import (  # noqa: E402
     UISpec,
 )
 
-app = FastAPI(title="Aperture — backend-api")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    flag = (os.environ.get("APERTURE_SWEEP") or "").strip().lower()
+    if flag in {"1", "true", "yes", "on"}:
+        threading.Thread(target=_sweep_loop, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Aperture — backend-api", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # TODO(track 5): restrict to the deployed UI origin before Railway
@@ -64,10 +78,17 @@ ESCALATIONS: dict[str, EscalationCase] = {}
 AUDIT_LOG: list[AuditEvent] = []
 WATCH_URLS: dict[str, str] = {}
 PARSE_IMPL: Callable[[str, Requester], AccessRequest] | None = None
-EXECUTE_ENQUEUE_IMPL: Callable[[Grant], None] | None = None
+EXECUTE_ENQUEUE_IMPL: Callable[..., None] | None = None
 COMPOSE_IMPL: Callable[..., UISpec] | None = None
 AGENT_TURN_IMPL: Callable[..., object] | None = None
 CONVERSATIONS: dict[str, dict] = {}
+STREAM_SUBSCRIBERS: list[Callable] = []
+CLOCK_OFFSET = timedelta(0)
+_STREAM_EXTRA_TYPES = {
+    AuditEventType.GRANT_ISSUED: "grant_issued",
+    AuditEventType.GRANT_REVOKED: "grant_revoked",
+    AuditEventType.PROJECT_CLOSED: "project_closed",
+}
 
 KNOWN_REQUESTERS: dict[str, Requester] = {
     r.id: r for r in (usecase_demo.REQUESTER, usecase_demo.MANAGER, usecase_demo.FINANCE_OWNER)
@@ -98,8 +119,7 @@ def _ensure_business_context(request: AccessRequest) -> AccessRequest:
 
 
 def now() -> datetime:
-    # TODO(track 5): route through a demo clock with POST /clock/advance
-    return datetime.now(timezone.utc)
+    return datetime.now(timezone.utc) + CLOCK_OFFSET
 
 
 def _hash(event: AuditEvent) -> str:
@@ -118,7 +138,21 @@ def _audit(event_type: AuditEventType, actor: str, detail: str, **kw) -> AuditEv
         **kw,
     )
     AUDIT_LOG.append(event)
+    _publish_stream(event)
     return event
+
+
+def _publish_stream(event: AuditEvent) -> None:
+    messages = [{"type": "audit_event", "event": event}]
+    extra = _STREAM_EXTRA_TYPES.get(event.type)
+    if extra:
+        messages.append({"type": extra, "event": event})
+    for subscriber in list(STREAM_SUBSCRIBERS):
+        for message in messages:
+            try:
+                subscriber(message)
+            except Exception:
+                continue
 
 
 class NLSubmit(BaseModel):
@@ -161,13 +195,21 @@ def _parse_nl(raw_text: str, requester: Requester) -> AccessRequest:
     return parse_request(raw_text, requester, known)
 
 
-def _enqueue_execute(grant: Grant) -> None:
+def _enqueue_execute(grant: Grant, action: str = "grant") -> None:
     """Fire-and-forget execute. Models never issue grants; this only enacts one."""
     watch = os.environ.get("AGENT_RUNTIME_WATCH_URL")
     if watch:
         WATCH_URLS[grant.id] = watch
     if EXECUTE_ENQUEUE_IMPL is not None:
-        EXECUTE_ENQUEUE_IMPL(grant)
+        impl = EXECUTE_ENQUEUE_IMPL
+        try:
+            nparams = len(inspect.signature(impl).parameters)
+        except (TypeError, ValueError):
+            nparams = 2
+        if nparams >= 2:
+            impl(grant, action)
+        else:
+            impl(grant)
         return
     url = os.environ.get("AGENT_RUNTIME_EXECUTE_URL")
     local = (os.environ.get("AGENT_RUNTIME_LOCAL_EXECUTE") or "").strip().lower() in {
@@ -187,6 +229,7 @@ def _enqueue_execute(grant: Grant) -> None:
             "console_url": console,
             "callback_base_url": callback,
             "watch_url": watch,
+            "action": action,
         }
         try:
             if url:
@@ -618,7 +661,69 @@ def revoke_grant(grant_id: str, reason: str = "expired") -> Grant:
     # keep real access if another active grant still covers the same requester + resource
     if not any(g.resource_id == grant.resource_id for g in active_grants(grant.requester_id)):
         _mirror_to_gcp(grant, add=False)
+    _enqueue_execute(grant, action="revoke")
     return grant
+
+
+def sweep_expired() -> list[str]:
+    cutoff = now()
+    revoked: list[str] = []
+    for grant in list(GRANTS.values()):
+        if grant.revoked or grant.expires_at > cutoff:
+            continue
+        revoke_grant(grant.id, reason="expired")
+        revoked.append(grant.id)
+    return revoked
+
+
+class ClockAdvanceIn(BaseModel):
+    days: int
+
+
+@app.post("/clock/advance")
+def advance_clock(body: ClockAdvanceIn) -> dict:
+    global CLOCK_OFFSET
+    CLOCK_OFFSET = CLOCK_OFFSET + timedelta(days=body.days)
+    _audit(AuditEventType.ACTION_EXECUTED, actor="policy-engine", detail=f"advanced {body.days}d")
+    return {"now": now(), "offset_days": CLOCK_OFFSET.days}
+
+
+@app.get("/stream")
+async def stream():
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _push(message: dict) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, message)
+
+    STREAM_SUBSCRIBERS.append(_push)
+
+    async def _events():
+        try:
+            while True:
+                message = await queue.get()
+                event = message["event"]
+                payload = {
+                    "type": message["type"],
+                    "event": event.model_dump(mode="json") if hasattr(event, "model_dump") else event,
+                }
+                yield {"data": json.dumps(payload)}
+        finally:
+            try:
+                STREAM_SUBSCRIBERS.remove(_push)
+            except ValueError:
+                pass
+
+    return EventSourceResponse(_events())
+
+
+def _sweep_loop() -> None:
+    while True:
+        time.sleep(2)
+        try:
+            sweep_expired()
+        except Exception:
+            continue
 
 
 @app.post("/projects/{project}/close")

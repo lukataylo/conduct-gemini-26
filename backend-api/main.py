@@ -338,6 +338,17 @@ def active_grants(requester_id: str | None = None) -> list[Grant]:
     ]
 
 
+@app.get("/resources")
+def list_resources() -> list:
+    """The resource catalog the UI draws its access matrix from."""
+    return list(usecase_demo.RESOURCES.values())
+
+
+@app.get("/people")
+def list_people() -> list[Requester]:
+    return list(KNOWN_REQUESTERS.values())
+
+
 @app.get("/grants")
 def list_grants(requester_id: str | None = None, include_revoked: bool = False) -> list[Grant]:
     """Active, unexpired grants — what the scoped MCP server derives its tool list from.

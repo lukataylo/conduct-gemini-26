@@ -20,7 +20,9 @@ export interface EscalationCase {
   required_approver_ids: string[];
   requester_id: string;
   requested_duration_days: number;
-  votes: { approver_id: string; approved: boolean }[];
+  votes: { approver_id: string; approved: boolean; comment?: string | null }[];
+  escalation_reason?: string | null;
+  human_summary?: string | null;
   opened_at?: string;
   status: "pending" | "approved" | "denied";
 }
@@ -38,16 +40,50 @@ export interface AuditEvent {
   timestamp: string;
 }
 
+export interface Resource {
+  id: string;
+  name: string;
+  type: string;
+  owning_team: string;
+  sensitivity: string;
+  capability?: string;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  role: string;
+  team: string;
+}
+
+export interface User extends Person {
+  color: string;
+  short: string;
+}
+
 export interface Snapshot {
   grants: Grant[];
   cases: EscalationCase[];
   events: AuditEvent[];
+  resources: Resource[];
+  people: Person[];
   verify: { ok: boolean; length?: number; broken_at?: number } | null;
   online: boolean;
 }
 
-export const REQUESTER_ID = "u-newhire-1";
 export const PROJECT = "atlas-migration";
+export const ALL = "all";
+
+// One colour per person. Red is reserved for deny / bounce and never used for a user.
+const PALETTE = ["#22c55e", "#a78bfa", "#fb923c", "#38bdf8", "#f472b6", "#facc15"];
+
+export function toUsers(people: Person[]): User[] {
+  return people.map((p, i) => ({
+    ...p,
+    color: PALETTE[i % PALETTE.length],
+    short: p.name.split(" ").map((s) => s[0]).join("").toUpperCase(),
+  }));
+}
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`/api${path}`);
@@ -66,16 +102,18 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export async function fetchSnapshot(): Promise<Snapshot> {
-  const [grants, cases, events, verify] = await Promise.all([
-    get<Grant[]>(`/grants?requester_id=${REQUESTER_ID}&include_revoked=true`),
+  const [grants, cases, events, resources, people, verify] = await Promise.all([
+    get<Grant[]>(`/grants?include_revoked=true`),
     get<EscalationCase[]>(`/escalations`),
     get<AuditEvent[]>(`/audit`),
+    get<Resource[]>(`/resources`),
+    get<Person[]>(`/people`),
     get<Snapshot["verify"]>(`/audit/verify`),
   ]);
-  return { grants, cases: cases.filter((c) => c.requester_id === REQUESTER_ID), events, verify, online: true };
+  return { grants, cases, events, resources, people, verify, online: true };
 }
 
-const EMPTY: Snapshot = { grants: [], cases: [], events: [], verify: null, online: false };
+const EMPTY: Snapshot = { grants: [], cases: [], events: [], resources: [], people: [], verify: null, online: false };
 
 export function useSnapshot(intervalMs = 1500): Snapshot {
   const [snap, setSnap] = useState<Snapshot>(EMPTY);
@@ -95,12 +133,7 @@ export function useSnapshot(intervalMs = 1500): Snapshot {
   return snap;
 }
 
-export const RESOURCE_LABEL: Record<string, string> = {
-  "bucket-analytics-raw": "analytics-raw",
-  "bq-project-x-finance": "project_x_finance",
-  "sql-prod-primary": "prod-primary",
-};
-
-export function label(resourceId: string): string {
-  return RESOURCE_LABEL[resourceId] ?? resourceId;
+export function label(resourceId: string, resources?: Resource[]): string {
+  const r = resources?.find((x) => x.id === resourceId);
+  return r ? r.name : resourceId.replace(/^(bucket|bq|sql)-/, "");
 }

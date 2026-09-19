@@ -109,8 +109,8 @@ export function UserScreen({ grants, cases, events, resources, users, company: p
     { id: "ask", title: "Your agent asks", n: String(asked), sub: asked ? "requests, in plain language" : "nothing asked yet" },
     { id: "decide", title: "The engine decides", n: `${granted}·${escalated}`, sub: "granted · escalated, in milliseconds" },
     { id: "approve", title: "A human only if needed", n: String(approvedBy.length), sub: approvedBy.length ? `approved by ${approvedBy.join(", ")}` : "no one needed yet" },
-    { id: "use", title: "Tools appear", n: String(calls), sub: calls ? "calls, each re-checked" : "no calls yet" },
-    { id: "expire", title: "Then they vanish", n: next ? fmtDay(next) : String(ended), sub: next ? "next expiry — or when the project closes" : `${ended} already ended` },
+    { id: "use", title: "Tools work", n: String(calls), sub: calls ? "calls, each checked against the lease" : "no calls yet" },
+    { id: "expire", title: "Then they stop", n: next ? fmtDay(next) : String(ended), sub: next ? "next expiry — or when the project closes" : `${ended} already ended` },
   ];
 
   return (
@@ -142,7 +142,7 @@ export function UserScreen({ grants, cases, events, resources, users, company: p
           <div className="ob-n">1</div>
           <div className="ob-body">
             <h2>Connect your agent</h2>
-            <p>One line. Your agent gets <code>request_access</code>; every tool it's granted appears — and disappears — on its own.</p>
+            <p>One line. Your agent gets <code>request_access</code>; every tool works only while its lease is live, and is refused the second it isn't.</p>
             <div className="ob-cmd"><code>{cmd}</code><button className="nb" onClick={copy}>{copied ? "Copied" : "Copy"}</button></div>
           </div>
         </section>

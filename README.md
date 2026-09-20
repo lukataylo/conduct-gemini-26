@@ -1,4 +1,4 @@
-# Meerkat — Dynamic Access Scope Agent
+# Meerkat 🐱 — Dynamic Access Scope Agent 
 
 **Meerkat** — an opening sized to what you're allowed to see — is an agent that gives
 **task-bounded access** to corporate tools (mocked GCP: GCS buckets,
